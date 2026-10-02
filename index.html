@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1E2923">
+<title>Taccuino di Hyrule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+html{color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+/* Layout: un taccuino da campo — barra di navigazione fissa, schede come fogli a griglia, mappa come tavola a tutta larghezza */
+:root{
+  --bg:#ECEEE6; --surface:#F8F9F3; --sunk:#E2E6DC; --ink:#1E2923; --muted:#5B675F; --line:#C7CEC1;
+  --accent:#2C6B5E; --accent-ink:#F4F8F5; --gold:#A8761B; --heart:#B03E37; --warn:#9A5B12;
+  --f-display:"Marcellus SC","Cinzel",Georgia,serif;
+  --f-body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1A221E; --sunk:#151C18; --ink:#E3E8DF; --muted:#94A197; --line:#2D3832;
+  --accent:#6DB3A1; --accent-ink:#0F1613; --gold:#D8A442; --heart:#E26A60; --warn:#E0A256; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1A221E; --sunk:#151C18; --ink:#E3E8DF; --muted:#94A197; --line:#2D3832;
+  --accent:#6DB3A1; --accent-ink:#0F1613; --gold:#D8A442; --heart:#E26A60; --warn:#E0A256; color-scheme:dark}
+
+html,body{background:var(--bg)}
+body{color:var(--ink);font:16px/1.45 var(--f-body)}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-size:1.3rem;letter-spacing:.04em;margin-right:auto;display:flex;align-items:center;gap:10px}
+.brand svg{flex:none}
+.nav{display:flex;gap:4px;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px}
+.nav button{border:0;background:none;padding:6px 14px;border-radius:999px;cursor:pointer;color:var(--muted);font-weight:500}
+.nav button[aria-current="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 80px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;letter-spacing:.03em;text-wrap:balance;margin:0}
+h2{font-size:1.5rem}
+h3{font-size:1.05rem}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.muted{color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:7px 12px;cursor:pointer;font-weight:500;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--heart);border-color:color-mix(in srgb,var(--heart) 45%,var(--line))}
+.btn.small{padding:4px 9px;font-size:.88rem}
+.btn:disabled{opacity:.5;cursor:default}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);width:32px;height:32px;display:inline-grid;place-items:center;cursor:pointer;font-weight:700}
+
+input.field,select.field,textarea.field,.num{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:6px 8px;min-width:0;width:100%}
+textarea.field{resize:vertical;min-height:110px;line-height:1.5}
+.num{text-align:center;padding:5px 4px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+fieldset:disabled .btn,fieldset:disabled .roll{cursor:default}
+label.lab{display:grid;gap:3px;font-size:.78rem;color:var(--muted);font-weight:500;min-width:0}
+
+/* status */
+.state{font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--accent)} .dot.busy{background:var(--gold)} .dot.err{background:var(--heart)}
+
+/* notice */
+.notice{border:1px dashed var(--line);border-radius:var(--r);padding:16px;background:var(--surface)}
+.empty{padding:40px 20px;text-align:center;border:1px dashed var(--line);border-radius:10px;background:var(--surface);display:grid;gap:10px;justify-items:center}
+.empty p{max-width:52ch;margin:0}
+
+/* party grid */
+.party-head{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.where{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:18px;flex-wrap:wrap}
+.where b{font-family:var(--f-display);font-weight:400;font-size:1.1rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px;display:grid;gap:10px;cursor:pointer;text-align:left}
+.card:hover{border-color:var(--muted)}
+.card .nm{font-family:var(--f-display);font-size:1.2rem;line-height:1.15}
+.who{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted)}
+.who img{width:18px;height:18px;border-radius:50%}
+.hpbar{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden;border:1px solid var(--line)}
+.hpbar i{display:block;height:100%;background:var(--heart)}
+.hpbar i.temp{background:var(--gold)}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--muted);flex-wrap:wrap}
+.stats b{color:var(--ink);font-family:var(--f-mono);font-weight:600}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font-size:.75rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--sunk)}
+.chip.bad{border-color:color-mix(in srgb,var(--heart) 50%,var(--line));color:var(--heart)}
+.chip.gold{border-color:color-mix(in srgb,var(--gold) 55%,var(--line));color:var(--gold)}
+
+/* sheet */
+.sheet-top{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;margin-bottom:14px}
+.ident{display:grid;grid-template-columns:2fr repeat(4,1fr) 70px;gap:8px}
+.ident .lab:first-child input{font-family:var(--f-display);font-size:1.3rem}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-block:14px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:9px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-weight:500}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.modebar{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--sunk)}
+.modebar button{border:0;background:none;padding:5px 11px;cursor:pointer;font-size:.85rem;color:var(--muted)}
+.modebar button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;align-items:start}
+.panel{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px;display:grid;gap:12px;min-width:0}
+.panel-h{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.vital{border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;display:grid;gap:2px;background:var(--bg)}
+.vital .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.vital .v{font-family:var(--f-mono);font-size:1.35rem;font-weight:600}
+.vital input.num{font-size:1.2rem;font-weight:600;border:0;background:transparent;padding:0}
+.vital.insp[data-on="true"]{border-color:var(--gold);color:var(--gold)}
+button.vital{cursor:pointer;font:inherit;color:inherit}
+
+.hpbox{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.hpbig{display:flex;align-items:baseline;gap:6px;font-family:var(--f-mono)}
+.hpbig .cur{font-size:2.2rem;font-weight:600;color:var(--heart);line-height:1}
+.hpbig .max{color:var(--muted)}
+.hpctl{display:grid;grid-template-columns:70px 1fr 1fr;gap:6px}
+.hpsub{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
+.abil{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ab{border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:4px;justify-items:center;background:var(--bg)}
+.ab .k{font-family:var(--f-display);font-size:.95rem;letter-spacing:.08em}
+.roll{border:1px solid transparent;background:none;border-radius:6px;cursor:pointer;font-family:var(--f-mono);font-weight:600;padding:2px 6px}
+.roll:hover{border-color:var(--line);background:var(--surface)}
+.ab .mod{font-size:1.5rem}
+.ab input.num{width:56px}
+.save{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted)}
+
+.pip{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--muted);background:transparent;cursor:pointer;padding:0;flex:none;display:inline-grid;place-items:center}
+.pip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.pip.exp[aria-pressed="true"]{background:var(--gold);border-color:var(--gold)}
+.pip.bad[aria-pressed="true"]{background:var(--heart);border-color:var(--heart)}
+.pip.half{background:linear-gradient(90deg,var(--accent) 50%,transparent 50%);border-color:var(--accent)}
+
+.skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:2px 18px}
+.sk{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
+.sk .ab3{font-size:.72rem;color:var(--muted);letter-spacing:.08em}
+
+.list{display:grid;gap:6px}
+.li{display:grid;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg)}
+.li.atk{grid-template-columns:minmax(0,2fr) 70px minmax(0,1.2fr) auto auto auto}
+.li.res{grid-template-columns:minmax(0,1fr) auto 60px 92px auto}
+.li.item{grid-template-columns:minmax(0,2fr) 60px minmax(0,2fr) auto}
+.li.spell{grid-template-columns:auto minmax(0,2fr) 60px minmax(0,2fr) auto auto}
+.li input.field{padding:4px 6px}
+.pips{display:flex;gap:4px;flex-wrap:wrap}
+
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.slot{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:grid;gap:6px;background:var(--bg)}
+.slot .lv{font-family:var(--f-display);font-size:.9rem}
+
+.conds{display:flex;flex-wrap:wrap;gap:6px}
+.cond{border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--bg);cursor:pointer;font-size:.85rem}
+.cond[aria-pressed="true"]{background:color-mix(in srgb,var(--heart) 16%,var(--surface));border-color:var(--heart);color:var(--heart)}
+
+.coins{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.hy{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.rest{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--heart);border-radius:8px;font-size:.9rem}
+
+/* rolls */
+.toasts{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;display:grid;gap:8px;width:min(320px,calc(100vw - 32px))}
+.toast{background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;box-shadow:0 6px 24px rgb(0 0 0/.25);animation:pop .18s ease-out}
+.toast .t{font-weight:700}
+.toast .tot{grid-row:span 2;font-family:var(--f-mono);font-size:1.8rem;font-weight:600;align-self:center}
+.toast .d{font-family:var(--f-mono);font-size:.78rem;opacity:.8}
+.toast.crit .tot{color:var(--gold)} .toast.fumble .tot{color:var(--heart)}
+@keyframes pop{from{transform:translateY(8px);opacity:0}}
+
+/* map */
+.planes{display:flex;gap:4px;flex-wrap:wrap}
+.planes button{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.planes button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.planes .here{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.mapbox{position:relative;margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--sunk);height:clamp(360px,68vh,780px);touch-action:none;user-select:none;-webkit-user-select:none}
+.mapbox.moving{cursor:crosshair}
+.layer{position:absolute;left:0;top:0;width:100%;transform-origin:0 0;--inv:1}
+.layer img{display:block;width:100%;height:auto;pointer-events:none;max-width:none}
+.trail{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.trail polyline{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-dasharray:6 6;vector-effect:non-scaling-stroke;opacity:.85}
+.tdot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--gold);border:2px solid var(--surface);transform:scale(var(--inv));opacity:.75}
+.marker{position:absolute;width:0;height:0;pointer-events:none}
+.marker .m{position:absolute;left:0;top:0;transform:translate(-50%,-100%) scale(var(--inv));transform-origin:50% 100%;display:grid;justify-items:center}
+.marker .lbl{position:absolute;top:6px;left:0;transform:translateX(-50%) scale(var(--inv));transform-origin:50% 0;white-space:nowrap;background:var(--ink);color:var(--bg);font-size:.8rem;padding:2px 8px;border-radius:999px;font-weight:600}
+.marker .ring{position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid var(--gold);transform:scale(var(--inv));animation:ring 2.2s ease-out infinite}
+.marker.pending .m{opacity:.8}
+@keyframes ring{0%{opacity:.9;transform:scale(calc(var(--inv)*.3))}100%{opacity:0;transform:scale(calc(var(--inv)*1.4))}}
+@media (prefers-reduced-motion: reduce){.marker .ring{animation:none;opacity:.5}.toast{animation:none}}
+.mapctl{position:absolute;right:10px;top:10px;display:grid;gap:6px;z-index:2}
+.mapctl .iconbtn{width:36px;height:36px;background:var(--surface)}
+.maphint{position:absolute;left:10px;top:10px;z-index:2;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.85rem;max-width:calc(100% - 70px)}
+.nomap{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;
+  background-color:var(--sunk);
+  background-image:repeating-radial-gradient(circle at 30% 40%,transparent 0 22px,color-mix(in srgb,var(--line) 70%,transparent) 22px 23px);}
+.nomap .empty{max-width:440px}
+.pendbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding:10px;border:1px solid var(--gold);border-radius:10px;background:var(--surface)}
+.pendbar input{flex:1 1 200px}
+.mapfoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:.9rem}
+
+@media (max-width:860px){
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .ident{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ident .lab:first-child{grid-column:1/-1}
+}
+@media (max-width:560px){
+  .sheet-top{grid-template-columns:1fr}
+  .li.atk{grid-template-columns:minmax(0,1fr) auto auto auto}
+  .li.atk > :first-child{grid-column:1/4}
+  .li.atk > :nth-child(2){width:64px}
+  .li.res{grid-template-columns:minmax(0,1fr) 60px 88px auto}
+  .li.res .pips{grid-column:1/-1;order:5}
+  .li.item{grid-template-columns:minmax(0,1fr) 56px auto}
+  .li.item .note{grid-column:1/-1;order:5}
+  .li.spell{grid-template-columns:auto minmax(0,1fr) 54px auto auto}
+  .li.spell .note{grid-column:1/-1;order:6}
+  .coins{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .brand span{font-size:1.1rem}
+}
+/* accesso */
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.gate-box{width:min(420px,100%);display:grid;gap:16px}
+.gate-box .brand{justify-content:center;font-size:1.6rem;margin:0}
+.gate-card{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:20px;display:grid;gap:12px}
+.gate-card form{display:grid;gap:12px}
+.gate-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--sunk)}
+.gate-tabs button{border:0;background:none;padding:7px;border-radius:999px;cursor:pointer;color:var(--muted);font-weight:500}
+.gate-tabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+.err{color:var(--heart);font-size:.9rem;margin:0}
+.ok{color:var(--accent);font-size:.9rem;margin:0}
+.initials{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;font-size:.65rem;font-weight:700;color:#fff;flex:none}
+.userbox{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}
+.nav{overflow-x:auto;max-width:100%}
+.nav button{white-space:nowrap}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--heart);vertical-align:middle;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+.wrap.wide{max-width:1500px}
+
+/* banner del turno */
+.turnbar{border-top:1px solid var(--line);background:var(--sunk)}
+.turnbar.mine{background:color-mix(in srgb,var(--gold) 22%,var(--surface));border-top-color:var(--gold)}
+.turnbar.prep{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.tb-in{max-width:1500px;margin:0 auto;padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:.95rem}
+
+/* tavolo e plancia */
+.table3{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,.85fr);gap:16px;align-items:start}
+.table2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+.col{display:grid;gap:16px;min-width:0}
+@media (max-width:1180px){.table3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.table3 .col:last-child{grid-column:1/-1}}
+@media (max-width:760px){.table3,.table2{grid-template-columns:minmax(0,1fr)}}
+
+.feed{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:70vh;overflow-y:auto}
+.fi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.fi.crit{border-color:var(--gold)} .fi.crit .fi-tot{color:var(--gold)}
+.fi.fumble{border-color:var(--heart)} .fi.fumble .fi-tot{color:var(--heart)}
+.fi.hid{border-style:dashed;opacity:.85}
+.fi-main{min-width:0;display:grid;gap:2px}
+.fi-det{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere}
+.fi-side{display:grid;justify-items:end}
+.fi-tot{font-size:1.5rem;font-weight:600;line-height:1}
+.fi-meta{font-size:.72rem;color:var(--muted)}
+
+.dice{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.die{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 0;cursor:pointer;font-family:var(--f-mono);font-weight:600}
+.die:hover{border-color:var(--accent);color:var(--accent)}
+.dice-form{display:flex;gap:8px;flex-wrap:wrap}
+.dice-form .field{flex:1 1 140px}
+@media (max-width:420px){.dice{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.init-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ir{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.ir.cur{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,var(--bg));box-shadow:0 0 0 1px var(--gold) inset}
+.ir.hid{border-style:dashed}
+.ir-init{font-size:1.3rem;font-weight:600;text-align:center}
+.ir-init .num{font-size:1.05rem;padding:3px 2px}
+.ir-main{min-width:0;display:grid;gap:4px}
+.ir-name{font-weight:700}
+.ir-hp{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.85rem}
+.ir-hp .hpbar{flex:1 1 80px;min-width:60px}
+.ir-hp .num{width:58px}
+.ir-act{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.cond-sel{width:auto;padding:4px 6px;font-size:.82rem}
+.xbtn{border:0;background:none;color:inherit;cursor:pointer;padding:0 0 0 2px;font-weight:700}
+.setup{display:grid;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
+.mform{display:grid;grid-template-columns:minmax(0,2fr) repeat(4,minmax(52px,.6fr));gap:8px;align-items:end}
+.mform .hidchk{grid-column:1/4;gap:6px;font-size:.88rem}
+.mform .btn{grid-column:4/-1}
+@media (max-width:520px){.mform{grid-template-columns:repeat(4,minmax(0,1fr))}.mform .nm{grid-column:1/-1}.mform .hidchk{grid-column:1/-1}.mform .btn{grid-column:1/-1}}
+
+@media (max-width:560px){
+  .ir{grid-template-columns:48px minmax(0,1fr)}
+  .ir-act{grid-column:1/-1;justify-content:flex-start}
+  .nav button{padding:6px 10px}
+}
+.ps-list{display:grid;gap:8px}
+.ps{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--bg)}
+.ps-top,.ps-bot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.ps-amt{width:56px}
+</style>
+</head>
+<body>
+<div id="app"><div class="gate"><p class="muted">Apertura del taccuino…</p></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script>
+/* =================== CONFIGURAZIONE ===================
+   Incolla qui i due valori del tuo progetto Supabase
+   (Project Settings → API / Data API):                    */
+const SUPABASE_URL = "https://fggmqpibobnvgdgdlsbs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ez0FJo-VdoizwEjMAPs7uQ_HdHLOAj3";
+/* ====================================================== */
+</script>
+<script>
+const {useState,useEffect,useRef,useMemo,useCallback} = React;
+const html = htm.bind(React.createElement);
+
+/* ---------- regole e dati ---------- */
+const ABIL = [["for","Forza","FOR"],["des","Destrezza","DES"],["cos","Costituzione","COS"],["int","Intelligenza","INT"],["sag","Saggezza","SAG"],["car","Carisma","CAR"]];
+const AB3 = Object.fromEntries(ABIL.map(a=>[a[0],a[2]]));
+const SKILLS = [
+ ["acro","Acrobazia","des"],["anim","Addestrare Animali","sag"],["arca","Arcano","int"],["atle","Atletica","for"],
+ ["furt","Furtività","des"],["inda","Indagare","int"],["inga","Inganno","car"],["inti","Intimidire","car"],
+ ["intr","Intrattenere","car"],["intu","Intuizione","sag"],["medi","Medicina","sag"],["natu","Natura","int"],
+ ["perc","Percezione","sag"],["pers","Persuasione","car"],["rapi","Rapidità di Mano","des"],["reli","Religione","int"],
+ ["sopr","Sopravvivenza","sag"],["stor","Storia","int"]];
+const CONDS = ["Accecato","Affascinato","Afferrato","Assordato","Avvelenato","Incapacitato","Invisibile","Paralizzato","Pietrificato","Privo di sensi","Prono","Spaventato","Stordito","Trattenuto"];
+const PLANES = [["cielo","Isole Celesti"],["superficie","Superficie"],["sottosuolo","Sottosuolo"]];
+const PLANE_NAME = Object.fromEntries(PLANES);
+const HD = [6,8,10,12];
+
+const mod = s => Math.floor((Number(s)||0)/2) - 5;
+const prof = lv => 2 + Math.floor((Math.max(1,Math.min(20,Number(lv)||1))-1)/4);
+const sg = n => (n>=0?"+":"−")+Math.abs(n);
+const clamp = (n,a,b)=> Math.max(a??-Infinity, Math.min(b??Infinity, n));
+const uid = () => Math.random().toString(36).slice(2,10);
+const d = n => 1 + Math.floor(Math.random()*n);
+
+function blankSheet(){
+  return {name:"", species:"", cls:"", subclass:"", background:"", level:1,
+    abil:{for:10,des:10,cos:10,int:10,sag:10,car:10}, saves:{}, skills:{},
+    ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
+    insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
+    spells:[], res:[], items:[], coins:{mr:0,ma:0,me:0,mo:0,mp:0},
+    hy:{emb:0, ten:0, meal:""}, langs:"", profs:"", feats:"", story:"", notes:""};
+}
+function merge(base, src){
+  if (Array.isArray(base)) return Array.isArray(src) ? JSON.parse(JSON.stringify(src)) : base;
+  if (base && typeof base==="object"){
+    const out = {...base};
+    if (src && typeof src==="object") for (const k of Object.keys(src)) out[k] = (k in base) ? merge(base[k], src[k]) : JSON.parse(JSON.stringify(src[k]));
+    return out;
+  }
+  return src===undefined || src===null ? base : src;
+}
+const norm = (raw) => {
+  const s = merge(blankSheet(), raw||{});
+  while (s.spell.slots.length<9) s.spell.slots.push({max:0,used:0});
+  return s;
+};
+const setIn = (o, path, v) => {
+  const [k,...rest] = path; const c = Array.isArray(o)?[...o]:{...o};
+  c[k] = rest.length ? setIn(o?.[k] ?? {}, rest, v) : v; return c;
+};
+const derived = (s) => {
+  const pb = prof(s.level);
+  const m = Object.fromEntries(ABIL.map(([k])=>[k,mod(s.abil[k])]));
+  const skill = (k,ab) => m[ab] + (s.skills[k]===2 ? 2*pb : s.skills[k]===1 ? pb : 0);
+  const effMax = Math.max(1,(s.hp.max||0) - (s.hy.ten||0));
+  const sa = s.spell.abil;
+  return {pb, m, skill, effMax, init: m.des + (Number(s.initBonus)||0),
+    passPerc: 10 + skill("perc","sag"),
+    dc: sa ? 8 + pb + m[sa] : null, satk: sa ? pb + m[sa] : null};
+};
+
+function rollFormula(f){
+  const re = /([+-]?)\s*(\d*)\s*[dD]\s*(\d+)|([+-]?)\s*(\d+)/g; let m, total=0, parts=[], any=false;
+  const clean = String(f||"").replace(/−/g,"-");
+  while ((m = re.exec(clean))){
+    any = true;
+    if (m[3]){ const sign = m[1]==="-"?-1:1, n = Math.min(50, Number(m[2]||1)), sides = Number(m[3]);
+      const rs = Array.from({length:n},()=>d(sides)); total += sign*rs.reduce((a,b)=>a+b,0);
+      parts.push((sign<0?"− ":"")+n+"d"+sides+"["+rs.join(",")+"]");
+    } else { const sign = m[4]==="-"?-1:1; total += sign*Number(m[5]); parts.push((sign<0?"− ":"+ ")+m[5]); }
+  }
+  return any ? {total, detail: parts.join(" ")} : null;
+}
+
+const rtf = new Intl.RelativeTimeFormat("it",{numeric:"auto"});
+function ago(t){ if(!t) return ""; const s = (t-Date.now())/1000;
+  const a = Math.abs(s); if (a<60) return "adesso"; if (a<3600) return rtf.format(Math.round(s/60),"minute");
+  if (a<86400) return rtf.format(Math.round(s/3600),"hour"); return rtf.format(Math.round(s/86400),"day"); }
+
+function lsGet(k,def){ try{ const v = localStorage.getItem("taccuino:"+k); return v==null?def:JSON.parse(v);}catch(e){return def} }
+function lsSet(k,v){ try{ localStorage.setItem("taccuino:"+k,JSON.stringify(v)) }catch(e){} }
+
+function colorFor(id){ let h=0; for (const c of String(id||"")) h=(h*31+c.charCodeAt(0))>>>0; return `hsl(${h%360} 45% 42%)`; }
+function initialsOf(n){ return (String(n||"?").trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2)||"?").toUpperCase(); }
+
+/* ---------- piccoli componenti ---------- */
+function Num({id, value, onChange, min, max, className, label}){
+  const [s,setS] = useState(String(value??0)); const f = useRef(false);
+  useEffect(()=>{ if(!f.current) setS(String(value??0)) },[value]);
+  return html`<input id=${id} aria-label=${label} className=${"num "+(className||"")} inputMode="numeric" value=${s}
+    onFocus=${e=>{f.current=true; e.target.select()}} onBlur=${()=>{f.current=false; setS(String(value??0))}}
+    onChange=${e=>{const v=e.target.value.replace("−","-"); setS(v); const n=parseInt(v,10); if(!isNaN(n)) onChange(clamp(n,min,max))}} />`;
+}
+function Txt({id,value,onChange,placeholder,className,label,area}){
+  return area
+    ? html`<textarea id=${id} aria-label=${label} className=${"field "+(className||"")} value=${value||""} placeholder=${placeholder} onChange=${e=>onChange(e.target.value)}></textarea>`
+    : html`<input id=${id} aria-label=${label} className=${"field "+(className||"")} value=${value||""} placeholder=${placeholder} onChange=${e=>onChange(e.target.value)} />`;
+}
+function Pips({n, used, onSet, kind, label}){
+  return html`<span className="pips" role="group" aria-label=${label}>${Array.from({length:n},(_,i)=>html`
+    <button type="button" key=${i} className=${"pip "+(kind||"")} aria-pressed=${i<used} aria-label=${label+" "+(i+1)}
+      onClick=${()=>onSet(i<used ? i : i+1)}></button>`)}</span>`;
+}
+function Who({id, name}){
+  return html`<span className="initials" style=${{background:colorFor(id)}} aria-hidden="true">${initialsOf(name)}</span>`;
+}
+function Mark({size=28}){
+  return html`<svg width=${size} height=${size} viewBox="0 0 32 32" aria-hidden="true">
+    <path d="M9 30V3" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M10 4h16l-4.5 5.5L26 15H10z" fill="var(--gold)" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="9" cy="30" r="2.2" fill="var(--ink)"/></svg>`;
+}
+
+/* ---------- salvataggio scheda ---------- */
+function useSheet(saveFn, remote){
+  const [doc,setDoc] = useState(()=>norm(remote));
+  const st = useRef({dirty:false,saving:false,timer:0,latest:null});
+  const [status,setStatus] = useState("idle");
+  useEffect(()=>{ if(remote && !st.current.dirty && !st.current.saving) setDoc(norm(remote)) },[remote]);
+  const flush = useCallback(async()=>{
+    const s = st.current; if (s.saving) return; s.saving = true; setStatus("saving");
+    while (s.dirty){ s.dirty=false;
+      const res = await saveFn(s.latest);
+      if (res !== "ok"){ s.saving=false; setStatus(res); return; }
+    }
+    s.saving=false; setStatus("saved");
+  },[saveFn]);
+  useEffect(()=>()=>{ clearTimeout(st.current.timer); if(st.current.dirty) flush(); },[flush]);
+  const change = useCallback((fn)=>{
+    setDoc(prev=>{ const next = fn(prev); st.current.latest = next; st.current.dirty = true; return next; });
+    setStatus("pending"); clearTimeout(st.current.timer); st.current.timer = setTimeout(flush, 700);
+  },[flush]);
+  return [doc, change, status];
+}
+
+function SaveState({status, ro}){
+  if (ro) return html`<span className="state"><span className="dot"></span>Sola lettura</span>`;
+  const map = {idle:["ok","Salvata"], saved:["ok","Salvata"], pending:["busy","Modifiche in corso…"], saving:["busy","Salvataggio…"],
+    denied:["err","Non hai il permesso di modificare questa scheda"], error:["err","Salvataggio non riuscito: controlla la connessione"]};
+  const [c,t] = map[status]||map.idle;
+  return html`<span className="state" role="status"><span className=${"dot "+c}></span>${t}</span>`;
+}
+
+/* ---------- scheda personaggio ---------- */
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete}){
+  const [s, change, status] = useSheet(onSave, remote);
+  const [tab, setTab] = useState(()=>lsGet("tab","comb"));
+  const [mode, setMode] = useState("norm");
+  const [hpAmt, setHpAmt] = useState("");
+  const [sun, setSun] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const ro = !editable || status==="denied";
+  const D = derived(s);
+  const set = (path, v) => change(p => setIn(p, path.split("."), v));
+  const upd = (fn) => change(p => fn(JSON.parse(JSON.stringify(p))));
+  useEffect(()=>lsSet("tab",tab),[tab]);
+
+  const charId = remote?.id;
+  const r20 = (label, m) => { if (ro) return; onRoll({type:"d20", label, mod:m, mode, pen:(s.exh||0)*2, charId}); setMode("norm"); };
+  const rDmg = (label, f) => { if (ro) return; if (!rollFormula(f)) return; onRoll({type:"formula", label, formula:f, charId}); };
+
+  const applyHp = (kind) => {
+    const n = parseInt(hpAmt,10); if (isNaN(n) || n<=0) return;
+    upd(p => { if (kind==="dmg"){ let left=n; const t=Math.min(p.hp.temp||0,left); p.hp.temp-=t; left-=t; p.hp.cur=Math.max(0,p.hp.cur-left);}
+               else if (kind==="heal"){ p.hp.cur=Math.min(D.effMax,p.hp.cur+n); if(p.hp.cur>0){p.death={s:0,f:0}} }
+               else { p.hp.temp=Math.max(p.hp.temp||0,n); } return p; });
+    setHpAmt("");
+  };
+  const spendHd = async () => {
+    if (s.hd.spent >= s.level) return;
+    const total = await onRoll({type:"formula", label:"Dado Vita", formula:`1d${s.hd.die}${D.m.cos>=0?"+":"-"}${Math.abs(D.m.cos)}`, charId});
+    if (total == null) return;
+    const gain = Math.max(1, total);
+    upd(p=>{ p.hd.spent+=1; p.hp.cur=Math.min(D.effMax,p.hp.cur+gain); return p; });
+  };
+  const shortRest = () => upd(p=>{ p.res.forEach(r=>{ if(r.reset==="breve") r.used=0 }); return p; });
+  const longRest = () => upd(p=>{
+    if (sun) p.hy.ten = 0;
+    const eff = Math.max(1,(p.hp.max||0)-(p.hy.ten||0));
+    p.hp.cur = eff; p.hp.temp = 0; p.hd.spent = 0; p.death={s:0,f:0};
+    p.spell.slots.forEach(x=>x.used=0); p.res.forEach(r=>r.used=0);
+    p.exh = Math.max(0,(p.exh||0)-1); return p; });
+
+  const listOps = (key, make) => ({
+    add: () => upd(p=>{ p[key].push(make()); return p; }),
+    set: (i,k,v) => upd(p=>{ p[key][i][k]=v; return p; }),
+    del: (i) => upd(p=>{ p[key].splice(i,1); return p; }),
+  });
+  const atk = listOps("attacks", ()=>({id:uid(),name:"",bonus:"+0",dmg:"1d6",notes:""}));
+  const res = listOps("res", ()=>({id:uid(),name:"",max:1,used:0,reset:"lungo"}));
+  const itm = listOps("items", ()=>({id:uid(),name:"",qty:1,notes:""}));
+  const spl = listOps("spells", ()=>({id:uid(),name:"",lvl:0,prep:true,conc:false,notes:""}));
+
+  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["zaino","Zaino"],["note","Note e storia"]];
+
+  return html`<div>
+    <div className="row" style=${{marginBottom:10}}>
+      <button className="btn small" onClick=${onBack}>← Il gruppo</button>
+      <span className="spacer"></span>
+      ${ownerName && html`<span className="who"><${Who} id=${remote.owner} name=${ownerName}/>${ownerName}</span>`}
+      <${SaveState} status=${status} ro=${!editable}/>
+    </div>
+    <fieldset disabled=${ro}>
+    <div className="sheet-top">
+      <div className="ident">
+        <label className="lab">Nome<input id="pg-name" className="field" value=${s.name} placeholder="Nome del personaggio" onChange=${e=>set("name",e.target.value)}/></label>
+        <label className="lab">Specie<${Txt} id="pg-sp" value=${s.species} placeholder="es. Rito" onChange=${v=>set("species",v)}/></label>
+        <label className="lab">Classe<${Txt} id="pg-cl" value=${s.cls} placeholder="es. Ranger" onChange=${v=>set("cls",v)}/></label>
+        <label className="lab">Sottoclasse<${Txt} id="pg-sub" value=${s.subclass} onChange=${v=>set("subclass",v)}/></label>
+        <label className="lab">Background<${Txt} id="pg-bg" value=${s.background} onChange=${v=>set("background",v)}/></label>
+        <label className="lab">Livello<${Num} id="pg-lv" value=${s.level} min=${1} max=${20} onChange=${v=>set("level",v)}/></label>
+      </div>
+      <div style=${{display:"grid",gap:6,justifyItems:"end"}}>
+        <span className="eyebrow">Prossimo tiro d20</span>
+        <div className="modebar" role="group" aria-label="Modalità del prossimo tiro">
+          ${[["dis","Svantaggio"],["norm","Normale"],["adv","Vantaggio"]].map(([k,l])=>html`<button type="button" key=${k} aria-pressed=${mode===k} onClick=${()=>setMode(k)}>${l}</button>`)}
+        </div>
+      </div>
+    </div>
+
+    <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${tab===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
+
+    ${tab==="comb" && html`<div className="grid2">
+      <div style=${{display:"grid",gap:16}}>
+        <section className="panel">
+          <div className="hpbox">
+            <div>
+              <div className="eyebrow">Punti ferita</div>
+              <div className="hpbig"><span className="cur">${s.hp.cur}</span><span className="max">/ ${D.effMax}</span>${s.hp.temp>0 && html`<span className="chip gold">+${s.hp.temp} temp</span>`}</div>
+              ${s.hy.ten>0 && html`<div className="muted" style=${{fontSize:".8rem"}}>Max ridotti di ${s.hy.ten} dalla Tenebra</div>`}
+            </div>
+            <div style=${{display:"grid",gap:6}}>
+              <div className="hpctl">
+                <input id="hp-amt" className="num" inputMode="numeric" placeholder="n" aria-label="Quantità" value=${hpAmt} onChange=${e=>setHpAmt(e.target.value)} onKeyDown=${e=>{if(e.key==="Enter")applyHp("dmg")}}/>
+                <button type="button" className="btn danger" onClick=${()=>applyHp("dmg")}>Danno</button>
+                <button type="button" className="btn" onClick=${()=>applyHp("heal")}>Cura</button>
+              </div>
+              <button type="button" className="btn small" onClick=${()=>applyHp("temp")}>Imposta PF temporanei</button>
+            </div>
+          </div>
+          <div className="hpsub">
+            <label className="lab">PF attuali<${Num} id="hp-cur" value=${s.hp.cur} min=${0} onChange=${v=>set("hp.cur",v)}/></label>
+            <label className="lab">PF massimi<${Num} id="hp-max" value=${s.hp.max} min=${1} onChange=${v=>set("hp.max",v)}/></label>
+            <label className="lab">Temporanei<${Num} id="hp-tmp" value=${s.hp.temp} min=${0} onChange=${v=>set("hp.temp",v)}/></label>
+          </div>
+          ${s.hp.cur===0 && html`<div className="row"><span className="eyebrow">Tiri contro la morte</span>
+            <span className="muted">Successi</span><${Pips} n=${3} used=${s.death.s} label="Successo" onSet=${v=>set("death.s",v)}/>
+            <span className="muted">Fallimenti</span><${Pips} n=${3} used=${s.death.f} kind="bad" label="Fallimento" onSet=${v=>set("death.f",v)}/>
+            <button type="button" className="btn small" onClick=${()=>r20("TS contro morte",0)}>Tira</button></div>`}
+        </section>
+
+        <div className="vitals">
+          <div className="vital"><span className="k">CA</span><${Num} id="ac" value=${s.ac} min=${0} label="Classe Armatura" onChange=${v=>set("ac",v)}/></div>
+          <button type="button" className="vital" onClick=${()=>r20("Iniziativa",D.init)}><span className="k">Iniziativa</span><span className="v">${sg(D.init)}</span></button>
+          <div className="vital"><span className="k">Velocità m</span><${Num} id="spd" value=${s.speed} min=${0} label="Velocità in metri" onChange=${v=>set("speed",v)}/></div>
+          <div className="vital"><span className="k">Competenza</span><span className="v">${sg(D.pb)}</span></div>
+          <div className="vital"><span className="k">Perc. passiva</span><span className="v">${D.passPerc}</span></div>
+          <button type="button" className="vital insp" data-on=${s.insp} aria-pressed=${s.insp} onClick=${()=>set("insp",!s.insp)}><span className="k">Ispirazione</span><span className="v">${s.insp?"★":"☆"}</span></button>
+        </div>
+
+        <section className="panel">
+          <div className="panel-h"><h3>Caratteristiche</h3><span className="muted" style=${{fontSize:".82rem"}}>Tocca un valore per tirare</span></div>
+          <div className="abil">${ABIL.map(([k,name,ab])=>html`<div className="ab" key=${k}>
+            <span className="k" title=${name}>${ab}</span>
+            <button type="button" className="roll mod" aria-label=${"Prova di "+name} onClick=${()=>r20("Prova di "+name,D.m[k])}>${sg(D.m[k])}</button>
+            <${Num} id=${"ab-"+k} value=${s.abil[k]} min=${1} max=${30} label=${name} onChange=${v=>set("abil."+k,v)}/>
+            <span className="save"><button type="button" className="pip" aria-pressed=${!!s.saves[k]} aria-label=${"Competenza TS "+name} onClick=${()=>set("saves."+k,!s.saves[k])}></button>
+              TS <button type="button" className="roll" onClick=${()=>r20("TS "+name, D.m[k]+(s.saves[k]?D.pb:0))}>${sg(D.m[k]+(s.saves[k]?D.pb:0))}</button></span>
+          </div>`)}</div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-h"><h3>Condizioni</h3>
+            <span className="row" style=${{gap:6}}><span className="muted">Esaurimento</span>
+              <button type="button" className="iconbtn" aria-label="Riduci esaurimento" onClick=${()=>set("exh",Math.max(0,s.exh-1))}>−</button>
+              <span className="mono" style=${{minWidth:18,textAlign:"center"}}>${s.exh}</span>
+              <button type="button" className="iconbtn" aria-label="Aumenta esaurimento" onClick=${()=>set("exh",Math.min(6,s.exh+1))}>+</button></span>
+          </div>
+          ${s.exh>0 && html`<div className="muted" style=${{fontSize:".85rem"}}>${s.exh>=6?"Livello 6: il personaggio muore.":`−${s.exh*2} a tutte le prove d20 (già applicato ai tiri) · −${(s.exh*1.5).toLocaleString("it")} m di velocità`}</div>`}
+          <div className="conds">${CONDS.map(c=>html`<button type="button" key=${c} className="cond" aria-pressed=${s.cond.includes(c)}
+            onClick=${()=>upd(p=>{ p.cond = p.cond.includes(c)? p.cond.filter(x=>x!==c) : [...p.cond,c]; return p; })}>${c}</button>`)}</div>
+        </section>
+      </div>
+
+      <div style=${{display:"grid",gap:16}}>
+        <section className="panel">
+          <div className="panel-h"><h3>Attacchi</h3><button type="button" className="btn small" onClick=${atk.add}>+ Aggiungi</button></div>
+          ${s.attacks.length===0 && html`<p className="muted" style=${{margin:0}}>Nessun attacco. Aggiungi armi e trucchetti offensivi: bonus per colpire e formula dei danni (es. 1d8+3).</p>`}
+          <div className="list">${s.attacks.map((a,i)=>html`<div className="li atk" key=${a.id}>
+            <${Txt} id=${"atk-n-"+a.id} value=${a.name} placeholder="Arma" label="Nome attacco" onChange=${v=>atk.set(i,"name",v)}/>
+            <${Txt} id=${"atk-b-"+a.id} value=${a.bonus} placeholder="+5" label="Bonus per colpire" className="mono" onChange=${v=>atk.set(i,"bonus",v)}/>
+            <${Txt} id=${"atk-d-"+a.id} value=${a.dmg} placeholder="1d8+3 taglienti" label="Danni" className="mono dmg" onChange=${v=>atk.set(i,"dmg",v)}/>
+            <button type="button" className="btn small" onClick=${()=>r20(a.name||"Attacco", parseInt(String(a.bonus).replace("−","-"),10)||0)}>Colpire</button>
+            <button type="button" className="btn small" onClick=${()=>rDmg((a.name||"Attacco")+" · danni", a.dmg)}>Danni</button>
+            <button type="button" className="iconbtn" aria-label="Elimina attacco" onClick=${()=>atk.del(i)}>×</button>
+          </div>`)}</div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-h"><h3>Dadi vita e riposi</h3></div>
+          <div className="row">
+            <label className="lab" style=${{width:90}}>Dado<select id="hd-die" className="field" value=${s.hd.die} onChange=${e=>set("hd.die",Number(e.target.value))}>${HD.map(x=>html`<option key=${x} value=${x}>d${x}</option>`)}</select></label>
+            <div style=${{display:"grid",gap:4}}><span className="muted" style=${{fontSize:".78rem"}}>Disponibili ${s.level-s.hd.spent} su ${s.level}</span>
+              <${Pips} n=${s.level} used=${s.level-s.hd.spent} label="Dado vita" onSet=${v=>set("hd.spent",s.level-v)}/></div>
+            <button type="button" className="btn" onClick=${spendHd} disabled=${s.hd.spent>=s.level}>Spendi un dado</button>
+          </div>
+          <div className="rest">
+            <button type="button" className="btn" onClick=${shortRest}>Riposo breve</button>
+            <button type="button" className="btn primary" onClick=${longRest}>Riposo lungo</button>
+            ${s.hy.ten>0 && html`<label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="sun" type="checkbox" checked=${sun} onChange=${e=>setSun(e.target.checked)}/>al sole o presso una Radice Luminosa</label>`}
+          </div>
+          <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Il riposo lungo ripristina PF, tutti i dadi vita, slot e risorse, e toglie un livello di esaurimento. Il breve ricarica le risorse segnate “breve”.</p>
+        </section>
+
+        <section className="panel">
+          <div className="panel-h"><h3>Risorse di classe</h3><button type="button" className="btn small" onClick=${res.add}>+ Aggiungi</button></div>
+          ${s.res.length===0 && html`<p className="muted" style=${{margin:0}}>Ira, Ki, Incanalare Divinità, slot del patto… tutto ciò che si consuma e si ricarica.</p>`}
+          <div className="list">${s.res.map((r,i)=>html`<div className="li res" key=${r.id}>
+            <${Txt} id=${"res-n-"+r.id} value=${r.name} placeholder="Risorsa" label="Nome risorsa" onChange=${v=>res.set(i,"name",v)}/>
+            <${Pips} n=${Math.min(20,r.max)} used=${Math.min(r.max,r.max-r.used)} label=${r.name||"Uso"} onSet=${v=>res.set(i,"used",r.max-v)}/>
+            <${Num} id=${"res-m-"+r.id} value=${r.max} min=${1} max=${20} label="Usi massimi" onChange=${v=>res.set(i,"max",v)}/>
+            <select id=${"res-r-"+r.id} className="field" aria-label="Si ricarica con" value=${r.reset} onChange=${e=>res.set(i,"reset",e.target.value)}>
+              <option value="breve">Breve</option><option value="lungo">Lungo</option></select>
+            <button type="button" className="iconbtn" aria-label="Elimina risorsa" onClick=${()=>res.del(i)}>×</button>
+          </div>`)}</div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-h"><h3>Hyrule</h3></div>
+          <div className="hy">
+            <label className="lab">Emblemi dei santuari<${Num} id="emb" value=${s.hy.emb} min=${0} onChange=${v=>set("hy.emb",v)}/>
+              <span>${Math.min(3,Math.floor(s.hy.emb/4))} potenziamenti su 3 · ogni 4 emblemi</span></label>
+            <label className="lab">PF max persi per la Tenebra<${Num} id="ten" value=${s.hy.ten} min=${0} onChange=${v=>set("hy.ten",v)}/>
+              <span>Si recuperano con un riposo lungo al sole</span></label>
+          </div>
+          <label className="lab">Pasto attivo (8 ore)<${Txt} id="meal" value=${s.hy.meal} placeholder="es. Spiedino piccante: resistenza al freddo" onChange=${v=>set("hy.meal",v)}/></label>
+        </section>
+      </div>
+    </div>`}
+
+    ${tab==="abil" && html`<div style=${{display:"grid",gap:16}}>
+      <section className="panel">
+        <div className="panel-h"><h3>Abilità</h3><span className="muted" style=${{fontSize:".82rem"}}>Il cerchio alterna: nessuna → competenza → maestria</span></div>
+        <div className="skills">${SKILLS.map(([k,name,ab])=>{ const lvl=s.skills[k]||0; const b=D.skill(k,ab);
+          return html`<div className="sk" key=${k}>
+            <button type="button" className=${"pip "+(lvl===2?"exp":"")} aria-pressed=${lvl>0} aria-label=${name+": "+["nessuna competenza","competenza","maestria"][lvl]}
+              onClick=${()=>set("skills."+k,(lvl+1)%3)}>${lvl===2?html`<span style=${{fontSize:10,color:"var(--surface)"}}>★</span>`:null}</button>
+            <span>${name}</span><span className="ab3">${AB3[ab]}</span>
+            <button type="button" className="roll" onClick=${()=>r20(name,b)}>${sg(b)}</button></div>`;})}</div>
+      </section>
+      <div className="grid2">
+        <section className="panel"><h3>Competenze</h3><${Txt} area id="profs" value=${s.profs} placeholder="Armature, armi, strumenti (es. utensili da cuoco)" onChange=${v=>set("profs",v)}/></section>
+        <section className="panel"><h3>Lingue</h3><${Txt} area id="langs" value=${s.langs} placeholder="Comune, Zora, Gerudo…" onChange=${v=>set("langs",v)}/></section>
+      </div>
+    </div>`}
+
+    ${tab==="magia" && html`<div style=${{display:"grid",gap:16}}>
+      <section className="panel">
+        <div className="row">
+          <label className="lab" style=${{width:180}}>Caratteristica da incantatore
+            <select id="sp-ab" className="field" value=${s.spell.abil} onChange=${e=>set("spell.abil",e.target.value)}>
+              <option value="">Nessuna</option>${ABIL.slice(3).map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
+          ${D.dc!=null && html`<div className="vital" style=${{minWidth:100}}><span className="k">CD incantesimi</span><span className="v">${D.dc}</span></div>
+            <button type="button" className="vital" style=${{minWidth:100}} onClick=${()=>r20("Attacco con incantesimo",D.satk)}><span className="k">Attacco</span><span className="v">${sg(D.satk)}</span></button>`}
+        </div>
+        <div className="eyebrow">Slot incantesimo</div>
+        <div className="slots">${s.spell.slots.map((x,i)=>html`<div className="slot" key=${i}>
+          <div className="row" style=${{justifyContent:"space-between",gap:4}}><span className="lv">${i+1}° liv.</span>
+            <${Num} id=${"slot-"+i} value=${x.max} min=${0} max=${9} label=${"Slot di "+(i+1)+"° livello"} onChange=${v=>upd(p=>{p.spell.slots[i].max=v; p.spell.slots[i].used=Math.min(p.spell.slots[i].used,v); return p;})}/></div>
+          ${x.max>0 ? html`<${Pips} n=${x.max} used=${x.max-x.used} label=${"Slot "+(i+1)+"°"} onSet=${v=>upd(p=>{p.spell.slots[i].used=x.max-v; return p;})}/>` : html`<span className="muted" style=${{fontSize:".75rem"}}>—</span>`}
+        </div>`)}</div>
+      </section>
+      <section className="panel">
+        <div className="panel-h"><h3>Incantesimi</h3><button type="button" className="btn small" onClick=${spl.add}>+ Aggiungi</button></div>
+        ${s.spells.length===0 && html`<p className="muted" style=${{margin:0}}>Aggiungi trucchetti (livello 0) e incantesimi. La spunta indica se è preparato, la C la concentrazione.</p>`}
+        <div className="list">${[...s.spells].map((x,i)=>({x,i})).sort((a,b)=>a.x.lvl-b.x.lvl).map(({x,i})=>html`<div className="li spell" key=${x.id}>
+          <button type="button" className="pip" aria-pressed=${x.prep} aria-label="Preparato" onClick=${()=>spl.set(i,"prep",!x.prep)}></button>
+          <${Txt} id=${"sp-n-"+x.id} value=${x.name} placeholder="Incantesimo" label="Nome incantesimo" onChange=${v=>spl.set(i,"name",v)}/>
+          <${Num} id=${"sp-l-"+x.id} value=${x.lvl} min=${0} max=${9} label="Livello" onChange=${v=>spl.set(i,"lvl",v)}/>
+          <${Txt} id=${"sp-x-"+x.id} value=${x.notes} placeholder="Gittata, durata, danni…" label="Note" className="note" onChange=${v=>spl.set(i,"notes",v)}/>
+          <button type="button" className="btn small" aria-pressed=${x.conc} style=${x.conc?{borderColor:"var(--gold)",color:"var(--gold)"}:null} title="Concentrazione" onClick=${()=>spl.set(i,"conc",!x.conc)}>C</button>
+          <button type="button" className="iconbtn" aria-label="Elimina incantesimo" onClick=${()=>spl.del(i)}>×</button>
+        </div>`)}</div>
+      </section>
+    </div>`}
+
+    ${tab==="zaino" && html`<div style=${{display:"grid",gap:16}}>
+      <section className="panel"><h3>Monete</h3>
+        <div className="coins">${[["mr","Rame"],["ma","Argento"],["me","Electrum"],["mo","Oro"],["mp","Platino"]].map(([k,n])=>html`
+          <label className="lab" key=${k}>${n} (${k})<${Num} id=${"c-"+k} value=${s.coins[k]} min=${0} onChange=${v=>set("coins."+k,v)}/></label>`)}</div>
+      </section>
+      <section className="panel">
+        <div className="panel-h"><h3>Equipaggiamento</h3><button type="button" className="btn small" onClick=${itm.add}>+ Aggiungi</button></div>
+        ${s.items.length===0 && html`<p className="muted" style=${{margin:0}}>Lo zaino è vuoto. Paravela, razioni, ingredienti della regione, frammenti Zonai…</p>`}
+        <div className="list">${s.items.map((x,i)=>html`<div className="li item" key=${x.id}>
+          <${Txt} id=${"it-n-"+x.id} value=${x.name} placeholder="Oggetto" label="Oggetto" onChange=${v=>itm.set(i,"name",v)}/>
+          <${Num} id=${"it-q-"+x.id} value=${x.qty} min=${0} label="Quantità" onChange=${v=>itm.set(i,"qty",v)}/>
+          <${Txt} id=${"it-x-"+x.id} value=${x.notes} placeholder="Note" label="Note" className="note" onChange=${v=>itm.set(i,"notes",v)}/>
+          <button type="button" className="iconbtn" aria-label="Elimina oggetto" onClick=${()=>itm.del(i)}>×</button>
+        </div>`)}</div>
+      </section>
+    </div>`}
+
+    ${tab==="note" && html`<div className="grid2">
+      <section className="panel"><h3>Privilegi e tratti</h3><${Txt} area id="feats" value=${s.feats} placeholder="Tratti di specie, privilegi di classe, talenti" onChange=${v=>set("feats",v)}/></section>
+      <section className="panel"><h3>Storia del personaggio</h3><${Txt} area id="story" value=${s.story} placeholder="Da dove viene, cosa cerca, chi ha perso nella Caduta…" onChange=${v=>set("story",v)}/></section>
+      <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Appunti di sessione</h3><${Txt} area id="notes" value=${s.notes} placeholder="Nomi, indizi, promesse fatte…" onChange=${v=>set("notes",v)}/></section>
+    </div>`}
+    </fieldset>
+
+    ${canDelete && html`<div className="row" style=${{marginTop:24}}>
+      ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina scheda</button>`
+       : html`<div className="confirm"><span>Eliminare per sempre la scheda di ${s.name||"questo personaggio"}?</span>
+          <button type="button" className="btn small danger" onClick=${async()=>{ const ok = await onDelete(); if (ok) onBack(); else setConfirmDel(false); }}>Elimina</button>
+          <button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>Annulla</button></div>`}
+    </div>`}
+  </div>`;
+}
+
+/* ---------- vista gruppo ---------- */
+function PartyCard({c, ownerName, onOpen, mine}){
+  const s = norm(c); const D = derived(s);
+  const hpPct = clamp(s.hp.cur / D.effMax * 100, 0, 100);
+  return html`<button type="button" className="card" onClick=${onOpen}>
+    <div><div className="nm">${s.name || "Senza nome"}</div>
+      <div className="muted" style=${{fontSize:".9rem"}}>${[s.species, [s.cls,s.subclass].filter(Boolean).join(" · "), "liv. "+s.level].filter(Boolean).join(" — ")}</div></div>
+    <div className="who">${c.owner ? html`<${Who} id=${c.owner} name=${ownerName}/>` : null}${mine ? "La tua scheda" : c.owner ? (ownerName || "Giocatore") : "PNG del master"}</div>
+    <div style=${{display:"grid",gap:4}}>
+      <div className="row" style=${{justifyContent:"space-between",fontSize:".85rem"}}><span className="muted">PF</span>
+        <span className="mono">${s.hp.cur} / ${D.effMax}${s.hp.temp?` (+${s.hp.temp})`:""}</span></div>
+      <div className="hpbar"><i style=${{width:hpPct+"%"}}></i></div>
+    </div>
+    <div className="stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. pass. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
+    ${(s.cond.length>0 || s.insp || s.exh>0 || s.hy.ten>0) && html`<div className="chips">
+      ${s.insp && html`<span className="chip gold">★ Ispirazione</span>`}
+      ${s.exh>0 && html`<span className="chip bad">Esaurimento ${s.exh}</span>`}
+      ${s.hy.ten>0 && html`<span className="chip bad">Tenebra −${s.hy.ten}</span>`}
+      ${s.cond.map(x=>html`<span className="chip bad" key=${x}>${x}</span>`)}</div>`}
+  </button>`;
+}
+
+function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error}){
+  const mine = chars.find(c=>c.owner===me.id);
+  const sorted = [...chars].sort((a,b)=> (a.owner===me.id?-1:b.owner===me.id?1:0) || (!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
+  return html`<div>
+    <div className="party-head">
+      <div><div className="eyebrow">La compagnia</div><h2>Il gruppo</h2></div>
+      <span className="spacer"></span>
+      ${ready && !mine && html`<button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button>`}
+      ${me.isMaster && html`<button type="button" className="btn" onClick=${onCreateNpc}>+ Scheda PNG</button>`}
+    </div>
+    ${party && typeof party.x==="number" && html`<div className="where"><${Mark} size=${26}/><div><div className="eyebrow">${PLANE_NAME[party.plane]||"Posizione"}</div><b>${party.label || "Posizione segnata sulla mappa"}</b></div>
+      <span className="spacer"></span><span className="muted" style=${{fontSize:".85rem"}}>${ago(party.at)}</span>
+      <button type="button" className="btn small" onClick=${goMap}>Apri la mappa</button></div>`}
+    ${error && html`<p className="notice err" role="alert">${error}</p>`}
+    ${!ready ? html`<p className="muted">Caricamento delle schede…</p>`
+      : chars.length===0 ? html`<div className="empty"><${Mark} size=${40}/><h3>Nessun personaggio ancora</h3>
+          <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
+          <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
+      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
+  </div>`;
+}
+
+/* ---------- mappa ---------- */
+function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
+  const [plane, setPlane] = useState(party?.plane || lsGet("plane","superficie"));
+  const [moving, setMoving] = useState(false);
+  const [pending, setPending] = useState(null);
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const vp = useRef(null), layer = useRef(null), img = useRef(null), fileIn = useRef(null);
+  const t = useRef({s:1,x:0,y:0});
+  const ptrs = useRef(new Map()); const gesture = useRef(null);
+  const src = mapUrls[plane];
+  const srcKey = src ? src.split("?")[0] : "";
+  useEffect(()=>lsSet("plane",plane),[plane]);
+  useEffect(()=>{ setLoaded(false); setPending(null); },[srcKey, plane]);
+
+  const apply = () => { const el = layer.current; if(!el) return; const {s,x,y} = t.current;
+    el.style.transform = `translate(${x}px,${y}px) scale(${s})`; el.style.setProperty("--inv", String(1/s)); };
+  const fit = () => { const v = vp.current, l = layer.current; if(!v||!l) return;
+    const W = v.clientWidth, H = v.clientHeight, h = l.offsetHeight || 1; const s = Math.min(1, H/h);
+    t.current = {s, x:(W - W*s)/2, y:(H - h*s)/2}; apply(); };
+  const zoomAt = (f, px, py) => { const o = t.current; const s = clamp(o.s*f, 0.2, 10);
+    t.current = {s, x: px - (px-o.x)*(s/o.s), y: py - (py-o.y)*(s/o.s)}; apply(); };
+  const zoomBtn = f => { const v = vp.current; zoomAt(f, v.clientWidth/2, v.clientHeight/2); };
+  const centerOn = (nx, ny) => { const v=vp.current, l=layer.current; if(!v||!l) return; const o=t.current; const s=Math.max(o.s,1.5);
+    t.current = {s, x: v.clientWidth/2 - nx*l.offsetWidth*s, y: v.clientHeight/2 - ny*l.offsetHeight*s}; apply(); };
+
+  useEffect(()=>{ const v = vp.current; if(!v) return;
+    const onWheel = e => { if(!layer.current) return; e.preventDefault(); const r=v.getBoundingClientRect(); zoomAt(e.deltaY<0?1.15:1/1.15, e.clientX-r.left, e.clientY-r.top); };
+    v.addEventListener("wheel", onWheel, {passive:false});
+    const onResize = () => fit(); window.addEventListener("resize", onResize);
+    return ()=>{ v.removeEventListener("wheel", onWheel); window.removeEventListener("resize", onResize); };
+  },[srcKey]);
+
+  const down = e => { if (e.target.closest(".mapctl")) return; vp.current.setPointerCapture?.(e.pointerId);
+    ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    gesture.current = {x:e.clientX, y:e.clientY, moved:false, multi: ptrs.current.size>1}; };
+  const move = e => { const P = ptrs.current; if(!P.has(e.pointerId)) return; const prev = P.get(e.pointerId);
+    const cur = {x:e.clientX,y:e.clientY};
+    if (P.size===1){ t.current.x += cur.x-prev.x; t.current.y += cur.y-prev.y; apply(); }
+    else if (P.size===2){ const [a,b] = [...P.entries()].map(([id,p])=> id===e.pointerId?cur:p); const [pa,pb]=[...P.values()];
+      const d0 = Math.hypot(pa.x-pb.x,pa.y-pb.y), d1 = Math.hypot(a.x-b.x,a.y-b.y);
+      const r = vp.current.getBoundingClientRect(); if (d0>0) zoomAt(d1/d0, (a.x+b.x)/2-r.left, (a.y+b.y)/2-r.top);
+      if (gesture.current) gesture.current.multi = true; }
+    P.set(e.pointerId,cur);
+    const g = gesture.current; if (g && Math.hypot(cur.x-g.x,cur.y-g.y)>6) g.moved = true; };
+  const up = e => { const P = ptrs.current; P.delete(e.pointerId); const g = gesture.current;
+    if (P.size===0){ gesture.current = null;
+      if (g && !g.moved && !g.multi && moving && img.current){ const r = img.current.getBoundingClientRect();
+        const nx = (e.clientX - r.left)/r.width, ny = (e.clientY - r.top)/r.height;
+        if (nx>=0&&nx<=1&&ny>=0&&ny<=1){ setPending({x:nx,y:ny}); setLabel(party?.plane===plane ? (party?.label||"") : ""); } } } };
+
+  const savePos = async () => { if(!pending) return; setBusy("pos"); setErr("");
+    const msg = await onMove({plane, x:pending.x, y:pending.y, label:label.trim()});
+    if (msg) setErr(msg); else { setPending(null); setMoving(false); }
+    setBusy(""); };
+  const upload = async (file) => { if(!file) return; setBusy("up"); setErr("");
+    const msg = await onUpload(plane, file); if (msg) setErr(msg);
+    setBusy(""); if (fileIn.current) fileIn.current.value = ""; };
+
+  const here = party && party.plane===plane && typeof party.x==="number";
+  const trailPts = (party?.trail||[]).filter(p=>p.plane===plane);
+  const line = [...trailPts, ...(here?[party]:[])];
+  const canUpload = me.isMaster;
+  const byName = party?.by ? (names[party.by] || "") : "";
+
+  return html`<div>
+    <div className="party-head">
+      <div><div className="eyebrow">Tavola del mondo</div><h2>Mappa di Hyrule</h2></div>
+      <span className="spacer"></span>
+      <div className="planes" role="group" aria-label="Piano">${PLANES.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${plane===k} onClick=${()=>setPlane(k)}>
+        ${party?.plane===k && typeof party.x==="number" && html`<span className="here" title="Il gruppo è qui"></span>`}${n}</button>`)}</div>
+    </div>
+
+    <div className=${"mapbox"+(moving?" moving":"")} ref=${vp} onPointerDown=${src?down:null} onPointerMove=${src?move:null} onPointerUp=${src?up:null} onPointerCancel=${src?up:null}>
+      ${src ? html`
+        <div className="layer" ref=${layer}>
+          <img ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${()=>{setLoaded(true); requestAnimationFrame(fit);}}
+            onError=${()=>setErr("Immagine della mappa non trovata: il master può ricaricarla.")}/>
+          ${line.length>1 && html`<svg className="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points=${line.map(p=>(p.x*100)+","+(p.y*100)).join(" ")}/></svg>`}
+          ${trailPts.map((p,i)=>html`<span key=${i} className="tdot" title=${p.label||""} style=${{left:p.x*100+"%",top:p.y*100+"%"}}></span>`)}
+          ${here && !pending && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
+            <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
+          ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
+        </div>
+        <div className="mapctl">
+          <button type="button" className="iconbtn" aria-label="Ingrandisci" onClick=${()=>zoomBtn(1.3)}>+</button>
+          <button type="button" className="iconbtn" aria-label="Riduci" onClick=${()=>zoomBtn(1/1.3)}>−</button>
+          <button type="button" className="iconbtn" aria-label="Mostra tutta la mappa" title="Mostra tutta" onClick=${fit}>⤢</button>
+          ${here && html`<button type="button" className="iconbtn" aria-label="Centra sul gruppo" title="Centra sul gruppo" onClick=${()=>centerOn(party.x,party.y)}>◎</button>`}
+        </div>
+        ${moving && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
+        ${!loaded && html`<div className="maphint">Caricamento della mappa…</div>`}
+      ` : html`<div className="nomap"><div className="empty">
+          <h3>Nessuna mappa per ${PLANE_NAME[plane]}</h3>
+          <p className="muted">${canUpload ? "Carica un’immagine della mappa di questo piano (PNG, JPG o WebP). La vedranno tutti i giocatori." : "Il master non ha ancora caricato la mappa di questo piano."}</p>
+          ${canUpload && html`<button type="button" className="btn primary" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Carica la mappa"}</button>`}
+        </div></div>`}
+    </div>
+    <input ref=${fileIn} id="map-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange=${e=>upload(e.target.files[0])}/>
+
+    ${pending && html`<div className="pendbar">
+      <${Mark} size=${22}/><input id="pos-label" className="field" placeholder="Dove siete? es. Stalla di Pianalta" value=${label} onChange=${e=>setLabel(e.target.value)} onKeyDown=${e=>{if(e.key==="Enter")savePos()}} autoFocus/>
+      <button type="button" className="btn primary" disabled=${busy==="pos"} onClick=${savePos}>Conferma posizione</button>
+      <button type="button" className="btn" onClick=${()=>setPending(null)}>Annulla</button></div>`}
+
+    <div className="mapfoot">
+      ${src && html`<button type="button" className=${"btn "+(moving?"":"primary")} onClick=${()=>{setMoving(!moving); setPending(null);}}>${moving?"Smetti di spostare":"Sposta il gruppo"}</button>`}
+      ${party && typeof party.x==="number" ? html`<span className="muted">Il gruppo è ${party.plane===plane?"qui":"su "+(PLANE_NAME[party.plane]||"un altro piano")}${party.label?": "+party.label:""} · spostato ${ago(party.at)}${byName?" da "+byName:""}</span>`
+              : html`<span className="muted">Nessuna posizione segnata.</span>`}
+      <span className="spacer"></span>
+      ${trailPts.length>0 && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await onClearTrail(); if (m) setErr(m); }}>Cancella percorso</button>`}
+      ${canUpload && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
+    </div>
+    ${err && html`<p className="notice" role="alert" style=${{marginTop:10,borderColor:"var(--heart)"}}>${err}</p>`}
+  </div>`;
+}
+
+/* ---------- accesso ---------- */
+const AUTH_ERR = (m) => {
+  const s = String(m||"");
+  if (/invalid login/i.test(s)) return "Email o password sbagliate.";
+  if (/already registered|already been registered/i.test(s)) return "Questa email è già registrata: usa “Accedi”.";
+  if (/password.*(6|characters|short)/i.test(s)) return "La password deve avere almeno 6 caratteri.";
+  if (/email not confirmed/i.test(s)) return "Email non ancora confermata. Chiedi al master di disattivare la conferma email in Supabase, oppure apri il link che ti è arrivato.";
+  if (/rate limit/i.test(s)) return "Troppi tentativi ravvicinati: riprova tra qualche minuto.";
+  if (/fetch|network/i.test(s)) return "Server non raggiungibile: controlla la connessione.";
+  return s || "Qualcosa non ha funzionato, riprova.";
+};
+
+function Gate({children}){
+  return html`<div className="gate"><div className="gate-box">
+    <div className="brand"><${Mark} size=${34}/><span>Taccuino di Hyrule</span></div>${children}</div></div>`;
+}
+
+function Login({sb}){
+  const [mode, setMode] = useState("in");
+  const [email, setEmail] = useState(""); const [pw, setPw] = useState(""); const [name, setName] = useState("");
+  const [err, setErr] = useState(""); const [info, setInfo] = useState(""); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setErr(""); setInfo(""); setBusy(true);
+    try {
+      if (mode==="in"){ const {error} = await sb.auth.signInWithPassword({email:email.trim(), password:pw}); if (error) setErr(AUTH_ERR(error.message)); }
+      else { const {data, error} = await sb.auth.signUp({email:email.trim(), password:pw, options:{data:{name:name.trim()}}});
+        if (error) setErr(AUTH_ERR(error.message));
+        else if (!data.session) setInfo("Account creato. Conferma l’indirizzo dal link che ti è arrivato per email, poi accedi."); }
+    } catch(ex){ setErr(AUTH_ERR(ex.message)); }
+    setBusy(false); };
+  return html`<${Gate}>
+    <div className="gate-card">
+      <div className="gate-tabs" role="group" aria-label="Accesso">
+        <button type="button" aria-pressed=${mode==="in"} onClick=${()=>{setMode("in"); setErr("");}}>Accedi</button>
+        <button type="button" aria-pressed=${mode==="up"} onClick=${()=>{setMode("up"); setErr("");}}>Registrati</button>
+      </div>
+      <form onSubmit=${submit}>
+        ${mode==="up" && html`<label className="lab">Il tuo nome (lo vedrà il gruppo)<input id="su-name" className="field" required value=${name} onChange=${e=>setName(e.target.value)} autoComplete="nickname"/></label>`}
+        <label className="lab">Email<input id="li-email" className="field" type="email" required value=${email} onChange=${e=>setEmail(e.target.value)} autoComplete="email"/></label>
+        <label className="lab">Password<input id="li-pw" className="field" type="password" required minLength="6" value=${pw} onChange=${e=>setPw(e.target.value)} autoComplete=${mode==="in"?"current-password":"new-password"}/></label>
+        ${err && html`<p className="err" role="alert">${err}</p>`}
+        ${info && html`<p className="ok" role="status">${info}</p>`}
+        <button className="btn primary" disabled=${busy}>${busy ? "Un momento…" : mode==="in" ? "Accedi" : "Crea l’account"}</button>
+      </form>
+    </div>
+    <p className="muted" style=${{textAlign:"center",margin:0,fontSize:".9rem"}}>${mode==="in" ? "Prima volta? Scegli “Registrati”: dopo ti verrà chiesto il codice del gruppo." : "Serve solo per riconoscerti e salvare la tua scheda."}</p>
+  <//>`;
+}
+
+function Join({sb, user, onJoined}){
+  const [name, setName] = useState(user.user_metadata?.name || "");
+  const [code, setCode] = useState(""); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setErr(""); setBusy(true);
+    const {data, error} = await sb.rpc("join_campaign", {p_code: code.trim(), p_name: name.trim()});
+    setBusy(false);
+    if (error) setErr(AUTH_ERR(error.message)); else if (!data) setErr("Codice del gruppo sbagliato. Chiedilo al master."); else onJoined();
+  };
+  return html`<${Gate}>
+    <div className="gate-card">
+      <h3>Unisciti al gruppo</h3>
+      <p className="muted" style=${{margin:0}}>Inserisci il codice che ti ha dato il master. Serve una volta sola.</p>
+      <form onSubmit=${submit}>
+        <label className="lab">Il tuo nome<input id="jn-name" className="field" required value=${name} onChange=${e=>setName(e.target.value)}/></label>
+        <label className="lab">Codice del gruppo<input id="jn-code" className="field" required value=${code} onChange=${e=>setCode(e.target.value)} autoComplete="off"/></label>
+        ${err && html`<p className="err" role="alert">${err}</p>`}
+        <button className="btn primary" disabled=${busy}>${busy?"Un momento…":"Entra"}</button>
+      </form>
+    </div>
+    <button type="button" className="btn small" style=${{justifySelf:"center"}} onClick=${()=>sb.auth.signOut()}>Esci da ${user.email}</button>
+  <//>`;
+}
+
+/* ---------- dati condivisi ---------- */
+const rowToChar = (r) => ({...(r.data||{}), id:r.id, owner:r.owner});
+
+function useCampaign(sb, active){
+  const [chars, setChars] = useState([]);
+  const [party, setParty] = useState(null);
+  const [maps, setMaps] = useState({});
+  const [members, setMembers] = useState([]);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+  const [rolls, setRolls] = useState([]);
+  const [combat, setCombat] = useState({active:false, round:0, turn_id:null});
+  const [fighters, setFighters] = useState([]);
+  const [secrets, setSecrets] = useState({});
+  const onNewRoll = useRef(null);
+
+  const addRoll = useCallback((r)=>{ setRolls(x=> x.some(y=>y.id===r.id) ? x : [r, ...x].slice(0,80)); },[]);
+  const loadFighters = useCallback(async()=>{
+    const [f, s] = await Promise.all([sb.from("combatants").select("*"), sb.from("combatant_secrets").select("*")]);
+    if (!f.error) setFighters(f.data);
+    if (!s.error) setSecrets(Object.fromEntries(s.data.map(x=>[x.id,x])));
+  },[sb]);
+
+  const loadAll = useCallback(async () => {
+    const [c,p,m,mb,r,cb] = await Promise.all([
+      sb.from("characters").select("id,owner,data,updated_at"),
+      sb.from("party").select("state").eq("id",1).maybeSingle(),
+      sb.from("maps").select("plane,path"),
+      sb.from("members").select("user_id,name"),
+      sb.from("rolls").select("*").order("id",{ascending:false}).limit(60),
+      sb.from("combat").select("*").eq("id",1).maybeSingle()]);
+    const e = c.error||p.error||m.error||mb.error||r.error||cb.error;
+    if (e) setError("Non riesco a leggere i dati del gruppo: "+e.message+(r.error||cb.error?" (hai eseguito fase1.sql?)":""));
+    else setError("");
+    if (!c.error) setChars(c.data.map(rowToChar));
+    if (!p.error) setParty(p.data?.state || null);
+    if (!m.error) setMaps(Object.fromEntries(m.data.map(x=>[x.plane,x.path])));
+    if (!mb.error) setMembers(mb.data);
+    if (!r.error) setRolls(r.data);
+    if (!cb.error && cb.data) setCombat(cb.data);
+    await loadFighters();
+    setReady(true);
+  },[sb, loadFighters]);
+
+  useEffect(()=>{ if (!active) return;
+    loadAll();
+    const ch = sb.channel("taccuino")
+      .on("postgres_changes",{event:"*",schema:"public",table:"characters"}, (pl)=>{
+        if (pl.eventType==="DELETE") setChars(x=>x.filter(c=>c.id!==pl.old.id));
+        else { const n = rowToChar(pl.new); setChars(x=> x.some(c=>c.id===n.id) ? x.map(c=>c.id===n.id?n:c) : [...x,n]); } })
+      .on("postgres_changes",{event:"*",schema:"public",table:"party"}, (pl)=>{ if (pl.new) setParty(pl.new.state||null); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"maps"}, ()=>{ sb.from("maps").select("plane,path").then(({data})=>data && setMaps(Object.fromEntries(data.map(x=>[x.plane,x.path])))); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"members"}, ()=>{ sb.from("members").select("user_id,name").then(({data})=>data && setMembers(data)); })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"rolls"}, (pl)=>{ addRoll(pl.new); onNewRoll.current && onNewRoll.current(pl.new); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"combat"}, (pl)=>{ if (pl.new && pl.new.id) setCombat(pl.new); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"combatants"}, ()=>loadFighters())
+      .on("postgres_changes",{event:"*",schema:"public",table:"combatant_secrets"}, ()=>loadFighters())
+      .subscribe();
+    const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
+    document.addEventListener("visibilitychange", onVis);
+    return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); };
+  },[sb, active, loadAll]);
+
+  return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
+    rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters};
+}
+
+function useSignedUrls(sb, maps){
+  const [urls, setUrls] = useState({});
+  const key = JSON.stringify(maps);
+  useEffect(()=>{ let off = false;
+    (async()=>{ const out = {};
+      for (const [plane, path] of Object.entries(maps)){
+        const {data} = await sb.storage.from("mappe").createSignedUrl(path, 60*60*12);
+        if (data?.signedUrl) out[plane] = data.signedUrl;
+      }
+      if (!off) setUrls(out); })();
+    return ()=>{ off = true; };
+  },[sb, key]);
+  return urls;
+}
+
+/* ---------- tavolo: tiri, iniziativa, plancia ---------- */
+const HP_STATE_LABEL = {"illeso":"Illeso","ferito":"Ferito","malconcio":"Malconcio","allo stremo":"Allo stremo","a terra":"A terra"};
+const hpState = (hp, max) => { if (!max || max<=0) return "illeso"; if (hp<=0) return "a terra"; const f=hp/max; return f>=1?"illeso":f>0.5?"ferito":f>0.25?"malconcio":"allo stremo"; };
+const orderFighters = (fs) => [...fs].sort((a,b)=> ((b.init??-9999)-(a.init??-9999)) || ((b.dex||0)-(a.dex||0)) || String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)));
+
+function chime(){
+  try { const AC = window.AudioContext||window.webkitAudioContext; const ac = chime.ac || (chime.ac = new AC());
+    const o=ac.createOscillator(), g=ac.createGain(); const t0=ac.currentTime; o.type="triangle";
+    o.frequency.setValueAtTime(660,t0); o.frequency.setValueAtTime(990,t0+.14);
+    g.gain.setValueAtTime(.0001,t0); g.gain.exponentialRampToValueAtTime(.18,t0+.02); g.gain.exponentialRampToValueAtTime(.0001,t0+.5);
+    o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0+.55); } catch(e){}
+  try { navigator.vibrate && navigator.vibrate([120,60,120]); } catch(e){}
+}
+
+function Toasts({toasts}){
+  return html`<div className="toasts" aria-live="polite">${toasts.map(r=>html`<div key=${r.id} className=${"toast"+(r.nat===20?" crit":r.nat===1?" fumble":"")}>
+    <span className="t">${r.who} · ${r.label}${r.hidden?" (nascosto)":""}</span><span className="tot">${r.total}</span><span className="d">${r.detail}</span></div>`)}</div>`;
+}
+
+function Feed({rolls}){
+  const [, tick] = useState(0);
+  useEffect(()=>{ const t = setInterval(()=>tick(x=>x+1), 30000); return ()=>clearInterval(t); },[]);
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Tiri del gruppo</h3></div>
+    ${rolls.length===0 ? html`<p className="muted" style=${{margin:0}}>Ancora nessun tiro. Tocca un valore sulla scheda o usa i dadi.</p>` :
+    html`<ol className="feed">${rolls.slice(0,60).map(r=>html`<li key=${r.id} className=${"fi"+(r.nat===20?" crit":r.nat===1?" fumble":"")+(r.hidden?" hid":"")}>
+      <div className="fi-main"><div><b>${r.who}</b> <span className="muted">· ${r.label}</span></div><div className="fi-det mono">${r.detail}</div></div>
+      <div className="fi-side"><span className="fi-tot mono">${r.total}</span><span className="fi-meta">${r.hidden?"nascosto · ":""}${ago(new Date(r.created_at).getTime())}</span></div></li>`)}</ol>`}
+  </section>`;
+}
+
+function DiceTray({onFree, master}){
+  const [f,setF] = useState(""); const [hid,setHid] = useState(false); const [label,setLabel] = useState(""); const [bad,setBad] = useState(false);
+  const roll = (formula) => onFree({formula, label: label.trim() || ("Tiro "+formula), hidden: master && hid});
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Dadi</h3>${master && html`<label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="dice-hid" type="checkbox" checked=${hid} onChange=${e=>setHid(e.target.checked)}/>Dietro lo schermo</label>`}</div>
+    <div className="dice">${[4,6,8,10,12,20,100].map(n=>html`<button type="button" key=${n} className="die" onClick=${()=>roll("1d"+n)}>d${n}</button>`)}</div>
+    <form className="dice-form" onSubmit=${e=>{e.preventDefault(); const v=f.trim(); if (v && rollFormula(v)){ setBad(false); roll(v);} else setBad(true);}}>
+      <input id="dice-f" className="field mono" placeholder="es. 3d6+2" aria-label="Formula" value=${f} onChange=${e=>{setF(e.target.value); setBad(false);}}/>
+      <input id="dice-l" className="field" placeholder="Per cosa? (facoltativo)" aria-label="Descrizione del tiro" value=${label} onChange=${e=>setLabel(e.target.value)}/>
+      <button className="btn primary">Tira</button>
+    </form>
+    ${bad && html`<p className="err">Scrivi una formula come 2d6+3 o 1d20-1.</p>`}
+  </section>`;
+}
+
+function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable}){
+  const myChars = new Set(chars.filter(c=>c.owner===me.id).map(c=>c.id));
+  const nameOf = f => { const c = f.char_id && chars.find(x=>x.id===f.char_id); return (c && c.name) || f.name || "?"; };
+  const waiting = fighters.filter(f=>f.char_id && myChars.has(f.char_id) && f.init==null);
+  if (!combat.active && waiting.length) return html`<div className="turnbar prep"><div className="tb-in">
+    <span>⚔️ Scontro in arrivo: tira l’iniziativa</span><span className="spacer"></span>
+    ${waiting.map(f=>html`<button type="button" key=${f.id} className="btn primary small" onClick=${()=>onRollInit(f)}>Tira per ${nameOf(f)}</button>`)}</div></div>`;
+  if (!combat.active) return null;
+  const cur = fighters.find(f=>f.id===combat.turn_id);
+  const mine = cur && cur.char_id && myChars.has(cur.char_id);
+  return html`<div className=${"turnbar"+(mine?" mine":"")}><div className="tb-in">
+    <span className="mono">Round ${combat.round}</span>
+    <span>${mine ? html`<b>Tocca a te, ${nameOf(cur)}!</b>` : html`Turno di <b>${cur && !(cur.hidden && !me.isMaster) ? nameOf(cur) : "un avversario"}</b>`}</span>
+    <span className="spacer"></span>
+    ${mine && html`<button type="button" className="btn primary small" onClick=${onEndTurn}>Fine turno</button>`}
+    <button type="button" className="btn small" onClick=${goTable}>${me.isMaster?"Plancia":"Iniziativa"}</button>
+  </div></div>`;
+}
+
+function Initiative({combat, fighters, secrets, chars, me, act}){
+  const M = me.isMaster;
+  const ordered = orderFighters(fighters);
+  const charOf = id => chars.find(c=>c.id===id);
+  const [form, setForm] = useState({name:"", n:1, mod:0, hp:7, ac:12, hidden:false});
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [err, setErr] = useState("");
+  const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); };
+  const inIds = new Set(fighters.map(f=>f.char_id).filter(Boolean));
+  const pcsOut = chars.filter(c=>!inIds.has(c.id) && (c.owner || M));
+  const monstersNoInit = fighters.filter(f=>!f.char_id && f.init==null);
+  const canRoll = f => M || (f.char_id && charOf(f.char_id)?.owner===me.id);
+
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Iniziativa</h3>
+      <span className="muted" style=${{fontSize:".85rem"}}>${combat.active ? `Round ${combat.round}` : fighters.length ? "In preparazione" : "Nessuno scontro"}</span></div>
+
+    ${fighters.length===0 && html`<p className="muted" style=${{margin:0}}>${M ? "Aggiungi i personaggi e gli avversari, fai tirare l’iniziativa e avvia lo scontro." : "Quando il master prepara uno scontro, qui compare l’ordine dei turni."}</p>`}
+
+    ${ordered.length>0 && html`<ol className="init-list">${ordered.map(f=>{
+      const c = f.char_id && charOf(f.char_id); const s = c ? norm(c) : null; const Dd = s ? derived(s) : null;
+      const sec = secrets[f.id]; const cur = combat.active && combat.turn_id===f.id;
+      const conds = s ? s.cond : (f.conds||[]);
+      return html`<li key=${f.id} className=${"ir"+(cur?" cur":"")+(f.hidden?" hid":"")+(c?" pc":"")}>
+        <span className="ir-init mono">${M ? html`<${Num} id=${"init-"+f.id} value=${f.init??0} label="Iniziativa" onChange=${v=>act.setInit(f,v)}/>` : (f.init ?? "—")}</span>
+        <div className="ir-main">
+          <div className="ir-name">${cur && html`<span aria-label="turno attuale">▶ </span>`}${(s && s.name) || f.name}${f.hidden && html`<span className="chip" style=${{marginLeft:6}}>nascosto</span>`}</div>
+          ${s ? html`<div className="ir-hp"><div className="hpbar"><i style=${{width:clamp(s.hp.cur/Dd.effMax*100,0,100)+"%"}}></i></div><span className="mono">${s.hp.cur}/${Dd.effMax}</span><span className="muted">CA ${s.ac}</span></div>`
+            : M && sec ? html`<div className="ir-hp"><span className="muted">PF</span><${Num} id=${"mhp-"+f.id} value=${sec.hp??0} label="PF avversario" onChange=${v=>act.setMonsterHp(f,v)}/><span className="muted mono">/ ${sec.max_hp??"?"}</span>${sec.ac!=null && html`<span className="muted">CA ${sec.ac}</span>`}<span className="chip">${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`
+            : html`<div className="ir-hp"><span className=${"chip"+(f.hp_state!=="illeso"?" bad":"")}>${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`}
+          ${conds.length>0 && html`<div className="chips">${conds.map(x=>html`<span key=${x} className="chip bad">${x}${M && !s ? html` <button type="button" className="xbtn" aria-label=${"Togli "+x} onClick=${()=>act.toggleCond(f,x)}>×</button>`:null}</span>`)}</div>`}
+        </div>
+        <div className="ir-act">
+          ${f.init==null && canRoll(f) && html`<button type="button" className="btn small" onClick=${()=>run(()=>act.rollInit(f))}>Tira</button>`}
+          ${M && !s && html`<select className="field cond-sel" aria-label="Aggiungi condizione" value="" onChange=${e=>{ if(e.target.value) act.toggleCond(f,e.target.value); }}>
+              <option value="">+ cond.</option>${CONDS.filter(x=>!conds.includes(x)).map(x=>html`<option key=${x} value=${x}>${x}</option>`)}</select>`}
+          ${M && html`<button type="button" className="iconbtn" aria-label=${"Togli "+((s&&s.name)||f.name)+" dallo scontro"} onClick=${()=>run(()=>act.remove(f))}>×</button>`}
+        </div>
+      </li>`;})}</ol>`}
+
+    ${M && !combat.active && html`<div className="setup">
+      ${pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.addPCs(pcsOut))}>Aggiungi ${pcsOut.length===1?"1 personaggio":pcsOut.length+" personaggi"}</button>`}
+      <form className="mform" onSubmit=${e=>{e.preventDefault(); if(!form.name.trim()) return; run(async()=>{ const m = await act.addMonsters(form); if(!m) setForm({...form, name:""}); return m; });}}>
+        <label className="lab nm">Avversario<input id="m-name" className="field" placeholder="es. Bokoblin" value=${form.name} onChange=${e=>setForm({...form,name:e.target.value})}/></label>
+        <label className="lab">Quanti<${Num} id="m-n" value=${form.n} min=${1} max=${20} onChange=${v=>setForm(x=>({...x,n:v}))}/></label>
+        <label className="lab">Bonus iniz.<${Num} id="m-mod" value=${form.mod} min=${-5} max=${15} onChange=${v=>setForm(x=>({...x,mod:v}))}/></label>
+        <label className="lab">PF<${Num} id="m-hp" value=${form.hp} min=${1} onChange=${v=>setForm(x=>({...x,hp:v}))}/></label>
+        <label className="lab">CA<${Num} id="m-ac" value=${form.ac} min=${0} onChange=${v=>setForm(x=>({...x,ac:v}))}/></label>
+        <label className="row hidchk"><input id="m-hid" type="checkbox" checked=${form.hidden} onChange=${e=>setForm({...form,hidden:e.target.checked})}/>Nascosto ai giocatori</label>
+        <button className="btn">+ Aggiungi</button>
+      </form>
+      <div className="row">
+        ${monstersNoInit.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.rollMonsters(monstersNoInit))}>Tira iniziativa avversari (${monstersNoInit.length})</button>`}
+        <span className="spacer"></span>
+        ${fighters.length>0 && html`<button type="button" className="btn small danger" onClick=${()=>run(act.end)}>Svuota</button>`}
+        <button type="button" className="btn primary" disabled=${fighters.length===0} onClick=${()=>run(act.start)}>Inizia lo scontro</button>
+      </div>
+    </div>`}
+
+    ${M && combat.active && html`<div className="row">
+      <button type="button" className="btn" onClick=${()=>run(()=>act.step(-1))}>← Indietro</button>
+      <button type="button" className="btn primary" onClick=${()=>run(()=>act.step(1))}>Turno successivo →</button>
+      <span className="spacer"></span>
+      ${!confirmEnd ? html`<button type="button" className="btn danger" onClick=${()=>setConfirmEnd(true)}>Termina scontro</button>`
+        : html`<span className="confirm">Terminare lo scontro?<button type="button" className="btn small danger" onClick=${()=>{setConfirmEnd(false); run(act.end);}}>Termina</button><button type="button" className="btn small" onClick=${()=>setConfirmEnd(false)}>Annulla</button></span>`}
+    </div>`}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </section>`;
+}
+
+function PartyStatus({chars, names, adjustHp}){
+  const pcs = [...chars].sort((a,b)=>(!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
+  const [amt, setAmt] = useState({}); const [err, setErr] = useState("");
+  const go = async (c, kind) => { const n = parseInt(amt[c.id],10); if (isNaN(n)||n<=0) return; setErr("");
+    const m = await adjustHp(c.id, kind, n); if (m) setErr(m); else setAmt(x=>({...x,[c.id]:""})); };
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Il gruppo</h3><span className="muted" style=${{fontSize:".82rem"}}>Danni e cure vanno subito sulla scheda</span></div>
+    ${pcs.length===0 && html`<p className="muted" style=${{margin:0}}>Nessuna scheda ancora.</p>`}
+    <div className="ps-list">${pcs.map(c=>{ const s=norm(c), D=derived(s); return html`<div key=${c.id} className="ps">
+      <div className="ps-top"><b>${s.name||"Senza nome"}</b><span className="muted">${c.owner ? (names[c.owner]||"") : "PNG"}</span><span className="spacer"></span>
+        <span className="mono">${s.hp.cur}/${D.effMax}${s.hp.temp?` +${s.hp.temp}`:""}</span></div>
+      <div className="hpbar"><i style=${{width:clamp(s.hp.cur/D.effMax*100,0,100)+"%"}}></i></div>
+      <div className="ps-bot">
+        <span className="muted">CA <b className="mono">${s.ac}</b> · Perc. <b className="mono">${D.passPerc}</b>${D.dc!=null?html` · CD <b className="mono">${D.dc}</b>`:null}</span>
+        <span className="spacer"></span>
+        <input className="num ps-amt" id=${"ps-"+c.id} inputMode="numeric" placeholder="n" aria-label=${"Quantità per "+(s.name||"personaggio")} value=${amt[c.id]||""} onChange=${e=>setAmt(x=>({...x,[c.id]:e.target.value}))}/>
+        <button type="button" className="btn small danger" onClick=${()=>go(c,"dmg")}>Danno</button>
+        <button type="button" className="btn small" onClick=${()=>go(c,"heal")}>Cura</button>
+      </div>
+      ${(s.cond.length>0||s.insp||s.exh>0) && html`<div className="chips">${s.insp && html`<span className="chip gold">★ Ispirazione</span>`}${s.exh>0 && html`<span className="chip bad">Esaurimento ${s.exh}</span>`}${s.cond.map(x=>html`<span key=${x} className="chip bad">${x}</span>`)}</div>`}
+    </div>`;})}</div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </section>`;
+}
+
+function DiscordPanel({sb}){
+  const [st, setSt] = useState(null); const [url, setUrl] = useState(""); const [turns, setTurns] = useState(true);
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const load = useCallback(async()=>{ const {data} = await sb.rpc("discord_status"); if (data){ setSt(data); setTurns(!!data.turns); } },[sb]);
+  useEffect(()=>{ load(); },[load]);
+  const save = async (u) => { setBusy(true); setMsg("");
+    const {data, error} = await sb.rpc("set_discord", {p_url:u, p_turns:turns});
+    setBusy(false);
+    if (error) setMsg("Errore: "+error.message);
+    else if (!data) setMsg("Questo non sembra l’indirizzo di un webhook Discord: deve iniziare con https://discord.com/api/webhooks/");
+    else { setMsg(u ? "Collegato: nel canale dovrebbe essere comparso un messaggio di prova." : "Discord scollegato."); setUrl(""); load(); } };
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Discord</h3><span className="state"><span className=${"dot "+(st?.connected?"ok":"")}></span>${st?.connected?"Collegato":"Non collegato"}</span></div>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Nel canale: Modifica canale → Integrazioni → Webhook → Nuovo webhook → Copia URL del webhook. Arrivano i tiri visibili (non quelli dietro lo schermo) e, se vuoi, i cambi di turno.</p>
+    <div className="dice-form">
+      <input id="dc-url" className="field" type="password" autoComplete="off" placeholder=${st?.connected?"Incolla un nuovo URL per cambiarlo":"https://discord.com/api/webhooks/…"} value=${url} onChange=${e=>setUrl(e.target.value)}/>
+      <button type="button" className="btn primary" disabled=${busy||!url.trim()} onClick=${()=>save(url.trim())}>Collega</button>
+    </div>
+    <div className="row">
+      <label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="dc-turns" type="checkbox" checked=${turns} onChange=${e=>setTurns(e.target.checked)}/>Annuncia i turni di combattimento</label>
+      <span className="spacer"></span>
+      ${st?.connected && html`<button type="button" className="btn small" disabled=${busy} onClick=${async()=>{ setBusy(true); const {error} = await sb.rpc("set_discord_turns", {p_turns:turns}); setBusy(false); setMsg(error?"Errore: "+error.message:"Preferenza salvata."); load(); }}>Salva preferenza</button>`}
+      ${st?.connected && html`<button type="button" className="btn small danger" disabled=${busy} onClick=${()=>save("")}>Scollega</button>`}
+    </div>
+    ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
+  </section>`;
+}
+
+function TableView({sb, me, chars, names, camp, onFree, act, adjustHp}){
+  const {combat, fighters, secrets, rolls} = camp;
+  if (me.isMaster) return html`<div>
+    <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
+    <div className="table3">
+      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/></div>
+      <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${DiceTray} onFree=${onFree} master=${true}/><${DiscordPanel} sb=${sb}/></div>
+      <div className="col"><${Feed} rolls=${rolls}/></div>
+    </div></div>`;
+  return html`<div>
+    <div className="party-head"><div><div className="eyebrow">Al tavolo</div><h2>Tavolo</h2></div></div>
+    <div className="table2">
+      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/><${DiceTray} onFree=${onFree} master=${false}/></div>
+      <div className="col"><${Feed} rolls=${rolls}/></div>
+    </div></div>`;
+}
+
+/* ---------- app ---------- */
+function Main({sb, me, onSignOut}){
+  const camp = useCampaign(sb, true);
+  const {chars, party, maps, members, ready, error, combat, fighters} = camp;
+  const urls = useSignedUrls(sb, maps);
+  const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
+  const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo"].includes(h)?h:lsGet("view","gruppo"); });
+  const [openId, setOpenId] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [msg, setMsg] = useState("");
+  const shown = useRef(new Set());
+  useEffect(()=>{ if(view!=="scheda") lsSet("view",view); },[view]);
+
+  const showToast = useCallback((r)=>{
+    if (shown.current.has(r.id)) return; shown.current.add(r.id);
+    setToasts(x=>[...x.slice(-2), r]);
+    setTimeout(()=>setToasts(x=>x.filter(y=>y.id!==r.id)), 9000);
+  },[]);
+  camp.onNewRoll.current = (row) => { if (row.user_id !== me.id && Date.now() - new Date(row.created_at).getTime() < 60000) showToast(row); };
+
+  const onRoll = useCallback(async (r)=>{
+    const call = r.type==="d20"
+      ? sb.rpc("roll_d20", {p_label:r.label, p_mod:r.mod||0, p_mode:r.mode||"norm", p_pen:r.pen||0, p_char:r.charId||null, p_hidden:!!r.hidden})
+      : sb.rpc("roll_formula", {p_label:r.label, p_formula:r.formula, p_char:r.charId||null, p_hidden:!!r.hidden});
+    const {data, error:e} = await call;
+    if (e || !data){ setMsg("Tiro non riuscito: "+(e?.message||"nessuna risposta")); return null; }
+    camp.addRoll(data); showToast(data); return data.total;
+  },[sb, showToast]);
+  const onFree = (x) => onRoll({type:"formula", label:x.label, formula:x.formula, hidden:x.hidden});
+
+  const create = async (npc) => { setMsg("");
+    const data = {...blankSheet(), name: npc ? "Nuovo PNG" : ""};
+    const {data:row, error:e} = await sb.from("characters").insert({owner: npc ? null : me.id, data}).select("id,owner,data").single();
+    if (e){ setMsg("Non sono riuscito a creare la scheda: "+e.message); return; }
+    camp.setChars(x=> x.some(c=>c.id===row.id) ? x : [...x, rowToChar(row)]);
+    setOpenId(row.id); setView("scheda"); };
+
+  const saveSheet = useCallback(async (id, sheet) => {
+    const {id:_i, owner:_o, ...data} = sheet;
+    const {data:rows, error:e} = await sb.from("characters").update({data, updated_at:new Date().toISOString()}).eq("id", id).select("id");
+    if (e) return /fetch|network/i.test(e.message) ? "error" : "denied";
+    if (!rows || !rows.length) return "denied";
+    camp.setChars(x=>x.map(c=>c.id===id ? {...data, id, owner:c.owner} : c));
+    return "ok";
+  },[sb]);
+  const delSheet = async (id) => { const {error:e} = await sb.from("characters").delete().eq("id", id); if (e) return false;
+    camp.setChars(x=>x.filter(c=>c.id!==id)); return true; };
+
+  const adjustHp = async (id, kind, n) => {
+    const {data, error:e} = await sb.rpc("adjust_hp", {p_char:id, p_kind:kind, p_amount:n});
+    if (e) return "Non riuscito: "+e.message;
+    camp.setChars(x=>x.map(c=>c.id===id ? {...c, hp:data} : c)); return "";
+  };
+
+  /* combattimento */
+  const errText = (e) => e ? (e.message || "Operazione non riuscita") : "";
+  const hpTimers = useRef({});
+  const act = {
+    addPCs: async (list) => { const rows = list.map(c=>{ const D = derived(norm(c)); return {char_id:c.id, name:c.name||"PG", init_mod:D.init, dex:D.init}; });
+      const {error:e} = await sb.from("combatants").insert(rows); await camp.loadFighters(); return errText(e); },
+    addMonsters: async (f) => { const n = clamp(f.n,1,20);
+      const rows = Array.from({length:n},(_,i)=>({name: n>1 ? `${f.name.trim()} ${i+1}` : f.name.trim(), init_mod:f.mod, dex:f.mod, hidden:!!f.hidden}));
+      const {data, error:e} = await sb.from("combatants").insert(rows).select("id");
+      if (e) return errText(e);
+      const {error:e2} = await sb.from("combatant_secrets").insert(data.map(r=>({id:r.id, hp:f.hp, max_hp:f.hp, ac:f.ac})));
+      await camp.loadFighters(); return errText(e2); },
+    rollInit: async (f) => {
+      let mod = f.init_mod||0, pen = 0;
+      if (f.char_id){ const c = chars.find(x=>x.id===f.char_id); if (c){ const s=norm(c); mod = derived(s).init; pen = (s.exh||0)*2; } }
+      const {error:e} = await sb.rpc("roll_initiative", {p_combatant:f.id, p_mod:mod, p_mode:"norm", p_pen:pen});
+      await camp.loadFighters(); return errText(e); },
+    rollMonsters: async (list) => { for (const f of list){ const {error:e} = await sb.rpc("roll_initiative", {p_combatant:f.id, p_mod:f.init_mod||0}); if (e){ await camp.loadFighters(); return errText(e);} }
+      await camp.loadFighters(); return ""; },
+    setInit: async (f, v) => { await sb.from("combatants").update({init:v}).eq("id", f.id); camp.loadFighters(); },
+    remove: async (f) => { const {error:e} = await sb.from("combatants").delete().eq("id", f.id); await camp.loadFighters(); return errText(e); },
+    setMonsterHp: (f, hp) => { clearTimeout(hpTimers.current[f.id]);
+      hpTimers.current[f.id] = setTimeout(async ()=>{ const sec = camp.secrets[f.id] || {};
+        await sb.from("combatant_secrets").update({hp}).eq("id", f.id);
+        await sb.from("combatants").update({hp_state: hpState(hp, sec.max_hp)}).eq("id", f.id);
+        camp.loadFighters(); }, 450); },
+    toggleCond: async (f, x) => { const conds = (f.conds||[]).includes(x) ? f.conds.filter(y=>y!==x) : [...(f.conds||[]), x];
+      await sb.from("combatants").update({conds}).eq("id", f.id); camp.loadFighters(); },
+    start: async () => { const {error:e} = await sb.rpc("start_combat"); return errText(e); },
+    step: async (dir) => { const {error:e} = await sb.rpc("step_turn", {p_dir:dir}); return errText(e); },
+    end: async () => { const {error:e} = await sb.rpc("end_combat"); await camp.loadFighters(); return errText(e); },
+  };
+  const endMyTurn = async () => { const {error:e} = await sb.rpc("step_turn", {p_dir:1}); if (e) setMsg(errText(e)); };
+
+  /* avviso quando tocca a me */
+  const lastTurn = useRef(null);
+  useEffect(()=>{
+    if (!combat.active){ lastTurn.current = null; return; }
+    if (combat.turn_id === lastTurn.current) return;
+    lastTurn.current = combat.turn_id;
+    const f = fighters.find(x=>x.id===combat.turn_id); const c = f && f.char_id && chars.find(x=>x.id===f.char_id);
+    if (c && c.owner===me.id) chime();
+  },[combat.active, combat.turn_id, fighters, chars]);
+
+  const onMove = async (pos) => {
+    const trail = (party?.trail||[]).slice();
+    if (party && typeof party.x==="number") trail.push({plane:party.plane,x:party.x,y:party.y,label:party.label||"",at:party.at||0});
+    return writeParty({...pos, by:me.id, at:Date.now(), trail: trail.slice(-20)});
+  };
+  const writeParty = async (state) => {
+    const {data:rows, error:e} = await sb.from("party").update({state, updated_at:new Date().toISOString()}).eq("id",1).select("state");
+    if (e || !rows?.length) return "Spostamento non salvato: controlla la connessione e riprova.";
+    camp.setParty(rows[0].state); return "";
+  };
+  const onClearTrail = () => writeParty({...(party||{}), trail:[]});
+  const onUpload = async (plane, file) => {
+    if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+    const ext = (file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const path = `${plane}-${Date.now()}.${ext}`;
+    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false});
+    if (up.error) return "Caricamento non riuscito: "+up.error.message;
+    const prev = maps[plane];
+    const {error:e} = await sb.from("maps").upsert({plane, path, updated_at:new Date().toISOString()});
+    if (e) return "Mappa caricata ma non registrata: "+e.message;
+    if (prev && prev!==path) sb.storage.from("mappe").remove([prev]);
+    camp.reload(); return "";
+  };
+
+  const openChar = chars.find(c=>c.id===openId);
+  const mine = chars.find(c=>c.owner===me.id);
+  const goMine = () => { if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
+  const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa","Mappa"]];
+  const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
+
+  return html`<div>
+    <header className="bar"><div className="bar-in">
+      <div className="brand"><${Mark} size=${26}/><span>Taccuino di Hyrule</span></div>
+      <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${view===k && (k!=="scheda" || (mine && openId===mine.id))}
+        onClick=${()=> k==="scheda" ? goMine() : (setView(k), setOpenId(null))}>${l}${k==="tavolo" && combat.active ? html` <span className="live" aria-label="scontro in corso"></span>` : null}</button>`)}</nav>
+      <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
+        <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
+    </div>
+    <${TurnBanner} combat=${combat} fighters=${fighters} chars=${chars} me=${me} onEndTurn=${endMyTurn}
+      onRollInit=${async f=>{ const m = await act.rollInit(f); if (m) setMsg(m); }} goTable=${()=>{setView("tavolo"); setOpenId(null);}}/>
+    </header>
+    <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
+      ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error}
+          onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
+      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp}/>`}
+      ${view==="scheda" && (openChar
+          ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
+              onBack=${()=>{setView("gruppo"); setOpenId(null);}}
+              editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
+              ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"}/>`
+          : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload}/>`}
+    </main>
+    <${Toasts} toasts=${toasts}/>
+  </div>`;
+}
+
+function App(){
+  const configured = typeof SUPABASE_URL==="string" && /^https:\/\/.+/.test(SUPABASE_URL) && !SUPABASE_URL.includes("IL-TUO-PROGETTO") && !String(SUPABASE_KEY).startsWith("LA-TUA");
+  const sb = useMemo(()=> configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null, [configured]);
+  const [session, setSession] = useState(undefined);
+  const [me, setMe] = useState(null);
+  const [member, setMember] = useState(null);
+
+  useEffect(()=>{ if (!sb) return;
+    sb.auth.getSession().then(({data})=>setSession(data.session||null));
+    const {data:sub} = sb.auth.onAuthStateChange((_e, s)=>setSession(s||null));
+    return ()=>sub.subscription.unsubscribe();
+  },[sb]);
+
+  const userId = session?.user?.id;
+  const checkMember = useCallback(async ()=>{
+    if (!sb || !userId) { setMe(null); setMember(null); return; }
+    const [{data:isM}, {data:row}] = await Promise.all([ sb.rpc("is_master"), sb.from("members").select("user_id").eq("user_id", userId).maybeSingle() ]);
+    setMe({id:userId, email:session.user.email, isMaster: !!isM});
+    setMember(!!row);
+  },[sb, userId]);
+  useEffect(()=>{ checkMember(); },[checkMember]);
+
+  if (!configured) return html`<${Gate}><div className="gate-card"><h3>Manca la configurazione</h3>
+    <p className="muted" style=${{margin:0}}>Apri questo file con un editor di testo e incolla in alto l’indirizzo del progetto Supabase e la chiave anon (o publishable), al posto dei segnaposto.</p></div><//>`;
+  if (!sb) return html`<${Gate}><div className="gate-card"><p className="err">Non riesco a caricare la libreria di Supabase: controlla la connessione e ricarica.</p></div><//>`;
+  if (session===undefined || (session && member===null)) return html`<${Gate}><p className="muted" style=${{textAlign:"center"}}>Apertura del taccuino…</p><//>`;
+  if (!session) return html`<${Login} sb=${sb}/>`;
+  if (!member) return html`<${Join} sb=${sb} user=${session.user} onJoined=${checkMember}/>`;
+  return html`<${Main} sb=${sb} me=${me} onSignOut=${()=>sb.auth.signOut()}/>`;
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(html`<${App}/>`);
+
+</script>
+</body>
+</html>
