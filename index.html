@@ -14,6 +14,7 @@ body{margin:0}
 img{max-width:100%}
 [hidden]{display:none!important}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
 /* Layout: un taccuino da campo — barra di navigazione fissa, schede come fogli a griglia, mappa come tavola a tutta larghezza */
 :root{
   --bg:#ECEEE6; --surface:#F8F9F3; --sunk:#E2E6DC; --ink:#1E2923; --muted:#5B675F; --line:#C7CEC1;
@@ -229,6 +230,7 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
   .coins{grid-template-columns:repeat(3,minmax(0,1fr))}
   .brand span{font-size:1.1rem}
 }
+
 /* accesso */
 .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
 .gate-box{width:min(420px,100%);display:grid;gap:16px}
@@ -376,6 +378,35 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .ps{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--bg)}
 .ps-top,.ps-bot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
 .ps-amt{width:56px}
+.sp-name{position:relative;display:flex;align-items:center;gap:4px;min-width:0}
+.sp-name input{flex:1 1 auto;min-width:0}
+.sp-name input:disabled{pointer-events:none}
+.sp-info{flex:0 0 auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--accent);color:var(--accent);font:italic 700 .8rem/1 Georgia,serif;cursor:pointer;user-select:none}
+.sp-info:hover,.sp-info:focus-visible{background:var(--accent);color:var(--accent-ink)}
+.sp-sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgb(0 0 0/.2);max-height:320px;overflow:auto;min-width:240px}
+.sp-sug li{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer}
+.sp-sug li[aria-selected="true"]{background:var(--sunk)}
+.sp-lv{flex:0 0 auto;width:24px;height:24px;border-radius:6px;display:inline-grid;place-items:center;background:var(--sunk);border:1px solid var(--line);font-family:var(--f-mono);font-size:.78rem;font-weight:700}
+.sp-sn{display:grid;min-width:0;text-align:left}
+.sp-sn > *{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-sn .muted{font-size:.78rem}
+.sp-pop{position:fixed;z-index:70;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:0 14px 40px rgb(0 0 0/.3);max-height:min(60vh,520px);overflow:auto;display:grid;gap:8px;animation:pop .15s ease-out}
+.sp-body{display:grid;gap:10px}
+.sp-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;margin:0}
+.sp-meta div{min-width:0}
+.sp-meta dt{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.sp-meta dd{margin:0;font-size:.9rem}
+.sp-desc p{margin:0 0 .55em;line-height:1.5}
+.sp-desc p:last-child{margin-bottom:0}
+.sp-foot{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;font-size:.8rem;border-top:1px solid var(--line);padding-top:8px}
+.sp-modal{max-width:640px}
+.sp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+.sp-row{display:flex;gap:10px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 10px;cursor:pointer;color:inherit;font:inherit;min-width:0}
+.sp-row:hover{border-color:var(--accent)}
+.sp-row .sp-sn{flex:1 1 auto}
+.sp-filters select.field{width:auto;max-width:100%}
+.sp-cls{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.sp-legal{font-size:.75rem;margin:0}
 </style>
 </head>
 <body>
@@ -394,7 +425,7 @@ const SUPABASE_KEY = "sb_publishable_ez0FJo-VdoizwEjMAPs7uQ_HdHLOAj3";
 /* ====================================================== */
 </script>
 <script>
-const {useState,useEffect,useRef,useMemo,useCallback} = React;
+const {useState,useEffect,useRef,useMemo,useCallback,useContext} = React;
 const html = htm.bind(React.createElement);
 
 /* ---------- regole e dati ---------- */
@@ -581,6 +612,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
     add: () => upd(p=>{ p[key].push(make()); return p; }),
     set: (i,k,v) => upd(p=>{ p[key][i][k]=v; return p; }),
     del: (i) => upd(p=>{ p[key].splice(i,1); return p; }),
+    patch: (i,o) => upd(p=>{ Object.assign(p[key][i], o); return p; }),
   });
   const atk = listOps("attacks", ()=>({id:uid(),name:"",bonus:"+0",dmg:"1d6",notes:""}));
   const res = listOps("res", ()=>({id:uid(),name:"",max:1,used:0,reset:"lungo"}));
@@ -773,10 +805,11 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
       </section>
       <section className="panel">
         <div className="panel-h"><h3>Incantesimi</h3><button type="button" className="btn small" onClick=${spl.add}>+ Aggiungi</button></div>
-        ${s.spells.length===0 && html`<p className="muted" style=${{margin:0}}>Aggiungi trucchetti (livello 0) e incantesimi. La spunta indica se è preparato, la C la concentrazione.</p>`}
+        ${s.spells.length===0 && html`<p className="muted" style=${{margin:0}}>Aggiungi trucchetti (livello 0) e incantesimi: scrivi le prime lettere del nome e scegli dall’elenco, livello e concentrazione si compilano da soli. Passa sopra al nome (o tocca la “i”) per leggere cosa fa. La spunta indica se è preparato, la C la concentrazione.</p>`}
         <div className="list">${[...s.spells].map((x,i)=>({x,i})).sort((a,b)=>a.x.lvl-b.x.lvl).map(({x,i})=>html`<div className="li spell" key=${x.id}>
           <button type="button" className="pip" aria-pressed=${x.prep} aria-label="Preparato" onClick=${()=>spl.set(i,"prep",!x.prep)}></button>
-          <${Txt} id=${"sp-n-"+x.id} value=${x.name} placeholder="Incantesimo" label="Nome incantesimo" onChange=${v=>spl.set(i,"name",v)}/>
+          <${SpellName} x=${x} ro=${ro} onType=${v=>spl.patch(i,{name:v, ref:""})}
+            onPick=${sp=>spl.patch(i,{name:sp.name, ref:sp.key, lvl:sp.level, conc:!!sp.concentration, notes: x.notes || spellSummary(sp)})}/>
           <${Num} id=${"sp-l-"+x.id} value=${x.lvl} min=${0} max=${9} label="Livello" onChange=${v=>spl.set(i,"lvl",v)}/>
           <${Txt} id=${"sp-x-"+x.id} value=${x.notes} placeholder="Gittata, durata, danni…" label="Note" className="note" onChange=${v=>spl.set(i,"notes",v)}/>
           <button type="button" className="btn small" aria-pressed=${x.conc} style=${x.conc?{borderColor:"var(--gold)",color:"var(--gold)"}:null} title="Concentrazione" onClick=${()=>spl.set(i,"conc",!x.conc)}>C</button>
@@ -1203,6 +1236,8 @@ function useCampaign(sb, active){
   const [sounds, setSounds] = useState([]);
   const [audio, setAudio] = useState(null);
   const [recipes, setRecipes] = useState([]);
+  const [spellsCustom, setSpellsCustom] = useState([]);
+  const loadSpells = useCallback(async()=>{ const {data, error} = await sb.from("spells_custom").select("*"); if (!error) setSpellsCustom(data); },[sb]);
   const onNewRoll = useRef(null);
   const loadAudio = useCallback(async()=>{
     const [s, a, r] = await Promise.all([sb.from("sounds").select("*"), sb.from("audio_state").select("*").eq("id",1).maybeSingle(), sb.from("recipes").select("*")]);
@@ -1240,9 +1275,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1265,6 +1300,7 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"journal"}, ()=>loadChron())
       .on("postgres_changes",{event:"*",schema:"public",table:"sounds"}, ()=>loadAudio())
       .on("postgres_changes",{event:"*",schema:"public",table:"recipes"}, ()=>loadAudio())
+      .on("postgres_changes",{event:"*",schema:"public",table:"spells_custom"}, ()=>loadSpells())
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
@@ -1274,7 +1310,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells};
 }
 
 function useSignedUrls(sb, maps){
@@ -1395,16 +1431,16 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds")]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom")]);
       const backup = {app:"taccuino-hyrule", version:3, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `taccuino-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-      setMsg(`Backup scaricato: ${characters.length} schede, ${pins.length} segnaposti, ${codex.length} voci del codex, ${journal.length} sessioni del diario, ${handouts.length} handout.`);
+      setMsg(`Backup scaricato: ${characters.length} schede, ${pins.length} segnaposti, ${codex.length} voci del codex, ${journal.length} sessioni del diario, ${handouts.length} handout, ${spells_custom.length} incantesimi del gruppo.`);
     } catch(e){ setErr("Backup non riuscito: "+e.message); }
     setBusy(false); };
   const readFile = async (file) => { setErr(""); setMsg(""); setPending(null); if (!file) return;
@@ -1433,12 +1469,13 @@ function BackupPanel({sb, camp}){
     await up("journal", b.journal, "diario", r=>({...r, author:null}));
     await up("recipes", b.recipes, "ricettario");
     await up("sounds", b.sounds, "suoni");
+    await up("spells_custom", b.spells_custom, "incantesimi del gruppo", r=>({...r, created_by:null}));
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
   return html`<section className="panel">
     <div className="panel-h"><h3>Backup</h3></div>
-    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio, codex, diario, handout, ricettario ed elenco dei suoni. Fallo prima di ogni aggiornamento importante. Immagini e file audio restano su Supabase e non sono nel file.</p>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio, codex, diario, handout, ricettario, incantesimi aggiunti dal gruppo ed elenco dei suoni. Fallo prima di ogni aggiornamento importante. Immagini e file audio restano su Supabase e non sono nel file.</p>
     <div className="row">
       <button type="button" className="btn primary" disabled=${busy} onClick=${download}>Scarica backup</button>
       <button type="button" className="btn" disabled=${busy} onClick=${()=>fileIn.current?.click()}>Ripristina da file…</button>
@@ -1685,15 +1722,218 @@ function JournalTab({sb, me, journal, names, world, reload}){
   </div>`;
 }
 
+/* ---------- compendio incantesimi ---------- */
+const SPELL_SCHOOLS = ["Abiurazione","Ammaliamento","Divinazione","Evocazione","Illusione","Invocazione","Necromanzia","Trasmutazione"];
+const SPELL_CLASSES = ["Bardo","Chierico","Druido","Mago","Paladino","Ranger","Stregone","Warlock"];
+const SRD_NOTE = "Questo lavoro include materiale tratto dal System Reference Document 5.2 (“SRD 5.2”) di Wizards of the Coast LLC, disponibile su https://www.dndbeyond.com/srd. L’SRD 5.2 è concesso in licenza Creative Commons Attribuzione 4.0 Internazionale (https://creativecommons.org/licenses/by/4.0/legalcode). Testi tradotti in italiano e adattati (unità in metri) per il Taccuino.";
+const SpellsCtx = React.createContext(null);
+let SRD_CACHE = null, SRD_PROMISE = null;
+function loadSrd(){
+  if (!SRD_PROMISE) SRD_PROMISE = fetch("spells.json").then(r=>{ if (!r.ok) throw new Error("errore "+r.status); return r.json(); })
+    .then(j=>(SRD_CACHE = Array.isArray(j) ? j : j.spells)).catch(e=>{ SRD_PROMISE = null; throw e; });
+  return SRD_PROMISE;
+}
+const fold = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[’`]/g,"'").toLowerCase().replace(/\s+/g," ").trim();
+const spellLevelLabel = (s) => s.level===0 ? `Trucchetto${s.school?" di "+s.school:""}` : `${s.school||"Incantesimo"} di ${s.level}° livello`;
+const spellSummary = (s) => [String(s.casting||"").split(",")[0], s.range, String(s.duration||"").replace(/^Concentrazione, f/,"F")].filter(Boolean).join(" · ");
+
+function useSpellBook(customRows){
+  const [srd, setSrd] = useState(SRD_CACHE); const [err, setErr] = useState("");
+  useEffect(()=>{ if (srd) return; let off = false;
+    loadSrd().then(x=>{ if (!off) setSrd(x); }).catch(e=>{ if (!off) setErr("Compendio non disponibile: "+e.message); });
+    return ()=>{ off = true; }; },[]);
+  return useMemo(()=>{
+    const base = (srd||[]).map(s=>({...s, key:s.idx, f:fold(s.name), fe:fold(s.name_en)}));
+    const custom = (customRows||[]).map(s=>({...s, key:"c:"+s.id, custom:true, f:fold(s.name), fe:""}));
+    const all = [...base, ...custom].sort((a,b)=>a.level-b.level || a.name.localeCompare(b.name,"it"));
+    const byKey = new Map(all.map(s=>[s.key,s])); const byName = new Map();
+    for (const s of [...base, ...custom]){ if (s.fe) byName.set(s.fe, s); byName.set(s.f, s); }
+    const find = (x) => (x && ((x.ref && byKey.get(x.ref)) || byName.get(fold(x.name)))) || null;
+    const search = (q, n=8) => { const t = fold(q); if (!t) return [];
+      const score = s => s.f.startsWith(t) ? 0 : s.f.includes(" "+t) ? 1 : s.fe.startsWith(t) ? 2 : s.f.includes(t) ? 3 : s.fe.includes(t) ? 4 : 9;
+      return all.map(s=>[score(s),s]).filter(([k])=>k<9).sort((a,b)=>a[0]-b[0] || a[1].name.localeCompare(b[1].name,"it")).slice(0,n).map(x=>x[1]); };
+    return {all, find, search, byKey, ready: !!srd, err};
+  },[srd, customRows, err]);
+}
+
+function SpellBody({s, names}){
+  const comp = s.components + (s.material ? ` (${s.material})` : "");
+  const para = (t, i) => { const m = /^([A-ZÀ-Ý0-9][^.:]{1,38})([.:]) (.+)$/s.exec(t);
+    return i>0 && m && m[1].split(" ").length<=4 && m[1].length<=32 ? html`<p key=${i}><b>${m[1]}${m[2]}</b> ${m[3]}</p>` : html`<p key=${i}>${t}</p>`; };
+  return html`<div className="sp-body">
+    <div className="eyebrow">${spellLevelLabel(s)}${s.ritual?" (rituale)":""}</div>
+    <dl className="sp-meta">
+      <div><dt>Tempo di lancio</dt><dd>${s.casting||"—"}</dd></div>
+      <div><dt>Gittata</dt><dd>${s.range||"—"}</dd></div>
+      <div><dt>Componenti</dt><dd>${comp||"—"}</dd></div>
+      <div><dt>Durata</dt><dd>${s.duration||"—"}</dd></div>
+    </dl>
+    <div className="sp-desc">${String(s.description||"").split("\n").filter(Boolean).map(para)}</div>
+    ${s.higher && html`<div className="sp-desc">${s.level===0 ? String(s.higher).split("\n").map((t,k)=>para(t,k+1)) : html`<p><b>Usando uno slot di livello superiore.</b> ${s.higher}</p>`}</div>`}
+    <div className="sp-foot">${s.classes?.length ? html`<span>Classi: ${s.classes.join(", ")}</span>` : null}
+      <span className="muted">${s.custom ? "Aggiunto dal gruppo"+(names?.[s.created_by] ? " · "+names[s.created_by] : "") : "SRD 5.2 · CC BY 4.0"}</span></div>
+  </div>`;
+}
+
+function SpellModal({s, onClose, names, children}){
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  return ReactDOM.createPortal(html`<div className="modal-back" role="dialog" aria-modal="true" aria-label=${s.name} onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
+    <div className="modal sp-modal">
+      <div className="row" style=${{alignItems:"baseline"}}><h2 style=${{flex:"1 1 auto",margin:0}}>${s.name}</h2>
+        ${s.name_en && html`<span className="muted" style=${{fontSize:".85rem"}}>${s.name_en}</span>`}</div>
+      <${SpellBody} s=${s} names=${names}/>
+      <div className="row">${children}<span className="spacer"></span><button type="button" className="btn primary" onClick=${onClose} autoFocus>Chiudi</button></div>
+    </div></div>`, document.body);
+}
+
+const canHover = () => { try { return window.matchMedia("(hover: hover) and (pointer: fine)").matches; } catch(e){ return false; } };
+
+function SpellName({x, ro, onType, onPick}){
+  const book = useContext(SpellsCtx);
+  const [open, setOpen] = useState(false); const [hi, setHi] = useState(0);
+  const [pop, setPop] = useState(null); const [modal, setModal] = useState(false);
+  const wrap = useRef(null); const inp = useRef(null); const tm = useRef(0);
+  const match = book ? book.find(x) : null;
+  const rawSugg = !ro && open && book && x.name.trim().length>=2 ? book.search(x.name, 8) : [];
+  const sugg = (rawSugg.length===1 && match && rawSugg[0].key===match.key && fold(x.name)===rawSugg[0].f) ? [] : rawSugg;
+  const pick = (s) => { onPick(s); setOpen(false); };
+  const showPop = () => { clearTimeout(tm.current);
+    tm.current = setTimeout(()=>{ if (!wrap.current || document.activeElement===inp.current) return;
+      const r = wrap.current.getBoundingClientRect(); const w = Math.min(440, window.innerWidth-32);
+      const left = Math.max(16, Math.min(r.left, window.innerWidth - w - 16));
+      const below = window.innerHeight - r.bottom > 320 || r.top < window.innerHeight/2;
+      setPop(below ? {left, top:r.bottom+6, w} : {left, bottom:window.innerHeight - r.top + 6, w}); }, 350); };
+  const hidePop = () => { clearTimeout(tm.current); tm.current = setTimeout(()=>setPop(null), 180); };
+  useEffect(()=>()=>clearTimeout(tm.current),[]);
+  const onKey = (e) => {
+    if (!sugg.length) return;
+    if (e.key==="ArrowDown"){ e.preventDefault(); setHi(h=>(h+1)%sugg.length); }
+    else if (e.key==="ArrowUp"){ e.preventDefault(); setHi(h=>(h-1+sugg.length)%sugg.length); }
+    else if (e.key==="Enter"){ e.preventDefault(); pick(sugg[Math.min(hi, sugg.length-1)]); }
+    else if (e.key==="Escape"){ setOpen(false); } };
+  const lid = "sp-sug-"+x.id;
+  return html`<div className="sp-name" ref=${wrap} onMouseEnter=${()=>{ if (match && canHover()) showPop(); }} onMouseLeave=${hidePop}>
+    <input ref=${inp} id=${"sp-n-"+x.id} className="field" value=${x.name||""} placeholder="Incantesimo (scrivi per cercare)" aria-label="Nome incantesimo"
+      role="combobox" aria-expanded=${sugg.length>0} aria-controls=${lid} aria-autocomplete="list" autoComplete="off"
+      onFocus=${()=>{ setOpen(true); setPop(null); }} onBlur=${()=>setTimeout(()=>setOpen(false),120)} onKeyDown=${onKey}
+      onChange=${e=>{ onType(e.target.value); setOpen(true); setHi(0); }}/>
+    ${match && html`<span role="button" tabIndex="0" className="sp-info" title="Cosa fa" aria-label=${"Descrizione di "+match.name}
+      onClick=${()=>{ setPop(null); setModal(true); }} onKeyDown=${e=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); setModal(true); } }}>i</span>`}
+    ${sugg.length>0 && html`<ul className="sp-sug" id=${lid} role="listbox">${sugg.map((s,k)=>html`<li key=${s.key} role="option" aria-selected=${k===hi}
+      onMouseDown=${e=>{ e.preventDefault(); pick(s); }} onMouseEnter=${()=>setHi(k)}>
+      <span className="sp-lv">${s.level===0?"T":s.level}</span><span className="sp-sn"><b>${s.name}</b><span className="muted">${s.custom?"homebrew":s.name_en} · ${s.school}</span></span></li>`)}</ul>`}
+    ${pop && match && ReactDOM.createPortal(html`<div className="sp-pop" style=${{left:pop.left, top:pop.top, bottom:pop.bottom, width:pop.w}}
+      onMouseEnter=${()=>clearTimeout(tm.current)} onMouseLeave=${hidePop}>
+      <h3 style=${{margin:0}}>${match.name}</h3><${SpellBody} s=${match}/></div>`, document.body)}
+    ${modal && match && html`<${SpellModal} s=${match} onClose=${()=>setModal(false)}/>`}
+  </div>`;
+}
+
+const blankSpell = () => ({name:"", level:1, school:"", classes:[], casting:"Azione", range:"", components:"V, S", material:"", duration:"Istantanea", concentration:false, ritual:false, description:"", higher:""});
+
+function SpellForm({initial, onSave, onCancel, onDelete, busy}){
+  const [f, setF] = useState(initial); const [confirmDel, setConfirmDel] = useState(false);
+  const set = (k) => (e) => setF({...f, [k]: e.target.type==="checkbox" ? e.target.checked : e.target.value});
+  return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (f.name.trim()) onSave(f);}}>
+    <h3>${f.id ? "Modifica incantesimo" : "Nuovo incantesimo"}</h3>
+    <div className="pf-row">
+      <label className="lab grow">Nome<input id="spf-name" className="field" value=${f.name} onChange=${set("name")} autoFocus required/></label>
+      <label className="lab" style=${{flex:"0 0 130px"}}>Livello<select id="spf-lv" className="field" value=${f.level} onChange=${e=>setF({...f, level:Number(e.target.value)})}>
+        ${[0,1,2,3,4,5,6,7,8,9].map(l=>html`<option key=${l} value=${l}>${l===0?"Trucchetto":l+"°"}</option>`)}</select></label>
+      <label className="lab" style=${{flex:"0 0 170px"}}>Scuola<select id="spf-sc" className="field" value=${f.school} onChange=${set("school")}>
+        <option value="">—</option>${SPELL_SCHOOLS.map(s=>html`<option key=${s} value=${s}>${s}</option>`)}</select></label>
+    </div>
+    <div className="pf-row">
+      <label className="lab grow">Tempo di lancio<input id="spf-ct" className="field" value=${f.casting} onChange=${set("casting")} placeholder="Azione, Azione Bonus, 1 minuto…"/></label>
+      <label className="lab grow">Gittata<input id="spf-rg" className="field" value=${f.range} onChange=${set("range")} placeholder="18 m, Contatto, Personale…"/></label>
+      <label className="lab grow">Durata<input id="spf-du" className="field" value=${f.duration} onChange=${set("duration")} placeholder="Istantanea, 1 minuto…"/></label>
+    </div>
+    <div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 120px"}}>Componenti<input id="spf-co" className="field" value=${f.components} onChange=${set("components")} placeholder="V, S, M"/></label>
+      <label className="lab grow">Componente materiale<input id="spf-ma" className="field" value=${f.material||""} onChange=${set("material")} placeholder="facoltativa"/></label>
+    </div>
+    <div className="row" style=${{gap:14}}>
+      <label className="row" style=${{gap:6}}><input id="spf-conc" type="checkbox" checked=${f.concentration} onChange=${set("concentration")}/>Concentrazione</label>
+      <label className="row" style=${{gap:6}}><input id="spf-rit" type="checkbox" checked=${f.ritual} onChange=${set("ritual")}/>Rituale</label>
+    </div>
+    <fieldset className="sp-cls"><legend className="eyebrow">Classi</legend>${SPELL_CLASSES.map(c=>html`<label key=${c} className="row" style=${{gap:5}}>
+      <input type="checkbox" checked=${f.classes.includes(c)} onChange=${e=>setF({...f, classes: e.target.checked ? [...f.classes, c] : f.classes.filter(x=>x!==c)})}/>${c}</label>`)}</fieldset>
+    <label className="lab">Descrizione<textarea id="spf-desc" className="field" style=${{minHeight:180}} value=${f.description} onChange=${set("description")} placeholder="Cosa fa l’incantesimo. Ogni a capo diventa un paragrafo."></textarea></label>
+    <label className="lab">${f.level===0 ? "Potenziamento del trucchetto" : "Usando uno slot di livello superiore"}<textarea id="spf-hi" className="field" style=${{minHeight:60}} value=${f.higher||""} onChange=${set("higher")} placeholder="facoltativo"></textarea></label>
+    <div className="row">
+      ${onDelete && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+        : html`<span className="confirm">Eliminare l’incantesimo?<button type="button" className="btn small danger" onClick=${onDelete}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
+      <span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button>
+    </div>
+  </form>`;
+}
+
+function SpellsTab({sb, me, names, reload}){
+  const book = useContext(SpellsCtx); const M = me.isMaster;
+  const [q, setQ] = useState(""); const [lv, setLv] = useState(""); const [cls, setCls] = useState(""); const [sch, setSch] = useState("");
+  const [onlyCustom, setOnlyCustom] = useState(false); const [limit, setLimit] = useState(60);
+  const [openKey, setOpenKey] = useState(null); const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [confirmDel, setConfirmDel] = useState(false);
+  useEffect(()=>setLimit(60),[q, lv, cls, sch, onlyCustom]);
+  const t = fold(q);
+  const list = (book?.all||[]).filter(s=> (lv==="" || s.level===Number(lv)) && (!cls || (s.classes||[]).includes(cls)) && (!sch || s.school===sch)
+    && (!onlyCustom || s.custom) && (!t || s.f.includes(t) || s.fe.includes(t)));
+  const open = openKey && book?.byKey.get(openKey);
+  const canEdit = s => s.custom && (M || s.created_by===me.id);
+  const save = async (f) => { setBusy(true); setErr("");
+    const row = {name:f.name.trim(), level:f.level, school:f.school, classes:f.classes, casting:f.casting.trim(), range:f.range.trim(), components:f.components.trim(),
+      material:(f.material||"").trim()||null, duration:f.duration.trim(), concentration:!!f.concentration, ritual:!!f.ritual, description:f.description.trim(), higher:(f.higher||"").trim()||null,
+      updated_at:new Date().toISOString()};
+    const r = f.id ? await sb.from("spells_custom").update(row).eq("id", f.id).select("id") : await sb.from("spells_custom").insert({...row, created_by:me.id}).select("id");
+    setBusy(false);
+    if (r.error || !r.data?.length){ setErr("Non salvato"+(r.error ? ": "+r.error.message : ": puoi modificare solo gli incantesimi che hai aggiunto tu.")); return; }
+    setEditing(null); setOpenKey("c:"+r.data[0].id); reload(); };
+  const del = async (s) => { const {error} = await sb.from("spells_custom").delete().eq("id", s.id); if (error) setErr(error.message); setConfirmDel(false); setOpenKey(null); reload(); };
+  const toForm = (s) => ({...blankSpell(), ...Object.fromEntries(Object.keys(blankSpell()).map(k=>[k, s[k] ?? blankSpell()[k]])), ...(s.custom ? {id:s.id} : {name:s.name+" (variante)"})});
+
+  if (editing) return html`<div style=${{display:"grid",gap:12}}><${SpellForm} initial=${editing} busy=${busy} onSave=${save} onCancel=${()=>{ setEditing(null); setErr(""); }}
+    onDelete=${editing.id ? ()=>{ del(editing); setEditing(null); } : null}/>${err && html`<p className="err" role="alert">${err}</p>`}</div>`;
+  return html`<div style=${{display:"grid",gap:12}}>
+    <div className="row sp-filters">
+      <input id="spc-q" className="field" style=${{flex:"1 1 200px",maxWidth:280}} placeholder="Cerca (anche col nome inglese)…" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <select id="spc-lv" className="field" aria-label="Livello" value=${lv} onChange=${e=>setLv(e.target.value)}><option value="">Tutti i livelli</option>
+        ${[0,1,2,3,4,5,6,7,8,9].map(l=>html`<option key=${l} value=${l}>${l===0?"Trucchetti":l+"° livello"}</option>`)}</select>
+      <select id="spc-cls" className="field" aria-label="Classe" value=${cls} onChange=${e=>setCls(e.target.value)}><option value="">Tutte le classi</option>${SPELL_CLASSES.map(c=>html`<option key=${c}>${c}</option>`)}</select>
+      <select id="spc-sch" className="field" aria-label="Scuola" value=${sch} onChange=${e=>setSch(e.target.value)}><option value="">Tutte le scuole</option>${SPELL_SCHOOLS.map(c=>html`<option key=${c}>${c}</option>`)}</select>
+      <label className="row" style=${{gap:6,flexWrap:"nowrap"}}><input id="spc-own" type="checkbox" checked=${onlyCustom} onChange=${e=>setOnlyCustom(e.target.checked)}/>Solo del gruppo</label>
+      <span className="spacer"></span>
+      <button type="button" className="btn primary" onClick=${()=>{ setErr(""); setEditing(blankSpell()); }}>+ Nuovo incantesimo</button>
+    </div>
+    ${book?.err && html`<p className="err" role="alert">${book.err}</p>`}
+    ${book && !book.ready && !book.err && html`<p className="muted">Caricamento del compendio…</p>`}
+    <p className="muted" style=${{margin:0,fontSize:".85rem"}}>${list.length} incantesimi${list.length>limit?`, ne vedi ${limit}`:""}. Tocca un nome per leggerlo. Se manca qualcosa, aggiungilo: lo vedrà tutto il gruppo.</p>
+    <div className="sp-list">${list.slice(0,limit).map(s=>html`<button type="button" key=${s.key} className="sp-row" onClick=${()=>{ setOpenKey(s.key); setConfirmDel(false); setErr(""); }}>
+      <span className="sp-lv">${s.level===0?"T":s.level}</span>
+      <span className="sp-sn"><b>${s.name}</b><span className="muted">${s.school}${s.custom?" · homebrew":s.name_en?" · "+s.name_en:""}</span></span>
+      <span className="chips">${s.concentration && html`<span className="chip" title="Concentrazione">C</span>`}${s.ritual && html`<span className="chip" title="Rituale">R</span>`}</span>
+    </button>`)}</div>
+    ${list.length>limit && html`<button type="button" className="btn" onClick=${()=>setLimit(l=>l+120)}>Mostra altri</button>`}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+    <p className="muted sp-legal">${SRD_NOTE}</p>
+    ${open && html`<${SpellModal} s=${open} names=${names} onClose=${()=>{ setOpenKey(null); setConfirmDel(false); }}>
+      ${canEdit(open) && html`<button type="button" className="btn small" onClick=${()=>{ setOpenKey(null); setEditing(toForm(open)); }}>Modifica</button>`}
+      ${canEdit(open) && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+        : html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>del(open)}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
+      ${!open.custom && M && html`<button type="button" className="btn small" title="Crea una copia modificabile, ad esempio per una regola della casa" onClick=${()=>{ setOpenKey(null); setEditing(toForm(open)); }}>Copia come variante</button>`}
+    <//>`}
+  </div>`;
+}
+
 function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls}){
   const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
   useEffect(()=>lsSet("chronTab",tab),[tab]);
-  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["ricette","Ricettario"]];
+  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["ricette","Ricettario"],["incantesimi","Incantesimi"]];
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${tab===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${tab==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
     ${tab==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
+    ${tab==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
     ${tab==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${tab==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
   </div>`;
@@ -2122,6 +2362,7 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp}){
 /* ---------- app ---------- */
 function Main({sb, me, onSignOut}){
   const camp = useCampaign(sb, true);
+  const book = useSpellBook(camp.spellsCustom);
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
   const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
@@ -2265,7 +2506,7 @@ function Main({sb, me, onSignOut}){
   const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa","Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
-  return html`<div>
+  return html`<${SpellsCtx.Provider} value=${book}><div>
     <header className="bar"><div className="bar-in">
       <div className="brand"><${Mark} size=${26}/><span>Taccuino di Hyrule</span></div>
       <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${view===k && (k!=="scheda" || (mine && openId===mine.id))}
@@ -2294,7 +2535,7 @@ function Main({sb, me, onSignOut}){
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
     <${Toasts} toasts=${toasts}/>
-  </div>`;
+  </div><//>`;
 }
 
 function App(){
