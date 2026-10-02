@@ -354,6 +354,24 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .jr-read h2{font-size:1.6rem}
 @media (max-width:760px){.jr-layout{grid-template-columns:minmax(0,1fr)}}
 
+/* audio */
+.audioctl{position:relative}
+.audiobtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px;padding:0;color:var(--muted)}
+.audiobtn.on{color:var(--accent);border-color:var(--accent)}
+.audiopop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:min(280px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px;box-shadow:0 10px 30px rgb(0 0 0/.2)}
+.audiopop input[type=range]{width:100%}
+.snd-list{display:grid;gap:6px}
+.snd{display:grid;grid-template-columns:auto minmax(0,1fr) 110px auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.snd.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.snd-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.snd input[type=range]{width:100%}
+.fx{display:inline-flex;align-items:center;gap:2px}
+.snd-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--line);padding-top:10px}
+.snd-form .field{flex:1 1 130px;width:auto}
+.snd-form input[type=file]{flex:1 1 100%;font-size:.85rem}
+.cookbox{display:grid;gap:10px;border:1px solid var(--accent);border-radius:8px;padding:10px;background:var(--bg)}
+@media (max-width:520px){.snd{grid-template-columns:auto minmax(0,1fr) auto}.snd input[type=range]{grid-column:1/-1;order:5}}
+
 .ps-list{display:grid;gap:8px}
 .ps{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--bg)}
 .ps-top,.ps-bot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
@@ -406,7 +424,7 @@ function blankSheet(){
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
     spells:[], res:[], items:[], coins:{mr:0,ma:0,me:0,mo:0,mp:0},
-    hy:{emb:0, ten:0, meal:"", gear:{caldo:false, freddo:false}}, langs:"", profs:"", feats:"", story:"", notes:""};
+    hy:{emb:0, ten:0, meal:"", mealUntil:null, mealProtect:null, gear:{caldo:false, freddo:false}}, langs:"", profs:"", feats:"", story:"", notes:""};
 }
 function merge(base, src){
   if (Array.isArray(base)) return Array.isArray(src) ? JSON.parse(JSON.stringify(src)) : base;
@@ -520,7 +538,7 @@ function SaveState({status, ro}){
 }
 
 /* ---------- scheda personaggio ---------- */
-function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete}){
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world}){
   const [s, change, status] = useSheet(onSave, remote);
   const [tab, setTab] = useState(()=>lsGet("tab","comb"));
   const [mode, setMode] = useState("norm");
@@ -711,7 +729,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
             <label className="lab">PF max persi per la Tenebra<${Num} id="ten" value=${s.hy.ten} min=${0} onChange=${v=>set("hy.ten",v)}/>
               <span>Si recuperano con un riposo lungo al sole</span></label>
           </div>
-          <label className="lab">Pasto attivo (8 ore)<${Txt} id="meal" value=${s.hy.meal} placeholder="es. Spiedino piccante: resistenza al freddo" onChange=${v=>set("hy.meal",v)}/></label>
+          <label className="lab">Pasto attivo (8 ore)<${Txt} id="meal" value=${s.hy.meal} placeholder="es. Spiedino piccante: resistenza al freddo" onChange=${v=>set("hy.meal",v)}/>
+            ${s.hy.meal && s.hy.mealUntil && html`<span className=${mealActive(s.hy.mealUntil, world) ? "" : "err"}>${mealActive(s.hy.mealUntil, world) ? "Dura fino a "+fmtUntil(s.hy.mealUntil) : "Scaduto ("+fmtUntil(s.hy.mealUntil)+")"}
+              ${!mealActive(s.hy.mealUntil, world) && html` <button type="button" className="btn small" onClick=${()=>upd(p=>{ p.hy.meal=""; p.hy.mealUntil=null; p.hy.mealProtect=null; return p; })}>Togli</button>`}</span>`}</label>
           <div className="row" style=${{gap:14}}><span className="muted" style=${{fontSize:".85rem"}}>Abbigliamento adatto al clima:</span>
             <label className="row" style=${{gap:6}}><input id="gear-caldo" type="checkbox" checked=${!!s.hy.gear?.caldo} onChange=${e=>set("hy.gear.caldo",e.target.checked)}/>caldo</label>
             <label className="row" style=${{gap:6}}><input id="gear-freddo" type="checkbox" checked=${!!s.hy.gear?.freddo} onChange=${e=>set("hy.gear.freddo",e.target.checked)}/>freddo</label></div>
@@ -799,9 +819,10 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
 }
 
 /* ---------- vista gruppo ---------- */
-function PartyCard({c, ownerName, onOpen, mine, haz}){
+function PartyCard({c, ownerName, onOpen, mine, haz, world}){
   const s = norm(c); const D = derived(s);
-  const cold = haz && haz.kind && c.owner && !(s.hy.gear && s.hy.gear[haz.kind]);
+  const cold = haz && haz.kind && c.owner && !isProtected(s, haz.kind, world);
+  const meal = s.hy.meal && s.hy.mealUntil && mealActive(s.hy.mealUntil, world) ? s.hy.meal.split(":")[0] : null;
   const hpPct = clamp(s.hp.cur / D.effMax * 100, 0, 100);
   return html`<button type="button" className="card" onClick=${onOpen}>
     <div><div className="nm">${s.name || "Senza nome"}</div>
@@ -813,8 +834,9 @@ function PartyCard({c, ownerName, onOpen, mine, haz}){
       <div className="hpbar"><i style=${{width:hpPct+"%"}}></i></div>
     </div>
     <div className="stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. pass. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
-    ${(s.cond.length>0 || s.insp || s.exh>0 || s.hy.ten>0 || cold) && html`<div className="chips">
-      ${cold && html`<span className="chip bad">Non vestito per il ${haz.kind}</span>`}
+    ${(s.cond.length>0 || s.insp || s.exh>0 || s.hy.ten>0 || cold || meal) && html`<div className="chips">
+      ${cold && html`<span className="chip bad">Non protetto dal ${haz.kind}</span>`}
+      ${meal && html`<span className="chip gold">Pasto: ${meal}</span>`}
       ${s.insp && html`<span className="chip gold">★ Ispirazione</span>`}
       ${s.exh>0 && html`<span className="chip bad">Esaurimento ${s.exh}</span>`}
       ${s.hy.ten>0 && html`<span className="chip bad">Tenebra −${s.hy.ten}</span>`}
@@ -841,7 +863,7 @@ function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, r
       : chars.length===0 ? html`<div className="empty"><${Mark} size=${40}/><h3>Nessun personaggio ancora</h3>
           <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
           <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
-      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} haz=${haz} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
+      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
   </div>`;
 }
 
@@ -1178,7 +1200,14 @@ function useCampaign(sb, active){
   const [codex, setCodex] = useState([]);
   const [codexSecrets, setCodexSecrets] = useState({});
   const [journal, setJournal] = useState([]);
+  const [sounds, setSounds] = useState([]);
+  const [audio, setAudio] = useState(null);
+  const [recipes, setRecipes] = useState([]);
   const onNewRoll = useRef(null);
+  const loadAudio = useCallback(async()=>{
+    const [s, a, r] = await Promise.all([sb.from("sounds").select("*"), sb.from("audio_state").select("*").eq("id",1).maybeSingle(), sb.from("recipes").select("*")]);
+    if (!s.error) setSounds(s.data); if (!a.error && a.data) setAudio(a.data); if (!r.error) setRecipes(r.data);
+  },[sb]);
   const loadChron = useCallback(async()=>{
     const [h, c, cs, j] = await Promise.all([sb.from("handouts").select("*"), sb.from("codex").select("*"), sb.from("codex_secrets").select("*"), sb.from("journal").select("*")]);
     if (!h.error) setHandouts(h.data); if (!c.error) setCodex(c.data);
@@ -1211,9 +1240,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1234,6 +1263,9 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"codex"}, ()=>loadChron())
       .on("postgres_changes",{event:"*",schema:"public",table:"codex_secrets"}, ()=>loadChron())
       .on("postgres_changes",{event:"*",schema:"public",table:"journal"}, ()=>loadChron())
+      .on("postgres_changes",{event:"*",schema:"public",table:"sounds"}, ()=>loadAudio())
+      .on("postgres_changes",{event:"*",schema:"public",table:"recipes"}, ()=>loadAudio())
+      .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
@@ -1242,7 +1274,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio};
 }
 
 function useSignedUrls(sb, maps){
@@ -1296,13 +1328,14 @@ function climate(w){
   return {kind, notes};
 }
 const HAZ_LABEL = {caldo:"Caldo estremo", freddo:"Freddo estremo"};
-const unprotected = (chars, haz) => !haz.kind ? [] : chars.filter(c=>{ const s = norm(c); return !(s.hy.gear && s.hy.gear[haz.kind]); });
+const isProtected = (s, kind, w) => !!((s.hy.gear && s.hy.gear[kind]) || (s.hy.mealProtect === kind && mealActive(s.hy.mealUntil, w)));
+const unprotected = (chars, haz, w) => !haz.kind ? [] : chars.filter(c=>!isProtected(norm(c), haz.kind, w));
 
 function WorldStrip({world, chars, me}){
   if (!world) return null;
   const haz = climate(world);
   const mine = chars.filter(c=>c.owner===me.id);
-  const exposed = unprotected(mine, haz);
+  const exposed = unprotected(mine, haz, world);
   return html`<div className="worldbar"><div className="tb-in">
     <span><b>Giorno ${world.day}</b> · <span className="mono">${fmtTime(world.minutes)}</span> ${dayPart(world.minutes)}</span>
     <span className="muted">·</span><span>${world.region}</span><span className="muted">·</span><span>${world.weather}</span>
@@ -1326,7 +1359,7 @@ function WorldPanel({sb, world, setWorld, chars}){
   const announce = async () => { setErr(""); setMsg("");
     const text = `🕰️ Giorno ${world.day}, ${fmtTime(world.minutes)} (${dayPart(world.minutes).toLowerCase()}) · ${world.region} · ${world.weather}` + (haz.kind ? ` · ${HAZ_LABEL[haz.kind]}` : "");
     const {error} = await sb.rpc("announce_world", {p_text:text}); if (error) setErr(error.message); else setMsg("Annunciato su Discord (se è collegato)."); };
-  const exposed = unprotected(chars.filter(c=>c.owner), haz);
+  const exposed = unprotected(chars.filter(c=>c.owner), haz, world);
   return html`<section className="panel">
     <div className="panel-h"><h3>Tempo e clima</h3><span className="mono" style=${{fontSize:"1.1rem"}}>G${world.day} · ${fmtTime(world.minutes)}</span></div>
     <div className="row">
@@ -1362,11 +1395,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal")]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds")]);
       const backup = {app:"taccuino-hyrule", version:3, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `taccuino-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -1398,12 +1431,14 @@ function BackupPanel({sb, camp}){
     await up("codex", b.codex, "codex");
     await up("codex_secrets", b.codex_secrets, "note segrete del codex");
     await up("journal", b.journal, "diario", r=>({...r, author:null}));
+    await up("recipes", b.recipes, "ricettario");
+    await up("sounds", b.sounds, "suoni");
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
   return html`<section className="panel">
     <div className="panel-h"><h3>Backup</h3></div>
-    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio, codex, diario e handout. Fallo prima di ogni aggiornamento importante. Le immagini (mappe e handout) restano su Supabase e non sono nel file.</p>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio, codex, diario, handout, ricettario ed elenco dei suoni. Fallo prima di ogni aggiornamento importante. Immagini e file audio restano su Supabase e non sono nel file.</p>
     <div className="row">
       <button type="button" className="btn primary" disabled=${busy} onClick=${download}>Scarica backup</button>
       <button type="button" className="btn" disabled=${busy} onClick=${()=>fileIn.current?.click()}>Ripristina da file…</button>
@@ -1653,13 +1688,229 @@ function JournalTab({sb, me, journal, names, world, reload}){
 function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls}){
   const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
   useEffect(()=>lsSet("chronTab",tab),[tab]);
-  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"]];
+  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["ricette","Ricettario"]];
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${tab===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${tab==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
     ${tab==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
+    ${tab==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${tab==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
+  </div>`;
+}
+
+/* ---------- suoni della sessione ---------- */
+const SILENT_WAV = "data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+function fadeVol(el, from, to, ms, done){
+  const t0 = performance.now(); el.volume = Math.max(0, Math.min(1, from));
+  const step = (t) => { const k = Math.min(1, (t - t0) / ms); el.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+    if (k < 1) requestAnimationFrame(step); else if (done) done(); };
+  requestAnimationFrame(step);
+}
+function SpeakerIcon({on}){
+  return html`<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>
+    ${on ? html`<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
+         : html`<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`}</svg>`;
+}
+
+function AudioControl({sb, me, sounds, audio, world}){
+  const [enabled, setEnabled] = useState(false);
+  const [vol, setVol] = useState(()=>lsGet("vol", 0.7));
+  const [muted, setMuted] = useState(()=>lsGet("muted", false));
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState("");
+  const cur = useRef({el:null, id:null}); const token = useRef(0); const cache = useRef({}); const lastFx = useRef(null);
+  useEffect(()=>lsSet("vol",vol),[vol]); useEffect(()=>lsSet("muted",muted),[muted]);
+  const box = useRef(null);
+  useEffect(()=>{ if (!open) return; const h = e => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("pointerdown", h); return ()=>document.removeEventListener("pointerdown", h); },[open]);
+  const getUrl = useCallback(async (s) => {
+    const c = cache.current[s.id]; if (c && c.path===s.path && c.exp > Date.now()) return c.url;
+    const {data} = await sb.storage.from("suoni").createSignedUrl(s.path, 60*60*12);
+    if (!data?.signedUrl) return null; cache.current[s.id] = {url:data.signedUrl, path:s.path, exp:Date.now()+11*3600*1000}; return data.signedUrl;
+  },[sb]);
+  const playsHere = !!audio && (audio.mode==="online" || me.isMaster);
+  const active = enabled && !muted && playsHere;
+  const amb = audio && sounds.find(s=>s.id===audio.ambient_id && s.kind==="ambiente");
+
+  /* sottofondo con dissolvenza */
+  useEffect(()=>{ const my = ++token.current;
+    (async()=>{
+      const target = active && amb ? amb : null;
+      if ((cur.current.id||null) === (target?.id||null)) return;
+      const old = cur.current.el; cur.current = {el:null, id:target?.id||null};
+      if (old) fadeVol(old, old.volume, 0, 1200, ()=>{ old.pause(); old.src = ""; });
+      if (!target) return;
+      const url = await getUrl(target); if (!url || my !== token.current) return;
+      const el = new Audio(url); el.loop = true; el.volume = 0;
+      try { await el.play(); } catch(e){ setErr("Il browser ha bloccato l’audio: tocca “Attiva l’audio”."); setEnabled(false); return; }
+      if (my !== token.current){ el.pause(); return; }
+      cur.current = {el, id:target.id}; setErr("");
+      fadeVol(el, 0, vol * (target.volume ?? 1), 1500);
+    })();
+  },[active, amb?.id, amb?.path]);
+  useEffect(()=>{ if (cur.current.el && amb) cur.current.el.volume = Math.min(1, vol * (amb.volume ?? 1)); },[vol, amb?.volume]);
+  useEffect(()=>()=>{ if (cur.current.el) cur.current.el.pause(); },[]);
+
+  /* effetti singoli */
+  useEffect(()=>{
+    if (!audio?.effect_id || !audio.effect_at) return;
+    const key = audio.effect_id + "@" + audio.effect_at; if (lastFx.current === key) return; lastFx.current = key;
+    if (!active || Date.now() - Date.parse(audio.effect_at) > 15000) return;
+    const s = sounds.find(x=>x.id===audio.effect_id); if (!s) return;
+    getUrl(s).then(u=>{ if (!u) return; const el = new Audio(u); el.volume = Math.min(1, vol * (s.volume ?? 1)); el.play().catch(()=>{}); });
+  },[audio?.effect_at, active]);
+
+  /* il PC del master cambia musica quando cambia la regione */
+  useEffect(()=>{
+    if (!me.isMaster || !audio?.auto_region || !world) return;
+    const s = sounds.find(x=>x.kind==="ambiente" && x.region===world.region);
+    if (s && s.id !== audio.ambient_id) sb.from("audio_state").update({ambient_id:s.id, ambient_started:new Date().toISOString(), updated_at:new Date().toISOString()}).eq("id",1);
+  },[world?.region, audio?.auto_region, sounds.length]);
+
+  const unlock = () => { try { const a = new Audio(SILENT_WAV); a.play().catch(()=>{}); } catch(e){} setEnabled(true); setMuted(false); setErr(""); };
+  if (!audio) return null;
+  const status = !playsHere ? "Al tavolo: la musica suona sul PC del master" : !enabled ? "Audio spento su questo dispositivo" : muted ? "Silenziato" : amb ? "In riproduzione: "+amb.name : "Nessun sottofondo";
+  return html`<div className="audioctl" ref=${box}>
+    <button type="button" className=${"btn small audiobtn"+(active&&amb?" on":"")} aria-expanded=${open} aria-label="Audio" title=${status}
+      onClick=${()=>{ if (!enabled && playsHere) unlock(); setOpen(!open); }}><${SpeakerIcon} on=${active}/></button>
+    ${open && html`<div className="audiopop" role="dialog" aria-label="Audio">
+      <div className="eyebrow">Audio della sessione</div>
+      <p style=${{margin:0}}>${status}</p>
+      ${playsHere && !enabled && html`<button type="button" className="btn primary" onClick=${unlock}>Attiva l’audio</button>`}
+      ${playsHere && enabled && html`<label className="lab">Volume su questo dispositivo
+        <input id="vol" type="range" min="0" max="1" step="0.05" value=${vol} onInput=${e=>setVol(Number(e.target.value))}/></label>
+        <label className="row" style=${{gap:6}}><input id="mute" type="checkbox" checked=${muted} onChange=${e=>setMuted(e.target.checked)}/>Silenzia</label>`}
+      ${err && html`<p className="err">${err}</p>`}
+      <button type="button" className="btn small" onClick=${()=>setOpen(false)}>Chiudi</button>
+    </div>`}
+  </div>`;
+}
+
+function SoundsPanel({sb, sounds, audio, reload}){
+  const [file, setFile] = useState(null); const [name, setName] = useState(""); const [kind, setKind] = useState("ambiente"); const [region, setRegion] = useState("");
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [del, setDel] = useState(null); const fileIn = useRef(null);
+  if (!audio) return html`<section className="panel"><h3>Suoni</h3><p className="muted" style=${{margin:0}}>Esegui fase4.sql per attivare i suoni.</p></section>`;
+  const setState = async (patch) => { setErr(""); const {error} = await sb.from("audio_state").update({...patch, updated_at:new Date().toISOString()}).eq("id",1); if (error) setErr(error.message); reload(); };
+  const upload = async (e) => { e.preventDefault(); if (!file) return; setBusy(true); setErr("");
+    try {
+      if (file.size > 45*1024*1024) throw new Error("file troppo grande (massimo 45 MB)");
+      const ext = (file.name.split(".").pop()||"mp3").toLowerCase().replace(/[^a-z0-9]/g,"");
+      const path = `${kind}-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("suoni").upload(path, file, {contentType: file.type || "audio/mpeg"});
+      if (up.error) throw new Error(up.error.message);
+      const {error} = await sb.from("sounds").insert({name:(name.trim()||file.name.replace(/\.[^.]+$/,"")), kind, region: kind==="ambiente" && region ? region : null, path});
+      if (error) throw new Error(error.message);
+      setFile(null); setName(""); if (fileIn.current) fileIn.current.value = ""; reload();
+    } catch(ex){ setErr("Caricamento non riuscito: "+ex.message); }
+    setBusy(false); };
+  const remove = async (s) => { const {error} = await sb.from("sounds").delete().eq("id", s.id); if (error){ setErr(error.message); return; }
+    sb.storage.from("suoni").remove([s.path]); setDel(null); reload(); };
+  const setVolume = async (s, v) => { await sb.from("sounds").update({volume:v}).eq("id", s.id); reload(); };
+  const ambients = sounds.filter(s=>s.kind==="ambiente").sort((a,b)=>(a.region||"").localeCompare(b.region||"") || a.name.localeCompare(b.name));
+  const effects = sounds.filter(s=>s.kind==="effetto").sort((a,b)=>a.name.localeCompare(b.name));
+  const cur = sounds.find(s=>s.id===audio.ambient_id);
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Suoni</h3>
+      <div className="modebar" role="group" aria-label="Dove suona l’audio">
+        <button type="button" aria-pressed=${audio.mode==="online"} onClick=${()=>setState({mode:"online"})}>Online</button>
+        <button type="button" aria-pressed=${audio.mode==="tavolo"} onClick=${()=>setState({mode:"tavolo"})}>Al tavolo</button></div></div>
+    <p className="muted" style=${{margin:0,fontSize:".85rem"}}>${audio.mode==="online" ? "Suona su ogni dispositivo che ha attivato l’audio (icona dell’altoparlante in alto)." : "Suona solo su questo PC: i telefoni dei giocatori restano in silenzio."}</p>
+    <div className="row"><span>${cur ? html`In sottofondo: <b>${cur.name}</b>` : html`<span className="muted">Nessun sottofondo</span>`}</span><span className="spacer"></span>
+      ${cur && html`<button type="button" className="btn small" onClick=${()=>setState({ambient_id:null})}>■ Ferma</button>`}</div>
+    <label className="row" style=${{gap:6,fontSize:".9rem",flexWrap:"nowrap",alignItems:"flex-start"}}><input id="auto-reg" type="checkbox" checked=${audio.auto_region} onChange=${e=>setState({auto_region:e.target.checked})}/>Cambia musica quando cambio regione in “Tempo e clima”</label>
+
+    ${ambients.length>0 && html`<div className="eyebrow">Sottofondi</div><div className="snd-list">${ambients.map(s=>html`<div key=${s.id} className=${"snd"+(s.id===audio.ambient_id?" on":"")}>
+      <button type="button" className="btn small" onClick=${()=>setState(s.id===audio.ambient_id ? {ambient_id:null} : {ambient_id:s.id, ambient_started:new Date().toISOString()})}>${s.id===audio.ambient_id?"■":"▶"}</button>
+      <span className="snd-name">${s.name}${s.region && html` <span className="muted">· ${s.region}</span>`}</span>
+      <input type="range" min="0" max="1" step="0.05" value=${s.volume} aria-label=${"Volume di "+s.name} onChange=${e=>setVolume(s, Number(e.target.value))}/>
+      ${del===s.id ? html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>remove(s)}>Sì</button><button type="button" className="btn small" onClick=${()=>setDel(null)}>No</button></span>`
+        : html`<button type="button" className="iconbtn" aria-label=${"Elimina "+s.name} onClick=${()=>setDel(s.id)}>×</button>`}
+    </div>`)}</div>`}
+    ${effects.length>0 && html`<div className="eyebrow">Effetti</div><div className="row">${effects.map(s=>html`<span key=${s.id} className="fx">
+      <button type="button" className="btn small" onClick=${()=>setState({effect_id:s.id, effect_at:new Date().toISOString()})}>▶ ${s.name}</button>
+      ${del===s.id ? html`<button type="button" className="btn small danger" onClick=${()=>remove(s)}>Elimina</button>` : html`<button type="button" className="xbtn" aria-label=${"Elimina "+s.name} onClick=${()=>setDel(s.id)}>×</button>`}</span>`)}</div>`}
+    ${sounds.length===0 && html`<p className="muted" style=${{margin:0}}>Nessun suono ancora. Carica musiche d’ambiente (in loop) ed effetti singoli: file MP3 o OGG di cui hai i diritti, per esempio da librerie con licenza libera.</p>`}
+
+    <form className="snd-form" onSubmit=${upload}>
+      <input ref=${fileIn} id="snd-file" type="file" accept="audio/*" aria-label="File audio" onChange=${e=>{ const f=e.target.files[0]||null; setFile(f); if (f && !name) setName(f.name.replace(/\.[^.]+$/,"")); }}/>
+      <input id="snd-name" className="field" placeholder="Nome" value=${name} onChange=${e=>setName(e.target.value)}/>
+      <select id="snd-kind" className="field" value=${kind} onChange=${e=>setKind(e.target.value)} aria-label="Tipo"><option value="ambiente">Sottofondo (loop)</option><option value="effetto">Effetto singolo</option></select>
+      ${kind==="ambiente" && html`<select id="snd-region" className="field" value=${region} onChange=${e=>setRegion(e.target.value)} aria-label="Regione"><option value="">Nessuna regione</option>${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select>`}
+      <button className="btn primary" disabled=${busy||!file}>${busy?"Caricamento…":"Carica"}</button>
+    </form>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </section>`;
+}
+
+/* ---------- ricettario ---------- */
+const mealActive = (until, w) => !!(until && w && (w.day < until.day || (w.day === until.day && w.minutes < until.minutes)));
+const fmtUntil = (u) => u ? `G${u.day} ${fmtTime(u.minutes)}` : "";
+
+function RecipesTab({sb, me, recipes, chars, world, reload}){
+  const M = me.isMaster;
+  const [editing, setEditing] = useState(null); const [cooking, setCooking] = useState(null);
+  const [err, setErr] = useState(""); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false); const [region, setRegion] = useState("");
+  const list = recipes.filter(r=>!region || r.region===region).sort((a,b)=>(b.revealed-a.revealed) || a.name.localeCompare(b.name));
+  const mine = chars.filter(c=>c.owner===me.id);
+  const save = async (f) => { setBusy(true); setErr("");
+    const row = {name:f.name.trim(), ingredients:f.ingredients, effect:f.effect, region:f.region||null, protects:f.protects||null, temp_hp:!!f.temp_hp, revealed:!!f.revealed};
+    const r = f.id ? await sb.from("recipes").update(row).eq("id", f.id) : await sb.from("recipes").insert(row);
+    setBusy(false); if (r.error){ setErr("Non salvata: "+r.error.message); return; } setEditing(null); reload(); };
+  const del = async (r) => { const {error} = await sb.from("recipes").delete().eq("id", r.id); if (error) setErr(error.message); setEditing(null); reload(); };
+  const cook = async () => { setBusy(true); setErr(""); setMsg("");
+    const {data, error} = await sb.rpc("cook_meal", {p_recipe:cooking.recipe.id, p_chars:cooking.targets, p_cook:cooking.cook||null});
+    setBusy(false); if (error){ setErr("Non riuscito: "+error.message); return; }
+    let until = null; if (world){ let m = world.minutes + 480, d = world.day; if (m >= 1440){ m -= 1440; d++; } until = {day:d, minutes:m}; }
+    setMsg(`${cooking.recipe.name} pronto per ${data} ${data===1?"personaggio":"personaggi"}${until?", fino a "+fmtUntil(until):""}.`); setCooking(null); };
+
+  if (editing) return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (editing.name.trim()) save(editing);}}>
+    <h3>${editing.id ? "Modifica ricetta" : "Nuova ricetta"}</h3>
+    <div className="pf-row">
+      <label className="lab grow">Nome<input id="rc-name" className="field" value=${editing.name} onChange=${e=>setEditing({...editing,name:e.target.value})} autoFocus/></label>
+      <label className="lab">Regione<select id="rc-region" className="field" value=${editing.region||""} onChange=${e=>setEditing({...editing,region:e.target.value})}><option value="">Qualsiasi</option>${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select></label>
+    </div>
+    <label className="lab">Ingredienti<input id="rc-ing" className="field" value=${editing.ingredients} placeholder="es. Peperoncini di fuoco, carne, sale" onChange=${e=>setEditing({...editing,ingredients:e.target.value})}/></label>
+    <label className="lab">Effetto (8 ore)<textarea id="rc-eff" className="field" style=${{minHeight:70}} value=${editing.effect} onChange=${e=>setEditing({...editing,effect:e.target.value})}></textarea></label>
+    <div className="row" style=${{gap:14}}>
+      <label className="lab" style=${{width:200}}>Protegge dal clima<select id="rc-prot" className="field" value=${editing.protects||""} onChange=${e=>setEditing({...editing,protects:e.target.value})}><option value="">No</option><option value="caldo">Caldo estremo</option><option value="freddo">Freddo estremo</option></select></label>
+      <label className="row" style=${{gap:6}}><input id="rc-thp" type="checkbox" checked=${!!editing.temp_hp} onChange=${e=>setEditing({...editing,temp_hp:e.target.checked})}/>Dà 1d4 × bonus di competenza PF temporanei</label>
+      <label className="row" style=${{gap:6}}><input id="rc-rev" type="checkbox" checked=${!!editing.revealed} onChange=${e=>setEditing({...editing,revealed:e.target.checked})}/>Nota al gruppo</label>
+    </div>
+    <div className="row">${editing.id && html`<button type="button" className="btn small danger" onClick=${()=>del(editing)}>Elimina</button>`}<span className="spacer"></span>
+      <button type="button" className="btn" onClick=${()=>setEditing(null)}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button></div>
+    ${err && html`<p className="err">${err}</p>`}
+  </form>`;
+
+  return html`<div style=${{display:"grid",gap:12}}>
+    <p className="muted" style=${{margin:0,maxWidth:"72ch"}}>Durante un riposo lungo, chi ha gli utensili da cuoco e un ingrediente della regione prepara un pasto per il gruppo. L’effetto dura 8 ore di gioco: compare sulla scheda di chi lo mangia e scade da solo con l’orologio.</p>
+    <div className="row">
+      <select id="rc-filter" className="field" style=${{maxWidth:220}} value=${region} onChange=${e=>setRegion(e.target.value)} aria-label="Filtra per regione"><option value="">Tutte le regioni</option>${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select>
+      <span className="spacer"></span>
+      ${M && html`<button type="button" className="btn primary" onClick=${()=>setEditing({name:"", ingredients:"", effect:"", region:"", protects:"", temp_hp:false, revealed:false})}>+ Nuova ricetta</button>`}
+    </div>
+    ${msg && html`<p className="notice" role="status">${msg}</p>`}
+    ${list.length===0 && html`<div className="empty"><p className="muted">${M ? "Nessuna ricetta." : "Il gruppo non conosce ancora nessuna ricetta: le scoprirete viaggiando."}</p></div>`}
+    <div className="cx-grid">${list.map(r=>html`<article key=${r.id} className=${"cx-card"+(r.revealed?"":" draft")}>
+      <div className="row" style=${{alignItems:"baseline"}}><h3 style=${{flex:"1 1 auto"}}>${r.name}</h3>${!r.revealed && html`<span className="chip">nascosta</span>`}</div>
+      <div className="chips">${r.region && html`<span className="chip">${r.region}</span>`}${r.protects && html`<span className="chip gold">Protegge dal ${r.protects}</span>`}${r.temp_hp && html`<span className="chip gold">PF temporanei</span>`}</div>
+      ${r.ingredients && html`<p style=${{margin:0}}><span className="muted">Ingredienti:</span> ${r.ingredients}</p>`}
+      <p style=${{margin:0}}>${r.effect}</p>
+      ${cooking?.recipe.id===r.id ? html`<div className="cookbox">
+          <label className="lab">Chi cucina<select className="field" value=${cooking.cook||""} onChange=${e=>setCooking({...cooking, cook:e.target.value})}>
+            <option value="">—</option>${(M ? chars : mine).map(c=>html`<option key=${c.id} value=${c.id}>${c.name||"Senza nome"}</option>`)}</select></label>
+          <div className="lab">Chi mangia<div className="row" style=${{gap:10}}>${chars.map(c=>html`<label key=${c.id} className="row" style=${{gap:5}}><input type="checkbox" checked=${cooking.targets.includes(c.id)}
+            onChange=${()=>setCooking(x=>({...x, targets: x.targets.includes(c.id) ? x.targets.filter(y=>y!==c.id) : [...x.targets, c.id]}))}/>${c.name||"Senza nome"}</label>`)}</div></div>
+          <div className="row"><span className="spacer"></span><button type="button" className="btn" onClick=${()=>setCooking(null)}>Annulla</button>
+            <button type="button" className="btn primary" disabled=${busy || cooking.targets.length===0} onClick=${cook}>Cucina</button></div>
+        </div>`
+      : html`<div className="row">
+          ${(r.revealed || M) && chars.length>0 && html`<button type="button" className="btn small primary" onClick=${()=>{ setMsg(""); setCooking({recipe:r, cook:(mine[0]?.id)||"", targets:chars.filter(c=>c.owner).map(c=>c.id)}); }}>Cucina</button>`}
+          ${M && html`<button type="button" className="btn small" onClick=${async()=>{ await sb.from("recipes").update({revealed:!r.revealed}).eq("id", r.id); reload(); }}>${r.revealed?"Nascondi":"Rivela"}</button>
+            <button type="button" className="btn small" onClick=${()=>setEditing({...r})}>Modifica</button>`}
+        </div>`}
+    </article>`)}</div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
   </div>`;
 }
 
@@ -1858,7 +2109,7 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp}){
     <div className="table3">
       <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/></div>
       <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
-      <div className="col"><${Feed} rolls=${rolls}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
+      <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
     </div></div>`;
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Al tavolo</div><h2>Tavolo</h2></div></div>
@@ -2019,6 +2270,7 @@ function Main({sb, me, onSignOut}){
       <div className="brand"><${Mark} size=${26}/><span>Taccuino di Hyrule</span></div>
       <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${view===k && (k!=="scheda" || (mine && openId===mine.id))}
         onClick=${()=> k==="scheda" ? goMine() : (setView(k), setOpenId(null))}>${l}${k==="tavolo" && combat.active ? html` <span className="live" aria-label="scontro in corso"></span>` : null}</button>`)}</nav>
+      <${AudioControl} sb=${sb} me=${me} sounds=${camp.sounds} audio=${camp.audio} world=${camp.world}/>
       <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
         <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
     </div>
@@ -2036,7 +2288,7 @@ function Main({sb, me, onSignOut}){
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
-              ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"}/>`
+              ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps}/>`}
     </main>
