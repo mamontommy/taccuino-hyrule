@@ -407,6 +407,15 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .sp-filters select.field{width:auto;max-width:100%}
 .sp-cls{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 14px}
 .sp-legal{font-size:.75rem;margin:0}
+.ytbox{position:fixed;bottom:16px;z-index:55;width:256px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgb(0 0 0/.3);overflow:hidden;display:grid}
+.ytbox.right{right:16px} .ytbox.left{left:16px}
+.ytbar{display:flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;font-size:.8rem;border-bottom:1px solid var(--line)}
+.ytname{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ytframe{width:256px;height:200px;background:#000}
+.ytframe iframe{display:block;width:100%;height:100%;border:0}
+.ytmsg{margin:0;padding:6px 10px;font-size:.8rem;color:var(--warn)}
+.ytag{font-size:.72rem;margin-left:4px;color:var(--heart)}
+@media (max-width:560px){.ytbox{bottom:10px;width:212px}.ytbox.right{right:10px}.ytbox.left{left:10px}.ytframe{width:212px;height:200px}}
 </style>
 </head>
 <body>
@@ -1953,6 +1962,89 @@ function SpeakerIcon({on}){
          : html`<path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`}</svg>`;
 }
 
+/* ---------- YouTube ---------- */
+function parseYtTime(s){ if (!s) return 0; if (/^\d+$/.test(s)) return Number(s);
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(s); return m ? (Number(m[1]||0)*3600 + Number(m[2]||0)*60 + Number(m[3]||0)) : 0; }
+function parseYtLink(input){
+  const u = String(input||"").trim(); if (!u) return null;
+  if (/^[\w-]{11}$/.test(u)) return {v:u};
+  let url; try { url = new URL(/^https?:\/\//i.test(u) ? u : "https://"+u); } catch(e){ return null; }
+  const host = url.hostname.replace(/^www\.|^m\.|^music\./,"");
+  if (!["youtube.com","youtu.be","youtube-nocookie.com"].includes(host)) return null;
+  let v = "";
+  if (host==="youtu.be") v = url.pathname.slice(1).split("/")[0];
+  else { const m = /^\/(?:shorts|embed|live|v)\/([\w-]{11})/.exec(url.pathname); v = m ? m[1] : (url.searchParams.get("v")||""); }
+  if (v && !/^[\w-]{11}$/.test(v)) v = "";
+  const list = (url.searchParams.get("list")||"").replace(/[^\w-]/g,"");
+  const t = parseYtTime(url.searchParams.get("t") || url.searchParams.get("start") || "");
+  if (!v && !list) return null;
+  const out = {}; if (v) out.v = v; if (list) out.list = list; if (t) out.t = t; return out;
+}
+const ytToString = (p) => new URLSearchParams(Object.entries(p).map(([k,v])=>[k,String(v)])).toString();
+const ytRead = (s) => { const q = new URLSearchParams(s||""); return {v:q.get("v")||"", list:q.get("list")||"", t:Number(q.get("t")||0)}; };
+const ytWatchUrl = (s) => { const p = ytRead(s); return p.v ? `https://www.youtube.com/watch?v=${p.v}${p.list?"&list="+p.list:""}` : `https://www.youtube.com/playlist?list=${p.list}`; };
+
+let YT_PROMISE = null;
+function loadYT(){
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+  if (!YT_PROMISE) YT_PROMISE = new Promise((res, rej) => {
+    const fail = (e) => { YT_PROMISE = null; rej(e); };
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prev) try { prev(); } catch(e){} res(window.YT); };
+    const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; s.async = true;
+    s.onerror = () => fail(new Error("rete")); document.head.appendChild(s);
+    setTimeout(()=>{ if (!(window.YT && window.YT.Player)) fail(new Error("tempo scaduto")); }, 20000);
+  });
+  return YT_PROMISE;
+}
+
+/* Riquadro di YouTube: deve restare visibile (regole di YouTube), almeno 200×200. */
+function YtPlayer({sound, level, startedAt, stopping, onStopped, onStatus}){
+  const host = useRef(null); const api = useRef(null); const lv = useRef(level);
+  const [msg, setMsg] = useState(""); const [side, setSide] = useState(()=>lsGet("ytSide","right"));
+  useEffect(()=>lsSet("ytSide", side),[side]);
+  useEffect(()=>{
+    let dead = false, p = null, started = false, timer = 0, fadeT = 0, cur = 0;
+    const prm = ytRead(sound.youtube);
+    const setV = (v) => { cur = Math.max(0, Math.min(1, v)); try { p && p.setVolume(Math.round(cur*100)); } catch(e){} };
+    const fade = (to, ms, done) => { clearInterval(fadeT); const from = cur, t0 = Date.now();
+      fadeT = setInterval(()=>{ const k = Math.min(1, (Date.now()-t0)/ms); setV(from + (to-from)*k); if (k>=1){ clearInterval(fadeT); if (done) done(); } }, 60); };
+    api.current = { fade, setV, playing: () => started };
+    loadYT().then(YT => {
+      if (dead || !host.current) return;
+      const div = document.createElement("div"); host.current.innerHTML = ""; host.current.appendChild(div);
+      const vars = {autoplay:1, playsinline:1, rel:0, modestbranding:1, start:prm.t||0};
+      if (prm.list){ vars.listType = "playlist"; vars.list = prm.list; }
+      p = new YT.Player(div, {width:"100%", height:"100%", videoId: prm.v || undefined, playerVars: vars, events:{
+        onReady: (e) => { if (dead) return; setV(0); try { e.target.playVideo(); } catch(x){}
+          timer = setTimeout(()=>{ if (!started && !dead){ setMsg("Tocca ▶ qui sopra per far partire l’audio su questo dispositivo."); onStatus && onStatus("attesa"); } }, 3500); },
+        onStateChange: (e) => {
+          if (e.data === 1){
+            if (!started){ started = true; setMsg(""); onStatus && onStatus("ok");
+              if (prm.list) try { p.setLoop(true); } catch(x){}
+              const el = startedAt ? (Date.now() - Date.parse(startedAt))/1000 : 0; const dur = p.getDuration ? p.getDuration() : 0;
+              if (!prm.list && el > 8 && dur > 30) p.seekTo(((prm.t||0) + el) % dur, true);
+              fade(lv.current, 1500); }
+          }
+          if (e.data === 0 && !prm.list){ p.seekTo(prm.t||0, true); p.playVideo(); }
+        },
+        onError: (e) => { const c = e.data;
+          setMsg(c===101||c===150 ? "Il proprietario di questo video non permette di riprodurlo fuori da YouTube: scegline un altro."
+            : c===100 ? "Video non trovato, privato o rimosso." : "YouTube non riesce a riprodurre questo link.");
+          onStatus && onStatus("errore"); } }});
+    }).catch(()=>{ if (!dead){ setMsg("Non riesco a caricare YouTube: controlla la connessione."); onStatus && onStatus("errore"); } });
+    return () => { dead = true; clearTimeout(timer); clearInterval(fadeT); try { p && p.destroy(); } catch(e){} api.current = null; };
+  },[sound.id, sound.youtube]);
+  useEffect(()=>{ lv.current = level; if (api.current && api.current.playing()) api.current.setV(level); },[level]);
+  useEffect(()=>{ if (!stopping) return; if (api.current && api.current.playing()) api.current.fade(0, 1200, onStopped); else onStopped(); },[stopping]);
+  return ReactDOM.createPortal(html`<div className=${"ytbox "+side} role="region" aria-label="Sottofondo da YouTube">
+    <div className="ytbar"><span className="ytname" title=${sound.name}>♪ ${sound.name}</span>
+      <button type="button" className="iconbtn" title="Sposta dall’altra parte" aria-label="Sposta il riquadro" onClick=${()=>setSide(side==="right"?"left":"right")}>⇄</button></div>
+    <div className="ytframe" ref=${host}></div>
+    ${msg && html`<p className="ytmsg">${msg}</p>`}
+  </div>`, document.body);
+}
+
 function AudioControl({sb, me, sounds, audio, world}){
   const [enabled, setEnabled] = useState(false);
   const [vol, setVol] = useState(()=>lsGet("vol", 0.7));
@@ -1960,6 +2052,7 @@ function AudioControl({sb, me, sounds, audio, world}){
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
   const cur = useRef({el:null, id:null}); const token = useRef(0); const cache = useRef({}); const lastFx = useRef(null);
+  const [yt, setYt] = useState(null); const [ytStatus, setYtStatus] = useState("");
   useEffect(()=>lsSet("vol",vol),[vol]); useEffect(()=>lsSet("muted",muted),[muted]);
   const box = useRef(null);
   useEffect(()=>{ if (!open) return; const h = e => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
@@ -1978,9 +2071,11 @@ function AudioControl({sb, me, sounds, audio, world}){
     (async()=>{
       const target = active && amb ? amb : null;
       if ((cur.current.id||null) === (target?.id||null)) return;
-      const old = cur.current.el; cur.current = {el:null, id:target?.id||null};
+      const prev = cur.current; const old = prev.el; cur.current = {el:null, id:target?.id||null};
       if (old) fadeVol(old, old.volume, 0, 1200, ()=>{ old.pause(); old.src = ""; });
+      if (prev.yt) setYt(y => y && y.sound.id===prev.id ? {...y, stopping:true} : y);
       if (!target) return;
+      if (target.youtube){ cur.current = {yt:true, id:target.id}; setYtStatus(""); setErr(""); setYt({sound:target}); return; }
       const url = await getUrl(target); if (!url || my !== token.current) return;
       const el = new Audio(url); el.loop = true; el.volume = 0;
       try { await el.play(); } catch(e){ setErr("Il browser ha bloccato l’audio: tocca “Attiva l’audio”."); setEnabled(false); return; }
@@ -1988,7 +2083,7 @@ function AudioControl({sb, me, sounds, audio, world}){
       cur.current = {el, id:target.id}; setErr("");
       fadeVol(el, 0, vol * (target.volume ?? 1), 1500);
     })();
-  },[active, amb?.id, amb?.path]);
+  },[active, amb?.id, amb?.path, amb?.youtube]);
   useEffect(()=>{ if (cur.current.el && amb) cur.current.el.volume = Math.min(1, vol * (amb.volume ?? 1)); },[vol, amb?.volume]);
   useEffect(()=>()=>{ if (cur.current.el) cur.current.el.pause(); },[]);
 
@@ -2010,7 +2105,9 @@ function AudioControl({sb, me, sounds, audio, world}){
 
   const unlock = () => { try { const a = new Audio(SILENT_WAV); a.play().catch(()=>{}); } catch(e){} setEnabled(true); setMuted(false); setErr(""); };
   if (!audio) return null;
-  const status = !playsHere ? "Al tavolo: la musica suona sul PC del master" : !enabled ? "Audio spento su questo dispositivo" : muted ? "Silenziato" : amb ? "In riproduzione: "+amb.name : "Nessun sottofondo";
+  const status = !playsHere ? "Al tavolo: la musica suona sul PC del master" : !enabled ? "Audio spento su questo dispositivo" : muted ? "Silenziato"
+    : amb ? (amb.youtube && ytStatus==="attesa" ? "Tocca ▶ nel riquadro di YouTube per sentire "+amb.name : amb.youtube && ytStatus==="errore" ? "YouTube non riesce a riprodurre "+amb.name : "In riproduzione: "+amb.name) : "Nessun sottofondo";
+  const ytSound = yt && amb && amb.id===yt.sound.id ? amb : yt?.sound;
   return html`<div className="audioctl" ref=${box}>
     <button type="button" className=${"btn small audiobtn"+(active&&amb?" on":"")} aria-expanded=${open} aria-label="Audio" title=${status}
       onClick=${()=>{ if (!enabled && playsHere) unlock(); setOpen(!open); }}><${SpeakerIcon} on=${active}/></button>
@@ -2024,12 +2121,16 @@ function AudioControl({sb, me, sounds, audio, world}){
       ${err && html`<p className="err">${err}</p>`}
       <button type="button" className="btn small" onClick=${()=>setOpen(false)}>Chiudi</button>
     </div>`}
+    ${yt && html`<${YtPlayer} key=${yt.sound.id+"|"+yt.sound.youtube} sound=${ytSound} level=${Math.min(1, vol*(ytSound.volume ?? 1))} startedAt=${audio.ambient_started}
+      stopping=${!!yt.stopping} onStopped=${()=>setYt(y=>y && y.stopping ? null : y)} onStatus=${setYtStatus}/>`}
   </div>`;
 }
 
 function SoundsPanel({sb, sounds, audio, reload}){
   const [file, setFile] = useState(null); const [name, setName] = useState(""); const [kind, setKind] = useState("ambiente"); const [region, setRegion] = useState("");
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [del, setDel] = useState(null); const fileIn = useRef(null);
+  const [src, setSrc] = useState(()=>lsGet("sndSrc","file")); const [ytUrl, setYtUrl] = useState("");
+  useEffect(()=>lsSet("sndSrc",src),[src]);
   if (!audio) return html`<section className="panel"><h3>Suoni</h3><p className="muted" style=${{margin:0}}>Esegui fase4.sql per attivare i suoni.</p></section>`;
   const setState = async (patch) => { setErr(""); const {error} = await sb.from("audio_state").update({...patch, updated_at:new Date().toISOString()}).eq("id",1); if (error) setErr(error.message); reload(); };
   const upload = async (e) => { e.preventDefault(); if (!file) return; setBusy(true); setErr("");
@@ -2044,8 +2145,15 @@ function SoundsPanel({sb, sounds, audio, reload}){
       setFile(null); setName(""); if (fileIn.current) fileIn.current.value = ""; reload();
     } catch(ex){ setErr("Caricamento non riuscito: "+ex.message); }
     setBusy(false); };
+  const addYt = async (e) => { e.preventDefault(); setErr(""); const prm = parseYtLink(ytUrl);
+    if (!prm){ setErr("Link non riconosciuto: incolla l’indirizzo di un video o di una playlist di YouTube."); return; }
+    setBusy(true);
+    const {error} = await sb.from("sounds").insert({name:(name.trim()||"Sottofondo YouTube"), kind:"ambiente", region: region || null, path:null, youtube:ytToString(prm)});
+    setBusy(false);
+    if (error){ setErr("Non aggiunto: "+error.message+(/youtube|path/.test(error.message)?" (hai eseguito fase6.sql?)":"")); return; }
+    setYtUrl(""); setName(""); reload(); };
   const remove = async (s) => { const {error} = await sb.from("sounds").delete().eq("id", s.id); if (error){ setErr(error.message); return; }
-    sb.storage.from("suoni").remove([s.path]); setDel(null); reload(); };
+    if (s.path) sb.storage.from("suoni").remove([s.path]); setDel(null); reload(); };
   const setVolume = async (s, v) => { await sb.from("sounds").update({volume:v}).eq("id", s.id); reload(); };
   const ambients = sounds.filter(s=>s.kind==="ambiente").sort((a,b)=>(a.region||"").localeCompare(b.region||"") || a.name.localeCompare(b.name));
   const effects = sounds.filter(s=>s.kind==="effetto").sort((a,b)=>a.name.localeCompare(b.name));
@@ -2062,7 +2170,7 @@ function SoundsPanel({sb, sounds, audio, reload}){
 
     ${ambients.length>0 && html`<div className="eyebrow">Sottofondi</div><div className="snd-list">${ambients.map(s=>html`<div key=${s.id} className=${"snd"+(s.id===audio.ambient_id?" on":"")}>
       <button type="button" className="btn small" onClick=${()=>setState(s.id===audio.ambient_id ? {ambient_id:null} : {ambient_id:s.id, ambient_started:new Date().toISOString()})}>${s.id===audio.ambient_id?"■":"▶"}</button>
-      <span className="snd-name">${s.name}${s.region && html` <span className="muted">· ${s.region}</span>`}</span>
+      <span className="snd-name">${s.name}${s.region && html` <span className="muted">· ${s.region}</span>`}${s.youtube && html` <a className="ytag" href=${ytWatchUrl(s.youtube)} target="_blank" rel="noopener noreferrer" title="Apri su YouTube">YouTube</a>`}</span>
       <input type="range" min="0" max="1" step="0.05" value=${s.volume} aria-label=${"Volume di "+s.name} onChange=${e=>setVolume(s, Number(e.target.value))}/>
       ${del===s.id ? html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>remove(s)}>Sì</button><button type="button" className="btn small" onClick=${()=>setDel(null)}>No</button></span>`
         : html`<button type="button" className="iconbtn" aria-label=${"Elimina "+s.name} onClick=${()=>setDel(s.id)}>×</button>`}
@@ -2070,15 +2178,24 @@ function SoundsPanel({sb, sounds, audio, reload}){
     ${effects.length>0 && html`<div className="eyebrow">Effetti</div><div className="row">${effects.map(s=>html`<span key=${s.id} className="fx">
       <button type="button" className="btn small" onClick=${()=>setState({effect_id:s.id, effect_at:new Date().toISOString()})}>▶ ${s.name}</button>
       ${del===s.id ? html`<button type="button" className="btn small danger" onClick=${()=>remove(s)}>Elimina</button>` : html`<button type="button" className="xbtn" aria-label=${"Elimina "+s.name} onClick=${()=>setDel(s.id)}>×</button>`}</span>`)}</div>`}
-    ${sounds.length===0 && html`<p className="muted" style=${{margin:0}}>Nessun suono ancora. Carica musiche d’ambiente (in loop) ed effetti singoli: file MP3 o OGG di cui hai i diritti, per esempio da librerie con licenza libera.</p>`}
+    ${sounds.length===0 && html`<p className="muted" style=${{margin:0}}>Nessun suono ancora. Carica musiche d’ambiente (in loop) ed effetti singoli: file MP3 o OGG di cui hai i diritti, per esempio da librerie con licenza libera. Per i sottofondi puoi anche usare un video o una playlist di YouTube.</p>`}
 
-    <form className="snd-form" onSubmit=${upload}>
+    <div className="modebar" role="group" aria-label="Da dove aggiungere" style=${{justifySelf:"start"}}>
+      <button type="button" aria-pressed=${src==="file"} onClick=${()=>setSrc("file")}>File audio</button>
+      <button type="button" aria-pressed=${src==="yt"} onClick=${()=>setSrc("yt")}>Da YouTube</button></div>
+    ${src==="yt" ? html`<form className="snd-form" onSubmit=${addYt}>
+      <input id="yt-url" className="field" style=${{flex:"2 1 240px"}} placeholder="Link del video o della playlist" value=${ytUrl} onChange=${e=>setYtUrl(e.target.value)} inputMode="url"/>
+      <input id="yt-name" className="field" placeholder="Nome" value=${name} onChange=${e=>setName(e.target.value)}/>
+      <select id="yt-region" className="field" value=${region} onChange=${e=>setRegion(e.target.value)} aria-label="Regione"><option value="">Nessuna regione</option>${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select>
+      <button className="btn primary" disabled=${busy||!ytUrl.trim()}>Aggiungi</button>
+      <p className="muted" style=${{margin:0,fontSize:".8rem",flexBasis:"100%"}}>Solo come sottofondo, in loop. Su ogni dispositivo compare un piccolo riquadro con il video (YouTube non permette di nasconderlo); chi non ha YouTube Premium può sentire pubblicità.</p>
+    </form>` : html`<form className="snd-form" onSubmit=${upload}>
       <input ref=${fileIn} id="snd-file" type="file" accept="audio/*" aria-label="File audio" onChange=${e=>{ const f=e.target.files[0]||null; setFile(f); if (f && !name) setName(f.name.replace(/\.[^.]+$/,"")); }}/>
       <input id="snd-name" className="field" placeholder="Nome" value=${name} onChange=${e=>setName(e.target.value)}/>
       <select id="snd-kind" className="field" value=${kind} onChange=${e=>setKind(e.target.value)} aria-label="Tipo"><option value="ambiente">Sottofondo (loop)</option><option value="effetto">Effetto singolo</option></select>
       ${kind==="ambiente" && html`<select id="snd-region" className="field" value=${region} onChange=${e=>setRegion(e.target.value)} aria-label="Regione"><option value="">Nessuna regione</option>${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select>`}
       <button className="btn primary" disabled=${busy||!file}>${busy?"Caricamento…":"Carica"}</button>
-    </form>
+    </form>`}
     ${err && html`<p className="err" role="alert">${err}</p>`}
   </section>`;
 }
