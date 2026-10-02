@@ -304,6 +304,27 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
   .ir-act{grid-column:1/-1;justify-content:flex-start}
   .nav button{padding:6px 10px}
 }
+/* striscia tempo e clima */
+.worldbar{border-top:1px solid var(--line);background:var(--surface);font-size:.9rem}
+.worldbar .tb-in{padding-block:6px;gap:8px}
+
+/* segnaposti e buio */
+.dark{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.pin{position:absolute;width:0;height:0;z-index:1}
+.pin > svg{position:absolute;left:0;top:0;transform:translate(-50%,-50%) scale(var(--inv));filter:drop-shadow(0 1px 1.5px rgb(0 0 0/.45));cursor:pointer}
+.pin.sel > svg{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+.pin.hid > svg{opacity:.6}
+.pin.lit::before{content:"";position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--gold) 55%,transparent),transparent 70%);transform:scale(var(--inv));pointer-events:none}
+.pin.draft > svg{opacity:.75}
+.pin-lbl{position:absolute;top:13px;left:0;transform:translateX(-50%) scale(var(--inv));transform-origin:50% 0;white-space:nowrap;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink);font-size:.72rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);pointer-events:none}
+.pincard{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:grid;gap:10px}
+.pinform{display:grid;gap:10px}
+.pf-row{display:flex;gap:8px;flex-wrap:wrap}
+.pf-row .lab{flex:1 1 140px}
+.pf-row .grow{flex:3 1 200px}
+.kchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 6px;cursor:pointer;font-size:.82rem}
+.kchip[aria-pressed="false"]{opacity:.45}
+
 .ps-list{display:grid;gap:8px}
 .ps{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--bg)}
 .ps-top,.ps-bot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
@@ -356,7 +377,7 @@ function blankSheet(){
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
     spells:[], res:[], items:[], coins:{mr:0,ma:0,me:0,mo:0,mp:0},
-    hy:{emb:0, ten:0, meal:""}, langs:"", profs:"", feats:"", story:"", notes:""};
+    hy:{emb:0, ten:0, meal:"", gear:{caldo:false, freddo:false}}, langs:"", profs:"", feats:"", story:"", notes:""};
 }
 function merge(base, src){
   if (Array.isArray(base)) return Array.isArray(src) ? JSON.parse(JSON.stringify(src)) : base;
@@ -662,6 +683,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
               <span>Si recuperano con un riposo lungo al sole</span></label>
           </div>
           <label className="lab">Pasto attivo (8 ore)<${Txt} id="meal" value=${s.hy.meal} placeholder="es. Spiedino piccante: resistenza al freddo" onChange=${v=>set("hy.meal",v)}/></label>
+          <div className="row" style=${{gap:14}}><span className="muted" style=${{fontSize:".85rem"}}>Abbigliamento adatto al clima:</span>
+            <label className="row" style=${{gap:6}}><input id="gear-caldo" type="checkbox" checked=${!!s.hy.gear?.caldo} onChange=${e=>set("hy.gear.caldo",e.target.checked)}/>caldo</label>
+            <label className="row" style=${{gap:6}}><input id="gear-freddo" type="checkbox" checked=${!!s.hy.gear?.freddo} onChange=${e=>set("hy.gear.freddo",e.target.checked)}/>freddo</label></div>
         </section>
       </div>
     </div>`}
@@ -746,8 +770,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
 }
 
 /* ---------- vista gruppo ---------- */
-function PartyCard({c, ownerName, onOpen, mine}){
+function PartyCard({c, ownerName, onOpen, mine, haz}){
   const s = norm(c); const D = derived(s);
+  const cold = haz && haz.kind && c.owner && !(s.hy.gear && s.hy.gear[haz.kind]);
   const hpPct = clamp(s.hp.cur / D.effMax * 100, 0, 100);
   return html`<button type="button" className="card" onClick=${onOpen}>
     <div><div className="nm">${s.name || "Senza nome"}</div>
@@ -759,7 +784,8 @@ function PartyCard({c, ownerName, onOpen, mine}){
       <div className="hpbar"><i style=${{width:hpPct+"%"}}></i></div>
     </div>
     <div className="stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. pass. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
-    ${(s.cond.length>0 || s.insp || s.exh>0 || s.hy.ten>0) && html`<div className="chips">
+    ${(s.cond.length>0 || s.insp || s.exh>0 || s.hy.ten>0 || cold) && html`<div className="chips">
+      ${cold && html`<span className="chip bad">Non vestito per il ${haz.kind}</span>`}
       ${s.insp && html`<span className="chip gold">★ Ispirazione</span>`}
       ${s.exh>0 && html`<span className="chip bad">Esaurimento ${s.exh}</span>`}
       ${s.hy.ten>0 && html`<span className="chip bad">Tenebra −${s.hy.ten}</span>`}
@@ -767,7 +793,8 @@ function PartyCard({c, ownerName, onOpen, mine}){
   </button>`;
 }
 
-function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error}){
+function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world}){
+  const haz = climate(world);
   const mine = chars.find(c=>c.owner===me.id);
   const sorted = [...chars].sort((a,b)=> (a.owner===me.id?-1:b.owner===me.id?1:0) || (!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
   return html`<div>
@@ -785,26 +812,81 @@ function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, r
       : chars.length===0 ? html`<div className="empty"><${Mark} size=${40}/><h3>Nessun personaggio ancora</h3>
           <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
           <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
-      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
+      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} haz=${haz} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
   </div>`;
 }
 
+/* ---------- segnaposti ---------- */
+const PIN_KINDS = [
+  ["santuario","Santuario","Completato"], ["radice","Radice Luminosa","Risvegliata"], ["statua","Statua della Dea","Visitata"],
+  ["stalla","Stalla","Visitata"], ["villaggio","Villaggio","Visitato"], ["voragine","Voragine","Esplorata"],
+  ["pericolo","Pericolo","Superato"], ["nota","Nota","Fatto"]];
+const PIN_NAME = Object.fromEntries(PIN_KINDS.map(k=>[k[0],k[1]]));
+const PIN_DONE = Object.fromEntries(PIN_KINDS.map(k=>[k[0],k[2]]));
+
+function Glyph({kind, done, size=22}){
+  const s = size, ink = "var(--ink)", fillDone = done ? "var(--gold)" : "var(--surface)";
+  const body = {
+    santuario: html`<rect x="5" y="5" width="14" height="14" rx="3" fill=${done?"var(--accent)":"var(--surface)"} stroke=${ink} stroke-width="1.8"/><circle cx="12" cy="12" r="2.6" fill=${done?"var(--surface)":"var(--accent)"}/>`,
+    radice: html`<circle cx="12" cy="12" r="4.5" fill=${fillDone} stroke=${ink} stroke-width="1.6"/>${[0,45,90,135,180,225,270,315].map(a=>html`<line key=${a} x1=${12+7*Math.cos(a*Math.PI/180)} y1=${12+7*Math.sin(a*Math.PI/180)} x2=${12+10*Math.cos(a*Math.PI/180)} y2=${12+10*Math.sin(a*Math.PI/180)} stroke=${done?"var(--gold)":ink} stroke-width="1.6" stroke-linecap="round"/>`)}`,
+    statua: html`<path d="M12 3l3 6 6 .8-4.5 4.2 1.2 6.5L12 17.3 6.3 20.5l1.2-6.5L3 9.8 9 9z" fill=${fillDone} stroke=${ink} stroke-width="1.5" stroke-linejoin="round"/>`,
+    stalla: html`<path d="M4 11l8-6 8 6v8H4z" fill=${done?"var(--accent)":"var(--surface)"} stroke=${ink} stroke-width="1.7" stroke-linejoin="round"/><rect x="10" y="13" width="4" height="6" fill=${ink}/>`,
+    villaggio: html`<path d="M3 19V12l5-4 5 4v7zM13 19v-5l4-3 4 3v5z" fill=${done?"var(--accent)":"var(--surface)"} stroke=${ink} stroke-width="1.5" stroke-linejoin="round"/>`,
+    voragine: html`<ellipse cx="12" cy="12" rx="9" ry="6" fill="var(--ink)" stroke=${done?"var(--gold)":ink} stroke-width="1.8"/><ellipse cx="12" cy="12" rx="4.5" ry="2.6" fill="var(--heart)" opacity=".7"/>`,
+    pericolo: html`<path d="M12 3l9.5 17h-19z" fill=${done?"var(--surface)":"var(--heart)"} stroke=${ink} stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9v5" stroke=${done?ink:"var(--surface)"} stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill=${done?ink:"var(--surface)"}/>`,
+    nota: html`<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" fill=${done?"var(--accent)":"var(--surface)"} stroke=${ink} stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill=${ink}/>`,
+  }[kind] || null;
+  return html`<svg width=${s} height=${s} viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+}
+
+function PinForm({initial, master, onSave, onCancel, busy}){
+  const [f, setF] = useState(()=>({kind:"santuario", label:"", note:"", hidden:false, done:false, ...initial}));
+  return html`<form className="pinform" onSubmit=${e=>{e.preventDefault(); onSave(f);}}>
+    <div className="pf-row">
+      <label className="lab">Tipo<select id="pin-kind" className="field" value=${f.kind} onChange=${e=>setF({...f,kind:e.target.value})}>
+        ${PIN_KINDS.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
+      <label className="lab grow">Nome<input id="pin-label" className="field" value=${f.label} placeholder="es. Santuario di Ja Baij" onChange=${e=>setF({...f,label:e.target.value})} autoFocus/></label>
+    </div>
+    <label className="lab">Nota<textarea id="pin-note" className="field" style=${{minHeight:60}} value=${f.note} placeholder="Cosa c’è, chi lo ha trovato, cosa manca…" onChange=${e=>setF({...f,note:e.target.value})}></textarea></label>
+    <div className="row">
+      ${master && html`<label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="pin-done" type="checkbox" checked=${f.done} onChange=${e=>setF({...f,done:e.target.checked})}/>${PIN_DONE[f.kind]}</label>`}
+      ${master && html`<label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="pin-hidden" type="checkbox" checked=${f.hidden} onChange=${e=>setF({...f,hidden:e.target.checked})}/>Nascosto ai giocatori</label>`}
+      <span className="spacer"></span>
+      <button type="button" className="btn" onClick=${onCancel}>Annulla</button>
+      <button className="btn primary" disabled=${busy}>Salva</button>
+    </div>
+  </form>`;
+}
+
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
+function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps}){
   const [plane, setPlane] = useState(party?.plane || lsGet("plane","superficie"));
-  const [moving, setMoving] = useState(false);
-  const [pending, setPending] = useState(null);
+  const [mode, setMode] = useState(null);           // null | "move" | "pin"
+  const [pending, setPending] = useState(null);     // posizione del gruppo da confermare
+  const [draft, setDraft] = useState(null);         // nuovo segnaposto {x,y}
+  const [selId, setSelId] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [loaded, setLoaded] = useState(false);
-  const vp = useRef(null), layer = useRef(null), img = useRef(null), fileIn = useRef(null);
+  const [hiddenKinds, setHiddenKinds] = useState(()=>lsGet("pinfilter", []));
+  const [peek, setPeek] = useState(false);          // il master vede il buio come i giocatori
+  const vp = useRef(null), layer = useRef(null), img = useRef(null), fileIn = useRef(null), dark = useRef(null);
   const t = useRef({s:1,x:0,y:0});
   const ptrs = useRef(new Map()); const gesture = useRef(null);
   const src = mapUrls[plane];
   const srcKey = src ? src.split("?")[0] : "";
+  const M = me.isMaster;
   useEffect(()=>lsSet("plane",plane),[plane]);
-  useEffect(()=>{ setLoaded(false); setPending(null); },[srcKey, plane]);
+  useEffect(()=>lsSet("pinfilter",hiddenKinds),[hiddenKinds]);
+  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); },[srcKey, plane]);
+
+  const planePins = pins.filter(p=>p.plane===plane);
+  const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind));
+  const sel = pins.find(p=>p.id===selId);
+  const canEditPin = p => p && (M || p.created_by===me.id);
 
   const apply = () => { const el = layer.current; if(!el) return; const {s,x,y} = t.current;
     el.style.transform = `translate(${x}px,${y}px) scale(${s})`; el.style.setProperty("--inv", String(1/s)); };
@@ -824,9 +906,29 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
     return ()=>{ v.removeEventListener("wheel", onWheel); window.removeEventListener("resize", onResize); };
   },[srcKey]);
 
+  /* buio del Sottosuolo */
+  const isDeep = plane === "sottosuolo";
+  const lightsKey = JSON.stringify([isDeep, loaded, peek, M, planePins.filter(p=>p.kind==="radice"&&p.done).map(p=>[p.x,p.y]), party?.plane===plane ? [party.x,party.y] : null]);
+  useEffect(()=>{
+    const c = dark.current, im = img.current; if (!c || !im || !isDeep || !loaded) return;
+    const W = 900, H = Math.max(1, Math.round(W * (im.naturalHeight||1) / (im.naturalWidth||1)));
+    c.width = W; c.height = H; const ctx = c.getContext("2d");
+    ctx.clearRect(0,0,W,H); ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = `rgba(5,7,9,${M && !peek ? 0.55 : 0.95})`; ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation = "destination-out";
+    const hole = (x,y,r) => { const g = ctx.createRadialGradient(x*W,y*H,0,x*W,y*H,r*W);
+      g.addColorStop(0,"rgba(0,0,0,1)"); g.addColorStop(.55,"rgba(0,0,0,.9)"); g.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x*W,y*H,r*W,0,Math.PI*2); ctx.fill(); };
+    planePins.filter(p=>p.kind==="radice" && p.done).forEach(p=>hole(p.x,p.y,0.1));
+    if (party && party.plane===plane && typeof party.x==="number") hole(party.x, party.y, 0.035);
+    ctx.globalCompositeOperation = "source-over";
+  },[lightsKey]);
+
+  const toNorm = (e) => { const r = img.current.getBoundingClientRect(); return {x:(e.clientX - r.left)/r.width, y:(e.clientY - r.top)/r.height}; };
   const down = e => { if (e.target.closest(".mapctl")) return; vp.current.setPointerCapture?.(e.pointerId);
     ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    gesture.current = {x:e.clientX, y:e.clientY, moved:false, multi: ptrs.current.size>1}; };
+    const pinEl = e.target.closest("[data-pin]");
+    gesture.current = {x:e.clientX, y:e.clientY, moved:false, multi: ptrs.current.size>1, pin: pinEl ? pinEl.getAttribute("data-pin") : null}; };
   const move = e => { const P = ptrs.current; if(!P.has(e.pointerId)) return; const prev = P.get(e.pointerId);
     const cur = {x:e.clientX,y:e.clientY};
     if (P.size===1){ t.current.x += cur.x-prev.x; t.current.y += cur.y-prev.y; apply(); }
@@ -837,24 +939,35 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
     P.set(e.pointerId,cur);
     const g = gesture.current; if (g && Math.hypot(cur.x-g.x,cur.y-g.y)>6) g.moved = true; };
   const up = e => { const P = ptrs.current; P.delete(e.pointerId); const g = gesture.current;
-    if (P.size===0){ gesture.current = null;
-      if (g && !g.moved && !g.multi && moving && img.current){ const r = img.current.getBoundingClientRect();
-        const nx = (e.clientX - r.left)/r.width, ny = (e.clientY - r.top)/r.height;
-        if (nx>=0&&nx<=1&&ny>=0&&ny<=1){ setPending({x:nx,y:ny}); setLabel(party?.plane===plane ? (party?.label||"") : ""); } } } };
+    if (P.size!==0) return; gesture.current = null;
+    if (!g || g.moved || g.multi || !img.current) return;
+    const n = toNorm(e); const inside = n.x>=0 && n.x<=1 && n.y>=0 && n.y<=1;
+    if (mode==="move" && inside){ setPending(n); setLabel(party?.plane===plane ? (party?.label||"") : ""); return; }
+    if (mode==="pin" && inside){ setDraft(n); setSelId(null); return; }
+    if (g.pin){ setSelId(g.pin); setEditing(false); setConfirmDel(false); return; }
+    setSelId(null); };
 
   const savePos = async () => { if(!pending) return; setBusy("pos"); setErr("");
     const msg = await onMove({plane, x:pending.x, y:pending.y, label:label.trim()});
-    if (msg) setErr(msg); else { setPending(null); setMoving(false); }
+    if (msg) setErr(msg); else { setPending(null); setMode(null); }
     setBusy(""); };
   const upload = async (file) => { if(!file) return; setBusy("up"); setErr("");
     const msg = await onUpload(plane, file); if (msg) setErr(msg);
     setBusy(""); if (fileIn.current) fileIn.current.value = ""; };
+  const savePin = async (f) => { setBusy("pin"); setErr("");
+    const row = {kind:f.kind, label:f.label.trim(), note:f.note.trim(), done:!!f.done, hidden: M && !!f.hidden};
+    const msg = editing && sel ? await pinOps.update(sel.id, row) : await pinOps.add({...row, plane, x:draft.x, y:draft.y});
+    setBusy(""); if (msg) { setErr(msg); return; }
+    setDraft(null); setEditing(false); if (!sel) setMode(null); };
+  const toggleKind = k => setHiddenKinds(x => x.includes(k) ? x.filter(y=>y!==k) : [...x,k]);
 
   const here = party && party.plane===plane && typeof party.x==="number";
   const trailPts = (party?.trail||[]).filter(p=>p.plane===plane);
   const line = [...trailPts, ...(here?[party]:[])];
-  const canUpload = me.isMaster;
   const byName = party?.by ? (names[party.by] || "") : "";
+  const kindsHere = PIN_KINDS.filter(([k])=>planePins.some(p=>p.kind===k));
+  const deepLit = planePins.filter(p=>p.kind==="radice"&&p.done).length, deepAll = planePins.filter(p=>p.kind==="radice").length;
+  const setModeTo = m => { setMode(mode===m ? null : m); setPending(null); setDraft(null); };
 
   return html`<div>
     <div className="party-head">
@@ -864,13 +977,17 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
         ${party?.plane===k && typeof party.x==="number" && html`<span className="here" title="Il gruppo è qui"></span>`}${n}</button>`)}</div>
     </div>
 
-    <div className=${"mapbox"+(moving?" moving":"")} ref=${vp} onPointerDown=${src?down:null} onPointerMove=${src?move:null} onPointerUp=${src?up:null} onPointerCancel=${src?up:null}>
+    <div className=${"mapbox"+(mode?" moving":"")} ref=${vp} onPointerDown=${src?down:null} onPointerMove=${src?move:null} onPointerUp=${src?up:null} onPointerCancel=${src?up:null}>
       ${src ? html`
         <div className="layer" ref=${layer}>
-          <img ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${()=>{setLoaded(true); requestAnimationFrame(fit);}}
+          <img key=${plane} ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${()=>{setLoaded(true); requestAnimationFrame(fit);}}
             onError=${()=>setErr("Immagine della mappa non trovata: il master può ricaricarla.")}/>
+          ${isDeep && html`<canvas className="dark" ref=${dark} aria-hidden="true"></canvas>`}
           ${line.length>1 && html`<svg className="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points=${line.map(p=>(p.x*100)+","+(p.y*100)).join(" ")}/></svg>`}
           ${trailPts.map((p,i)=>html`<span key=${i} className="tdot" title=${p.label||""} style=${{left:p.x*100+"%",top:p.y*100+"%"}}></span>`)}
+          ${shownPins.map(p=>html`<span key=${p.id} data-pin=${p.id} className=${"pin"+(p.id===selId?" sel":"")+(p.hidden?" hid":"")+(p.kind==="radice"&&p.done?" lit":"")} style=${{left:p.x*100+"%",top:p.y*100+"%"}} title=${p.label||PIN_NAME[p.kind]}>
+              <${Glyph} kind=${p.kind} done=${p.done}/>${p.label && html`<span className="pin-lbl">${p.label}</span>`}</span>`)}
+          ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
           ${here && !pending && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
             <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
           ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
@@ -881,12 +998,13 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
           <button type="button" className="iconbtn" aria-label="Mostra tutta la mappa" title="Mostra tutta" onClick=${fit}>⤢</button>
           ${here && html`<button type="button" className="iconbtn" aria-label="Centra sul gruppo" title="Centra sul gruppo" onClick=${()=>centerOn(party.x,party.y)}>◎</button>`}
         </div>
-        ${moving && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
+        ${mode==="move" && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
+        ${mode==="pin" && !draft && html`<div className="maphint">Tocca la mappa dove vuoi mettere il segnaposto.</div>`}
         ${!loaded && html`<div className="maphint">Caricamento della mappa…</div>`}
       ` : html`<div className="nomap"><div className="empty">
           <h3>Nessuna mappa per ${PLANE_NAME[plane]}</h3>
-          <p className="muted">${canUpload ? "Carica un’immagine della mappa di questo piano (PNG, JPG o WebP). La vedranno tutti i giocatori." : "Il master non ha ancora caricato la mappa di questo piano."}</p>
-          ${canUpload && html`<button type="button" className="btn primary" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Carica la mappa"}</button>`}
+          <p className="muted">${M ? "Carica un’immagine della mappa di questo piano (PNG, JPG o WebP). La vedranno tutti i giocatori." : "Il master non ha ancora caricato la mappa di questo piano."}</p>
+          ${M && html`<button type="button" className="btn primary" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Carica la mappa"}</button>`}
         </div></div>`}
     </div>
     <input ref=${fileIn} id="map-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange=${e=>upload(e.target.files[0])}/>
@@ -896,15 +1014,47 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload}){
       <button type="button" className="btn primary" disabled=${busy==="pos"} onClick=${savePos}>Conferma posizione</button>
       <button type="button" className="btn" onClick=${()=>setPending(null)}>Annulla</button></div>`}
 
+    ${draft && html`<div className="pincard"><div className="eyebrow">Nuovo segnaposto · ${PLANE_NAME[plane]}</div>
+      <${PinForm} master=${M} busy=${busy==="pin"} initial=${{kind: isDeep ? "radice" : "santuario"}} onSave=${savePin} onCancel=${()=>setDraft(null)}/></div>`}
+
+    ${sel && !draft && html`<div className="pincard">
+      ${editing ? html`<${PinForm} master=${M} busy=${busy==="pin"} initial=${sel} onSave=${savePin} onCancel=${()=>setEditing(false)}/>`
+      : html`<div className="row" style=${{alignItems:"flex-start"}}>
+          <${Glyph} kind=${sel.kind} done=${sel.done} size=${30}/>
+          <div style=${{flex:"1 1 200px",minWidth:0}}>
+            <div className="eyebrow">${PIN_NAME[sel.kind]||"Segnaposto"}${sel.done?" · "+PIN_DONE[sel.kind]:""}${sel.hidden?" · nascosto ai giocatori":""}</div>
+            <h3>${sel.label || PIN_NAME[sel.kind]}</h3>
+            ${sel.note && html`<p style=${{margin:"4px 0 0",whiteSpace:"pre-wrap"}}>${sel.note}</p>`}
+            <p className="muted" style=${{margin:"4px 0 0",fontSize:".8rem"}}>Aggiunto da ${names[sel.created_by] || "qualcuno"}</p>
+          </div>
+          <button type="button" className="iconbtn" aria-label="Chiudi" onClick=${()=>setSelId(null)}>×</button>
+        </div>
+        ${canEditPin(sel) && html`<div className="row">
+          ${M && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await pinOps.update(sel.id,{done:!sel.done}); if (m) setErr(m); }}>${sel.done ? "Segna come non "+PIN_DONE[sel.kind].toLowerCase() : PIN_DONE[sel.kind]}</button>`}
+          <button type="button" className="btn small" onClick=${()=>setEditing(true)}>Modifica</button>
+          <span className="spacer"></span>
+          ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+            : html`<span className="confirm">Eliminare il segnaposto?<button type="button" className="btn small danger" onClick=${async()=>{ const m = await pinOps.remove(sel.id); if (m) setErr(m); else setSelId(null); setConfirmDel(false); }}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>Annulla</button></span>`}
+        </div>`}`}
+    </div>`}
+
     <div className="mapfoot">
-      ${src && html`<button type="button" className=${"btn "+(moving?"":"primary")} onClick=${()=>{setMoving(!moving); setPending(null);}}>${moving?"Smetti di spostare":"Sposta il gruppo"}</button>`}
+      ${src && html`<button type="button" className=${"btn "+(mode==="move"?"":"primary")} onClick=${()=>setModeTo("move")}>${mode==="move"?"Smetti di spostare":"Sposta il gruppo"}</button>`}
+      ${src && html`<button type="button" className="btn" aria-pressed=${mode==="pin"} onClick=${()=>setModeTo("pin")}>${mode==="pin"?"Annulla segnaposto":"+ Segnaposto"}</button>`}
       ${party && typeof party.x==="number" ? html`<span className="muted">Il gruppo è ${party.plane===plane?"qui":"su "+(PLANE_NAME[party.plane]||"un altro piano")}${party.label?": "+party.label:""} · spostato ${ago(party.at)}${byName?" da "+byName:""}</span>`
               : html`<span className="muted">Nessuna posizione segnata.</span>`}
       <span className="spacer"></span>
       ${trailPts.length>0 && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await onClearTrail(); if (m) setErr(m); }}>Cancella percorso</button>`}
-      ${canUpload && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
+      ${M && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
     </div>
-    ${err && html`<p className="notice" role="alert" style=${{marginTop:10,borderColor:"var(--heart)"}}>${err}</p>`}
+
+    ${(kindsHere.length>0 || isDeep) && html`<div className="mapfoot">
+      ${kindsHere.length>0 && html`<span className="muted" style=${{fontSize:".85rem"}}>Mostra:</span>`}
+      ${kindsHere.map(([k,n])=>html`<button type="button" key=${k} className="kchip" aria-pressed=${!hiddenKinds.includes(k)} onClick=${()=>toggleKind(k)}><${Glyph} kind=${k} size=${16}/>${n} <span className="muted">${planePins.filter(p=>p.kind===k).length}</span></button>`)}
+      ${isDeep && html`<span className="spacer"></span><span className="muted" style=${{fontSize:".85rem"}}>Radici risvegliate: <b className="mono">${deepLit}</b>${deepAll?` su ${deepAll}`:""}</span>
+        ${M && src && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="peek" type="checkbox" checked=${peek} onChange=${e=>setPeek(e.target.checked)}/>Vedi il buio come i giocatori</label>`}`}
+    </div>`}
+    ${err && html`<p className="notice" role="alert" style=${{marginTop:10,borderColor:"var(--heart)"}}>${err} <button type="button" className="btn small" onClick=${()=>setErr("")}>Chiudi</button></p>`}
   </div>`;
 }
 
@@ -993,7 +1143,11 @@ function useCampaign(sb, active){
   const [combat, setCombat] = useState({active:false, round:0, turn_id:null});
   const [fighters, setFighters] = useState([]);
   const [secrets, setSecrets] = useState({});
+  const [pins, setPins] = useState([]);
+  const [world, setWorld] = useState(null);
   const onNewRoll = useRef(null);
+  const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
+  const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
 
   const addRoll = useCallback((r)=>{ setRolls(x=> x.some(y=>y.id===r.id) ? x : [r, ...x].slice(0,80)); },[]);
   const loadFighters = useCallback(async()=>{
@@ -1019,9 +1173,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await loadFighters();
+    await Promise.all([loadFighters(), loadPins(), loadWorld()]);
     setReady(true);
-  },[sb, loadFighters]);
+  },[sb, loadFighters, loadPins, loadWorld]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1036,6 +1190,8 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"combat"}, (pl)=>{ if (pl.new && pl.new.id) setCombat(pl.new); })
       .on("postgres_changes",{event:"*",schema:"public",table:"combatants"}, ()=>loadFighters())
       .on("postgres_changes",{event:"*",schema:"public",table:"combatant_secrets"}, ()=>loadFighters())
+      .on("postgres_changes",{event:"*",schema:"public",table:"pins"}, ()=>loadPins())
+      .on("postgres_changes",{event:"*",schema:"public",table:"world"}, (pl)=>{ if (pl.new && pl.new.id) setWorld(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
@@ -1043,7 +1199,8 @@ function useCampaign(sb, active){
   },[sb, active, loadAll]);
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
-    rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters};
+    rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
+    pins, loadPins, world, setWorld};
 }
 
 function useSignedUrls(sb, maps){
@@ -1059,6 +1216,156 @@ function useSignedUrls(sb, maps){
     return ()=>{ off = true; };
   },[sb, key]);
   return urls;
+}
+
+/* ---------- orologio di gioco e clima ---------- */
+const REGIONS = [
+  {k:"Hyrule Centrale", w:[["Sereno",4],["Nuvoloso",3],["Pioggia",2],["Foschia della Tenebra",1]]},
+  {k:"Necluda",         w:[["Sereno",5],["Nuvoloso",3],["Pioggia",2]]},
+  {k:"Faron",           w:[["Afa",3],["Pioggia",3],["Temporale",3]]},
+  {k:"Lanayru",         w:[["Pioggia",4],["Nuvoloso",3],["Sereno",2]]},
+  {k:"Eldin",           w:[["Calore estremo",5],["Pioggia di cenere",2]]},
+  {k:"Akkala",          w:[["Sereno",4],["Vento d’autunno",3],["Pioggia",2]]},
+  {k:"Hebra",           w:[["Freddo estremo",4],["Bufera di neve",3]]},
+  {k:"Gerudo",          w:[["Sereno",5],["Tempesta di sabbia",2]]},
+  {k:"Grande Foresta",  w:[["Nebbia fitta",5],["Pioggia",2]]},
+  {k:"Isole Celesti",   w:[["Sereno",3],["Venti forti",4],["Nubi basse",2]]},
+  {k:"Sottosuolo",      w:[["Buio totale",1]]},
+];
+const REGION = Object.fromEntries(REGIONS.map(r=>[r.k,r]));
+const pad2 = n => String(n).padStart(2,"0");
+const fmtTime = m => `${pad2(Math.floor(m/60))}:${pad2(m%60)}`;
+const dayPart = m => { const h = m/60; return h>=5&&h<7?"Alba":h>=7&&h<12?"Mattina":h>=12&&h<18?"Pomeriggio":h>=18&&h<21?"Sera":"Notte"; };
+const isDaytime = m => m >= 360 && m < 1140;
+
+/* pericoli del clima: kind = caldo | freddo | null, più una nota di gioco */
+function climate(w){
+  if (!w) return {kind:null, notes:[]};
+  const notes = []; let kind = null;
+  if (w.region==="Eldin"){ kind="caldo"; notes.push("Oggetti infiammabili a rischio"); }
+  if (w.region==="Hebra"){ kind="freddo"; if (w.weather==="Bufera di neve") notes.push("Rischio valanghe"); }
+  if (w.region==="Gerudo"){ kind = isDaytime(w.minutes) ? "caldo" : "freddo"; }
+  if (w.region==="Faron" && w.weather==="Temporale") notes.push("Fulmini: attenzione alle armature di metallo");
+  if (w.region==="Lanayru" && w.weather==="Pioggia") notes.push("Pareti scivolose");
+  if (w.region==="Grande Foresta" && w.weather==="Nebbia fitta") notes.push("La nebbia disorienta");
+  if (w.region==="Isole Celesti" && w.weather==="Venti forti") notes.push("Venti forti: attenzione ai bordi");
+  if (w.region==="Hyrule Centrale" && w.weather==="Foschia della Tenebra") notes.push("La Tenebra si addensa");
+  if (w.region==="Sottosuolo") notes.push("Buio totale: servono luce o scurovisione");
+  return {kind, notes};
+}
+const HAZ_LABEL = {caldo:"Caldo estremo", freddo:"Freddo estremo"};
+const unprotected = (chars, haz) => !haz.kind ? [] : chars.filter(c=>{ const s = norm(c); return !(s.hy.gear && s.hy.gear[haz.kind]); });
+
+function WorldStrip({world, chars, me}){
+  if (!world) return null;
+  const haz = climate(world);
+  const mine = chars.filter(c=>c.owner===me.id);
+  const exposed = unprotected(mine, haz);
+  return html`<div className="worldbar"><div className="tb-in">
+    <span><b>Giorno ${world.day}</b> · <span className="mono">${fmtTime(world.minutes)}</span> ${dayPart(world.minutes)}</span>
+    <span className="muted">·</span><span>${world.region}</span><span className="muted">·</span><span>${world.weather}</span>
+    ${haz.kind && html`<span className="chip bad">${HAZ_LABEL[haz.kind]}: TS Costituzione ogni ora</span>`}
+    ${haz.notes.map(n=>html`<span key=${n} className="chip">${n}</span>`)}
+    ${exposed.map(c=>html`<span key=${c.id} className="chip bad">${c.name||"Il tuo PG"} non è vestito per il ${haz.kind}</span>`)}
+  </div></div>`;
+}
+
+function WorldPanel({sb, world, setWorld, chars}){
+  const [err, setErr] = useState(""); const [msg, setMsg] = useState("");
+  const [timeIn, setTimeIn] = useState("");
+  if (!world) return html`<section className="panel"><h3>Tempo e clima</h3><p className="muted" style=${{margin:0}}>Esegui fase2.sql per attivare l’orologio di gioco.</p></section>`;
+  const haz = climate(world);
+  const save = async (patch) => { setErr(""); setMsg("");
+    const {data, error} = await sb.from("world").update({...patch, updated_at:new Date().toISOString()}).eq("id",1).select().single();
+    if (error) setErr("Non salvato: "+error.message); else setWorld(data); };
+  const addMin = (n) => { let m = world.minutes + n, d = world.day; while (m >= 1440){ m -= 1440; d++; } save({minutes:m, day:d}); };
+  const rollWeather = (region) => { const tbl = (REGION[region]||REGIONS[0]).w; const tot = tbl.reduce((a,b)=>a+b[1],0); let r = Math.random()*tot;
+    for (const [w,p] of tbl){ if ((r -= p) < 0) return w; } return tbl[0][0]; };
+  const announce = async () => { setErr(""); setMsg("");
+    const text = `🕰️ Giorno ${world.day}, ${fmtTime(world.minutes)} (${dayPart(world.minutes).toLowerCase()}) · ${world.region} · ${world.weather}` + (haz.kind ? ` · ${HAZ_LABEL[haz.kind]}` : "");
+    const {error} = await sb.rpc("announce_world", {p_text:text}); if (error) setErr(error.message); else setMsg("Annunciato su Discord (se è collegato)."); };
+  const exposed = unprotected(chars.filter(c=>c.owner), haz);
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Tempo e clima</h3><span className="mono" style=${{fontSize:"1.1rem"}}>G${world.day} · ${fmtTime(world.minutes)}</span></div>
+    <div className="row">
+      <button type="button" className="btn small" onClick=${()=>addMin(10)}>+10 min</button>
+      <button type="button" className="btn small" onClick=${()=>addMin(60)}>+1 ora</button>
+      <button type="button" className="btn small" onClick=${()=>addMin(480)}>+8 ore (riposo)</button>
+      <button type="button" className="btn small" onClick=${()=>save({day:world.day+1, minutes:360})}>Nuovo giorno, all’alba</button>
+    </div>
+    <form className="row" onSubmit=${e=>{e.preventDefault(); const m = /^(\d{1,2})[:.](\d{2})$/.exec(timeIn.trim()); if (m && +m[1]<24 && +m[2]<60){ save({minutes:+m[1]*60 + +m[2]}); setTimeIn(""); } else setErr("Scrivi l’ora come 14:30");}}>
+      <label className="lab" style=${{width:90}}>Giorno<${Num} id="w-day" value=${world.day} min=${1} onChange=${v=>save({day:v})}/></label>
+      <label className="lab" style=${{width:110}}>Ora<input id="w-time" className="field mono" placeholder=${fmtTime(world.minutes)} value=${timeIn} onChange=${e=>setTimeIn(e.target.value)}/></label>
+      <button className="btn small" style=${{alignSelf:"end"}}>Imposta</button>
+    </form>
+    <div className="row">
+      <label className="lab" style=${{flex:"1 1 160px"}}>Regione<select id="w-region" className="field" value=${world.region} onChange=${e=>{ const r=e.target.value; save({region:r, weather:rollWeather(r)}); }}>
+        ${REGIONS.map(r=>html`<option key=${r.k} value=${r.k}>${r.k}</option>`)}</select></label>
+      <label className="lab" style=${{flex:"1 1 160px"}}>Meteo<select id="w-weather" className="field" value=${world.weather} onChange=${e=>save({weather:e.target.value})}>
+        ${[...new Set([...(REGION[world.region]?.w||[]).map(x=>x[0]), world.weather])].map(w=>html`<option key=${w} value=${w}>${w}</option>`)}</select></label>
+      <button type="button" className="btn small" style=${{alignSelf:"end"}} onClick=${()=>save({weather:rollWeather(world.region)})}>Tira il meteo</button>
+    </div>
+    ${(haz.kind || haz.notes.length>0) && html`<div className="chips">${haz.kind && html`<span className="chip bad">${HAZ_LABEL[haz.kind]}</span>`}${haz.notes.map(n=>html`<span key=${n} className="chip">${n}</span>`)}</div>`}
+    ${haz.kind && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>${exposed.length ? "Senza abbigliamento adatto: "+exposed.map(c=>c.name||"PG").join(", ")+". Tiro salvezza su Costituzione ogni ora; chi è vestito bene ha vantaggio." : "Tutto il gruppo è vestito per il "+haz.kind+": vantaggio ai tiri salvezza contro il clima."}</p>`}
+    <div className="row"><span className="spacer"></span><button type="button" className="btn small" onClick=${announce}>Annuncia su Discord</button></div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+    ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
+  </section>`;
+}
+
+/* ---------- backup ---------- */
+function BackupPanel({sb, camp}){
+  const [msg, setMsg] = useState(""); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(null); const fileIn = useRef(null);
+  const download = async () => { setErr(""); setMsg(""); setBusy(true);
+    try {
+      const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
+      const [characters, party, maps, pins, world, members] = await Promise.all([
+        q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name")]);
+      const backup = {app:"taccuino-hyrule", version:2, exported_at:new Date().toISOString(),
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members};
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
+      const d = new Date(); const name = `taccuino-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+      setMsg(`Backup scaricato: ${characters.length} schede, ${pins.length} segnaposti.`);
+    } catch(e){ setErr("Backup non riuscito: "+e.message); }
+    setBusy(false); };
+  const readFile = async (file) => { setErr(""); setMsg(""); setPending(null); if (!file) return;
+    try { const b = JSON.parse(await file.text()); if (b.app!=="taccuino-hyrule" || !Array.isArray(b.characters)) throw new Error("non è un backup del Taccuino");
+      setPending({b, name:file.name}); }
+    catch(e){ setErr("File non valido: "+e.message); }
+    if (fileIn.current) fileIn.current.value = ""; };
+  const restore = async () => { const b = pending.b; setBusy(true); setErr(""); setMsg(""); const problems = [];
+    let okChars = 0;
+    for (const c of b.characters){
+      let r = await sb.from("characters").upsert({id:c.id, owner:c.owner, data:c.data, updated_at:c.updated_at||new Date().toISOString()});
+      if (r.error && c.owner){ r = await sb.from("characters").upsert({id:c.id, owner:null, data:c.data}); if (!r.error) problems.push(`${c.data?.name||"una scheda"} è tornata senza proprietario (account non trovato)`); }
+      if (r.error) problems.push(`${c.data?.name||"una scheda"}: ${r.error.message}`); else okChars++;
+    }
+    if (Array.isArray(b.pins) && b.pins.length){ const {error} = await sb.from("pins").upsert(b.pins.map(p=>({...p, created_by:p.created_by||null})));
+      if (error){ const {error:e2} = await sb.from("pins").upsert(b.pins.map(p=>({...p, created_by:null}))); if (e2) problems.push("segnaposti: "+e2.message); } }
+    if (b.party !== undefined){ const {error} = await sb.from("party").update({state:b.party}).eq("id",1); if (error) problems.push("posizione: "+error.message); }
+    if (b.world){ const {day, minutes, region, weather} = b.world; const {error} = await sb.from("world").update({day, minutes, region, weather}).eq("id",1); if (error) problems.push("orologio: "+error.message); }
+    if (Array.isArray(b.maps) && b.maps.length){ const {error} = await sb.from("maps").upsert(b.maps); if (error) problems.push("mappe: "+error.message); }
+    await camp.reload(); setBusy(false); setPending(null);
+    setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
+  };
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Backup</h3></div>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio e impostazioni delle mappe. Fallo prima di ogni aggiornamento importante. Le immagini delle mappe restano su Supabase e non sono nel file.</p>
+    <div className="row">
+      <button type="button" className="btn primary" disabled=${busy} onClick=${download}>Scarica backup</button>
+      <button type="button" className="btn" disabled=${busy} onClick=${()=>fileIn.current?.click()}>Ripristina da file…</button>
+      <input ref=${fileIn} id="bk-file" type="file" accept="application/json,.json" hidden onChange=${e=>readFile(e.target.files[0])}/>
+    </div>
+    ${pending && html`<div className="confirm" style=${{display:"grid",gap:8}}>
+      <span><b>${pending.name}</b> del ${new Date(pending.b.exported_at).toLocaleString("it")}: ${pending.b.characters.length} schede, ${(pending.b.pins||[]).length} segnaposti. Il ripristino sovrascrive le schede con lo stesso identificativo e la posizione del gruppo; quelle nuove create dopo il backup restano.</span>
+      <span className="row"><button type="button" className="btn small danger" disabled=${busy} onClick=${restore}>${busy?"Ripristino…":"Ripristina"}</button><button type="button" className="btn small" onClick=${()=>setPending(null)}>Annulla</button></span>
+    </div>`}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+    ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
+  </section>`;
 }
 
 /* ---------- tavolo: tiri, iniziativa, plancia ---------- */
@@ -1255,8 +1562,8 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp}){
     <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
     <div className="table3">
       <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/></div>
-      <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${DiceTray} onFree=${onFree} master=${true}/><${DiscordPanel} sb=${sb}/></div>
-      <div className="col"><${Feed} rolls=${rolls}/></div>
+      <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
+      <div className="col"><${Feed} rolls=${rolls}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
     </div></div>`;
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Al tavolo</div><h2>Tavolo</h2></div></div>
@@ -1352,6 +1659,13 @@ function Main({sb, me, onSignOut}){
     step: async (dir) => { const {error:e} = await sb.rpc("step_turn", {p_dir:dir}); return errText(e); },
     end: async () => { const {error:e} = await sb.rpc("end_combat"); await camp.loadFighters(); return errText(e); },
   };
+  const pinOps = {
+    add: async (row) => { const {error:e} = await sb.from("pins").insert({...row, created_by:me.id}); await camp.loadPins(); return e ? "Segnaposto non salvato: "+e.message : ""; },
+    update: async (id, patch) => { const {data, error:e} = await sb.from("pins").update(patch).eq("id", id).select("id"); await camp.loadPins();
+      return e ? "Modifica non salvata: "+e.message : (!data || !data.length) ? "Puoi modificare solo i segnaposti che hai creato tu." : ""; },
+    remove: async (id) => { const {data, error:e} = await sb.from("pins").delete().eq("id", id).select("id"); await camp.loadPins();
+      return e ? "Non eliminato: "+e.message : (!data || !data.length) ? "Puoi eliminare solo i segnaposti che hai creato tu." : ""; },
+  };
   const endMyTurn = async () => { const {error:e} = await sb.rpc("step_turn", {p_dir:1}); if (e) setMsg(errText(e)); };
 
   /* avviso quando tocca a me */
@@ -1402,12 +1716,13 @@ function Main({sb, me, onSignOut}){
       <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
         <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
     </div>
+    <${WorldStrip} world=${camp.world} chars=${chars} me=${me}/>
     <${TurnBanner} combat=${combat} fighters=${fighters} chars=${chars} me=${me} onEndTurn=${endMyTurn}
       onRollInit=${async f=>{ const m = await act.rollInit(f); if (m) setMsg(m); }} goTable=${()=>{setView("tavolo"); setOpenId(null);}}/>
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
-      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp}/>`}
       ${view==="scheda" && (openChar
@@ -1416,7 +1731,7 @@ function Main({sb, me, onSignOut}){
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
-      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload}/>`}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps}/>`}
     </main>
     <${Toasts} toasts=${toasts}/>
   </div>`;
