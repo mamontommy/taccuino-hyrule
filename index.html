@@ -325,6 +325,35 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .kchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px 3px 6px;cursor:pointer;font-size:.82rem}
 .kchip[aria-pressed="false"]{opacity:.45}
 
+/* cronache */
+.modal-back{position:fixed;inset:0;z-index:60;background:rgb(8 12 10/.72);display:grid;place-items:center;padding:24px 16px;overflow-y:auto}
+.modal{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;max-width:720px;width:100%;padding:22px;display:grid;gap:14px;box-shadow:0 20px 60px rgb(0 0 0/.45);animation:pop .25s ease-out}
+.modal.handout h2{font-size:1.8rem}
+.ho-img{width:100%;max-height:60vh;object-fit:contain;border-radius:8px;background:var(--sunk)}
+.ho-body,.jr-body{white-space:pre-wrap;line-height:1.6;max-width:68ch}
+.ho-grid,.cx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.ho-card,.cx-card{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;display:grid;gap:10px;align-content:start;min-width:0}
+.ho-card.draft,.cx-card.draft{border-style:dashed}
+.ho-thumb{border:0;padding:0;background:var(--sunk);border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:16/9;max-width:100%}
+.ho-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ho-meta{display:grid;gap:4px;min-width:0}
+.linkish{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.linkish:hover{color:var(--accent)}
+.clamp{margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.rep{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rep-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;width:140px}
+.rep-seg{height:8px;border-radius:2px;background:var(--sunk);border:1px solid var(--line)}
+.rep-seg.neg.on{background:var(--heart);border-color:var(--heart)}
+.rep-seg.pos.on{background:var(--gold);border-color:var(--gold)}
+.rep-seg.on:not(.neg):not(.pos){background:var(--muted);border-color:var(--muted)}
+.secret{border-left:3px solid var(--gold);padding:6px 10px;background:color-mix(in srgb,var(--gold) 9%,var(--surface));border-radius:0 6px 6px 0;display:grid;gap:4px}
+.jr-layout{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:16px;align-items:start}
+.jr-list{display:grid;gap:6px}
+.jr-item{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;text-align:left;cursor:pointer;display:grid;gap:2px}
+.jr-item[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.jr-read h2{font-size:1.6rem}
+@media (max-width:760px){.jr-layout{grid-template-columns:minmax(0,1fr)}}
+
 .ps-list{display:grid;gap:8px}
 .ps{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px;background:var(--bg)}
 .ps-top,.ps-bot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
@@ -1145,7 +1174,16 @@ function useCampaign(sb, active){
   const [secrets, setSecrets] = useState({});
   const [pins, setPins] = useState([]);
   const [world, setWorld] = useState(null);
+  const [handouts, setHandouts] = useState([]);
+  const [codex, setCodex] = useState([]);
+  const [codexSecrets, setCodexSecrets] = useState({});
+  const [journal, setJournal] = useState([]);
   const onNewRoll = useRef(null);
+  const loadChron = useCallback(async()=>{
+    const [h, c, cs, j] = await Promise.all([sb.from("handouts").select("*"), sb.from("codex").select("*"), sb.from("codex_secrets").select("*"), sb.from("journal").select("*")]);
+    if (!h.error) setHandouts(h.data); if (!c.error) setCodex(c.data);
+    if (!cs.error) setCodexSecrets(Object.fromEntries(cs.data.map(x=>[x.id,x]))); if (!j.error) setJournal(j.data);
+  },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
   const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
 
@@ -1173,9 +1211,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1192,6 +1230,10 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"combatant_secrets"}, ()=>loadFighters())
       .on("postgres_changes",{event:"*",schema:"public",table:"pins"}, ()=>loadPins())
       .on("postgres_changes",{event:"*",schema:"public",table:"world"}, (pl)=>{ if (pl.new && pl.new.id) setWorld(pl.new); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"handouts"}, ()=>loadChron())
+      .on("postgres_changes",{event:"*",schema:"public",table:"codex"}, ()=>loadChron())
+      .on("postgres_changes",{event:"*",schema:"public",table:"codex_secrets"}, ()=>loadChron())
+      .on("postgres_changes",{event:"*",schema:"public",table:"journal"}, ()=>loadChron())
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
@@ -1200,7 +1242,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron};
 }
 
 function useSignedUrls(sb, maps){
@@ -1320,15 +1362,16 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members] = await Promise.all([
-        q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name")]);
-      const backup = {app:"taccuino-hyrule", version:2, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members};
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal] = await Promise.all([
+        q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal")]);
+      const backup = {app:"taccuino-hyrule", version:3, exported_at:new Date().toISOString(),
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `taccuino-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-      setMsg(`Backup scaricato: ${characters.length} schede, ${pins.length} segnaposti.`);
+      setMsg(`Backup scaricato: ${characters.length} schede, ${pins.length} segnaposti, ${codex.length} voci del codex, ${journal.length} sessioni del diario, ${handouts.length} handout.`);
     } catch(e){ setErr("Backup non riuscito: "+e.message); }
     setBusy(false); };
   const readFile = async (file) => { setErr(""); setMsg(""); setPending(null); if (!file) return;
@@ -1348,12 +1391,19 @@ function BackupPanel({sb, camp}){
     if (b.party !== undefined){ const {error} = await sb.from("party").update({state:b.party}).eq("id",1); if (error) problems.push("posizione: "+error.message); }
     if (b.world){ const {day, minutes, region, weather} = b.world; const {error} = await sb.from("world").update({day, minutes, region, weather}).eq("id",1); if (error) problems.push("orologio: "+error.message); }
     if (Array.isArray(b.maps) && b.maps.length){ const {error} = await sb.from("maps").upsert(b.maps); if (error) problems.push("mappe: "+error.message); }
+    const up = async (table, rows, label, fix) => { if (!Array.isArray(rows) || !rows.length) return;
+      let {error} = await sb.from(table).upsert(rows); if (error && fix){ ({error} = await sb.from(table).upsert(rows.map(fix))); }
+      if (error) problems.push(label+": "+error.message); };
+    await up("handouts", b.handouts, "handout");
+    await up("codex", b.codex, "codex");
+    await up("codex_secrets", b.codex_secrets, "note segrete del codex");
+    await up("journal", b.journal, "diario", r=>({...r, author:null}));
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
   return html`<section className="panel">
     <div className="panel-h"><h3>Backup</h3></div>
-    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio e impostazioni delle mappe. Fallo prima di ogni aggiornamento importante. Le immagini delle mappe restano su Supabase e non sono nel file.</p>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Salva sul tuo computer schede, posizione del gruppo, segnaposti, orologio, codex, diario e handout. Fallo prima di ogni aggiornamento importante. Le immagini (mappe e handout) restano su Supabase e non sono nel file.</p>
     <div className="row">
       <button type="button" className="btn primary" disabled=${busy} onClick=${download}>Scarica backup</button>
       <button type="button" className="btn" disabled=${busy} onClick=${()=>fileIn.current?.click()}>Ripristina da file…</button>
@@ -1366,6 +1416,251 @@ function BackupPanel({sb, camp}){
     ${err && html`<p className="err" role="alert">${err}</p>`}
     ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
   </section>`;
+}
+
+/* ---------- cronache: handout, codex, diario ---------- */
+const CODEX_KINDS = [["fazione","Fazioni"],["personaggio","Personaggi"],["luogo","Luoghi"],["scoperta","Scoperte"]];
+const CODEX_ONE = {fazione:"Fazione", personaggio:"Personaggio", luogo:"Luogo", scoperta:"Scoperta"};
+const REP = {"-3":"Ostile","-2":"Diffidente","-1":"Freddo","0":"Neutrale","1":"Cordiale","2":"Amico","3":"Alleato"};
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString("it",{day:"numeric",month:"long",year:"numeric"}) : "";
+
+function useHandoutUrls(sb, handouts){
+  const [urls, setUrls] = useState({});
+  const key = handouts.filter(h=>h.image_path).map(h=>h.id+":"+h.image_path+":"+h.revealed).join("|");
+  useEffect(()=>{ let off = false;
+    (async()=>{ const out = {};
+      for (const h of handouts.filter(h=>h.image_path)){
+        const {data} = await sb.storage.from("handouts").createSignedUrl(h.image_path, 60*60*12);
+        if (data?.signedUrl) out[h.id] = data.signedUrl;
+      }
+      if (!off) setUrls(out); })();
+    return ()=>{ off = true; };
+  },[sb, key]);
+  return urls;
+}
+
+function HandoutModal({h, url, onClose}){
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  return html`<div className="modal-back" role="dialog" aria-modal="true" aria-label=${h.title} onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
+    <div className="modal handout">
+      <div className="eyebrow">Handout${h.revealed_at ? " · "+fmtDate(h.revealed_at) : ""}</div>
+      <h2>${h.title || "Senza titolo"}</h2>
+      ${url && html`<img className="ho-img" src=${url} alt=${h.title}/>`}
+      ${h.body && html`<div className="ho-body">${h.body}</div>`}
+      <div className="row"><span className="spacer"></span><button type="button" className="btn primary" onClick=${onClose} autoFocus>Chiudi</button></div>
+    </div>
+  </div>`;
+}
+
+function HandoutForm({initial, members, onSave, onCancel, busy}){
+  const [f, setF] = useState(()=>({title:"", body:"", audience:[], file:null, removeImage:false, ...initial}));
+  const toggle = id => setF(x=>({...x, audience: x.audience.includes(id) ? x.audience.filter(y=>y!==id) : [...x.audience, id]}));
+  const players = members.filter(m=>m.user_id);
+  return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (f.title.trim()) onSave(f);}}>
+    <h3>${initial?.id ? "Modifica handout" : "Nuovo handout"}</h3>
+    <label className="lab">Titolo<input id="ho-title" className="field" value=${f.title} placeholder="es. La lettera trovata nella stalla" onChange=${e=>setF({...f,title:e.target.value})} autoFocus/></label>
+    <label className="lab">Testo<textarea id="ho-body" className="field" style=${{minHeight:140}} value=${f.body} placeholder="Il testo che leggeranno i giocatori" onChange=${e=>setF({...f,body:e.target.value})}></textarea></label>
+    <label className="lab">Immagine (facoltativa)<input id="ho-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange=${e=>setF({...f,file:e.target.files[0]||null})}/></label>
+    ${initial?.image_path && !f.file && html`<label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="ho-rmimg" type="checkbox" checked=${f.removeImage} onChange=${e=>setF({...f,removeImage:e.target.checked})}/>Togli l’immagine attuale</label>`}
+    <div className="lab">Chi lo riceve
+      <div className="row" style=${{gap:12}}>
+        <label className="row" style=${{gap:6}}><input id="ho-all" type="checkbox" checked=${f.audience.length===0} onChange=${()=>setF({...f,audience:[]})}/>Tutto il gruppo</label>
+        ${players.map(m=>html`<label key=${m.user_id} className="row" style=${{gap:6}}><input type="checkbox" checked=${f.audience.includes(m.user_id)} onChange=${()=>toggle(m.user_id)}/>${m.name||"Giocatore"}</label>`)}
+      </div></div>
+    <div className="row"><span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>${busy?"Salvataggio…":"Salva come bozza"}</button></div>
+  </form>`;
+}
+
+function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
+  const M = me.isMaster;
+  const [editing, setEditing] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  const [announce, setAnnounce] = useState(true); const [confirmDel, setConfirmDel] = useState(null);
+  const names = Object.fromEntries(members.map(m=>[m.user_id, m.name]));
+  const list = [...handouts].sort((a,b)=> (b.revealed_at||b.created_at).localeCompare(a.revealed_at||a.created_at));
+  const save = async (f) => { setBusy(true); setErr("");
+    try {
+      let image_path = editing?.image_path || null;
+      if (f.removeImage) image_path = null;
+      if (f.file){ const ext = (f.file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+        const path = `h-${Date.now()}.${ext}`; const up = await sb.storage.from("handouts").upload(path, f.file, {contentType:f.file.type||"image/jpeg"});
+        if (up.error) throw new Error("immagine: "+up.error.message); image_path = path; }
+      const row = {title:f.title.trim(), body:f.body, audience:f.audience, image_path};
+      const r = editing?.id ? await sb.from("handouts").update(row).eq("id", editing.id) : await sb.from("handouts").insert(row);
+      if (r.error) throw new Error(r.error.message);
+      if (editing?.image_path && editing.image_path !== image_path) sb.storage.from("handouts").remove([editing.image_path]);
+      setEditing(null); reload();
+    } catch(e){ setErr("Non salvato: "+e.message); }
+    setBusy(false); };
+  const reveal = async (h, on) => { setErr("");
+    const {error} = await sb.from("handouts").update({revealed:on, revealed_at: on ? new Date().toISOString() : h.revealed_at}).eq("id", h.id);
+    if (error){ setErr(error.message); return; }
+    if (on && announce && h.audience.length===0) await sb.rpc("announce_world", {p_text:`📜 Nuovo handout nel Taccuino: **${h.title}**`});
+    reload(); };
+  const del = async (h) => { const {error} = await sb.from("handouts").delete().eq("id", h.id); if (error) setErr(error.message);
+    else if (h.image_path) sb.storage.from("handouts").remove([h.image_path]); setConfirmDel(null); reload(); };
+
+  if (editing) return html`<${HandoutForm} initial=${editing} members=${members.filter(m=>m.user_id!==me.id)} busy=${busy} onSave=${save} onCancel=${()=>setEditing(null)}/>`;
+  return html`<div style=${{display:"grid",gap:12}}>
+    ${M && html`<div className="row"><button type="button" className="btn primary" onClick=${()=>setEditing({})}>+ Nuovo handout</button>
+      <span className="spacer"></span><label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="ho-ann" type="checkbox" checked=${announce} onChange=${e=>setAnnounce(e.target.checked)}/>Avvisa su Discord quando rivelo a tutti</label></div>`}
+    ${list.length===0 && html`<div className="empty"><h3>Nessun handout</h3><p className="muted">${M ? "Prepara lettere, mappe parziali, murali o indizi come bozza e rivelali al momento giusto: compariranno a tutto schermo sui dispositivi dei giocatori." : "Quando il master rivela una lettera, un indizio o un’immagine, la ritrovi qui."}</p></div>`}
+    <div className="ho-grid">${list.map(h=>html`<article key=${h.id} className=${"ho-card"+(h.revealed?"":" draft")}>
+      ${urls[h.id] ? html`<button type="button" className="ho-thumb" onClick=${()=>onOpen(h)}><img src=${urls[h.id]} alt=""/></button>` : null}
+      <div className="ho-meta">
+        <div className="eyebrow">${h.revealed ? "Rivelato "+(h.revealed_at?fmtDate(h.revealed_at):"") : "Bozza · solo tu la vedi"}${h.audience.length ? " · per "+h.audience.map(id=>names[id]||"?").join(", ") : ""}</div>
+        <h3><button type="button" className="linkish" onClick=${()=>onOpen(h)}>${h.title||"Senza titolo"}</button></h3>
+        ${h.body && html`<p className="muted clamp">${h.body}</p>`}
+      </div>
+      ${M && html`<div className="row">
+        ${h.revealed ? html`<button type="button" className="btn small" onClick=${()=>reveal(h,false)}>Nascondi</button>`
+          : html`<button type="button" className="btn small primary" onClick=${()=>reveal(h,true)}>Rivela</button>`}
+        ${h.revealed && html`<button type="button" className="btn small" title="Lo rimostra a schermo a tutti" onClick=${()=>reveal(h,true)}>Rimostra</button>`}
+        <button type="button" className="btn small" onClick=${()=>setEditing({...h, removeImage:false})}>Modifica</button>
+        <span className="spacer"></span>
+        ${confirmDel===h.id ? html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>del(h)}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
+          : html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(h.id)}>Elimina</button>`}
+      </div>`}
+    </article>`)}</div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </div>`;
+}
+
+function CodexTab({sb, me, codex, secrets, reload}){
+  const M = me.isMaster;
+  const [kind, setKind] = useState(()=>lsGet("codexKind","fazione"));
+  const [editing, setEditing] = useState(null); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState({}); const [q, setQ] = useState("");
+  useEffect(()=>lsSet("codexKind",kind),[kind]);
+  const list = codex.filter(c=>c.kind===kind && (!q || (c.name+" "+c.summary).toLowerCase().includes(q.toLowerCase())))
+    .sort((a,b)=> (b.revealed - a.revealed) || a.name.localeCompare(b.name));
+  const save = async (f) => { setBusy(true); setErr("");
+    const row = {kind:f.kind, name:f.name.trim(), summary:f.summary, reputation:f.reputation, revealed:f.revealed, updated_at:new Date().toISOString()};
+    let id = f.id, r;
+    if (id) r = await sb.from("codex").update(row).eq("id", id);
+    else { r = await sb.from("codex").insert(row).select("id").single(); id = r.data?.id; }
+    if (!r.error && id) r = await sb.from("codex_secrets").upsert({id, notes:f.secret||""});
+    setBusy(false); if (r.error) { setErr("Non salvato: "+r.error.message); return; }
+    setEditing(null); reload(); };
+  const quick = async (c, patch) => { const {error} = await sb.from("codex").update({...patch, updated_at:new Date().toISOString()}).eq("id", c.id); if (error) setErr(error.message); reload(); };
+  const saveNote = async (c) => { const t = notes[c.id]; if (t===undefined) return;
+    const {data, error} = await sb.rpc("set_codex_note", {p_id:c.id, p_text:t}); if (error || !data) setErr("Nota non salvata"+(error?": "+error.message:""));
+    else { setNotes(x=>{ const y={...x}; delete y[c.id]; return y; }); reload(); } };
+  const del = async (c) => { const {error} = await sb.from("codex").delete().eq("id", c.id); if (error) setErr(error.message); setEditing(null); reload(); };
+
+  if (editing) return html`<${CodexForm} initial=${editing} busy=${busy} onSave=${save} onCancel=${()=>setEditing(null)} onDelete=${editing.id ? ()=>del(editing) : null}/>`;
+  return html`<div style=${{display:"grid",gap:12}}>
+    <div className="row">
+      <div className="planes" role="group" aria-label="Sezione del codex">${CODEX_KINDS.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${kind===k} onClick=${()=>setKind(k)}>${n} <span className="muted">${codex.filter(c=>c.kind===k).length}</span></button>`)}</div>
+      <span className="spacer"></span>
+      <input id="cx-q" className="field" style=${{maxWidth:220}} placeholder="Cerca…" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      ${M && html`<button type="button" className="btn primary" onClick=${()=>setEditing({kind, name:"", summary:"", reputation:0, revealed:false, secret:""})}>+ Nuova voce</button>`}
+    </div>
+    ${list.length===0 && html`<div className="empty"><p className="muted">${M ? `Nessuna voce in “${CODEX_KINDS.find(k=>k[0]===kind)[1]}”. Le voci nuove restano nascoste finché non le riveli.` : "Ancora niente qui: le voci compaiono quando il gruppo le scopre."}</p></div>`}
+    <div className="cx-grid">${list.map(c=>html`<article key=${c.id} className=${"cx-card"+(c.revealed?"":" draft")}>
+      <div className="row" style=${{alignItems:"baseline"}}>
+        <h3 style=${{flex:"1 1 auto"}}>${c.name||"Senza nome"}</h3>
+        ${!c.revealed && html`<span className="chip">nascosta</span>`}
+      </div>
+      ${c.kind==="fazione" && html`<div className="rep" aria-label=${"Reputazione: "+REP[c.reputation]}>
+        <div className="rep-bar">${[-3,-2,-1,0,1,2,3].map(v=>html`<span key=${v} className=${"rep-seg"+(v===c.reputation?" on":"")+(v<0?" neg":v>0?" pos":"")}></span>`)}</div>
+        <span className=${"chip"+(c.reputation<0?" bad":c.reputation>0?" gold":"")}>${REP[c.reputation]}</span>
+        ${M && html`<span className="row" style=${{gap:4}}><button type="button" className="iconbtn" aria-label="Peggiora la reputazione" disabled=${c.reputation<=-3} onClick=${()=>quick(c,{reputation:c.reputation-1})}>−</button><button type="button" className="iconbtn" aria-label="Migliora la reputazione" disabled=${c.reputation>=3} onClick=${()=>quick(c,{reputation:c.reputation+1})}>+</button></span>`}
+      </div>`}
+      ${c.summary && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${c.summary}</p>`}
+      ${M && secrets[c.id]?.notes && html`<div className="secret"><span className="eyebrow">Solo per te</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${secrets[c.id].notes}</p></div>`}
+      ${c.revealed && html`<label className="lab">Note del gruppo
+        <textarea className="field" style=${{minHeight:60}} value=${notes[c.id] ?? c.party_notes} placeholder="Cosa sappiamo, cosa ci hanno promesso…" onChange=${e=>setNotes(x=>({...x,[c.id]:e.target.value}))} onBlur=${()=>saveNote(c)}></textarea></label>`}
+      ${M && html`<div className="row">
+        <button type="button" className="btn small" onClick=${()=>quick(c,{revealed:!c.revealed})}>${c.revealed?"Nascondi":"Rivela al gruppo"}</button>
+        <button type="button" className="btn small" onClick=${()=>setEditing({...c, secret:secrets[c.id]?.notes||""})}>Modifica</button></div>`}
+    </article>`)}</div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </div>`;
+}
+
+function CodexForm({initial, onSave, onCancel, onDelete, busy}){
+  const [f, setF] = useState(initial); const [confirmDel, setConfirmDel] = useState(false);
+  return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (f.name.trim()) onSave(f);}}>
+    <h3>${f.id ? "Modifica voce" : "Nuova voce del codex"}</h3>
+    <div className="pf-row">
+      <label className="lab">Tipo<select id="cx-kind" className="field" value=${f.kind} onChange=${e=>setF({...f,kind:e.target.value})}>${CODEX_KINDS.map(([k])=>html`<option key=${k} value=${k}>${CODEX_ONE[k]}</option>`)}</select></label>
+      <label className="lab grow">Nome<input id="cx-name" className="field" value=${f.name} onChange=${e=>setF({...f,name:e.target.value})} autoFocus/></label>
+    </div>
+    <label className="lab">Cosa sa il gruppo<textarea id="cx-sum" className="field" value=${f.summary} placeholder="Il testo che vedranno i giocatori quando riveli la voce" onChange=${e=>setF({...f,summary:e.target.value})}></textarea></label>
+    <label className="lab">Note segrete (solo tu)<textarea id="cx-sec" className="field" value=${f.secret} placeholder="Obiettivi nascosti, legami, cosa succede se…" onChange=${e=>setF({...f,secret:e.target.value})}></textarea></label>
+    ${f.kind==="fazione" && html`<label className="lab" style=${{maxWidth:240}}>Reputazione del gruppo<select id="cx-rep" className="field" value=${f.reputation} onChange=${e=>setF({...f,reputation:Number(e.target.value)})}>
+      ${[3,2,1,0,-1,-2,-3].map(v=>html`<option key=${v} value=${v}>${(v>0?"+":"")+v} · ${REP[v]}</option>`)}</select></label>`}
+    <label className="row" style=${{gap:6}}><input id="cx-rev" type="checkbox" checked=${f.revealed} onChange=${e=>setF({...f,revealed:e.target.checked})}/>Visibile al gruppo</label>
+    <div className="row">
+      ${onDelete && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+        : html`<span className="confirm">Eliminare la voce?<button type="button" className="btn small danger" onClick=${onDelete}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
+      <span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button>
+    </div>
+  </form>`;
+}
+
+function JournalTab({sb, me, journal, names, world, reload}){
+  const M = me.isMaster;
+  const [editing, setEditing] = useState(null); const [openId, setOpenId] = useState(null);
+  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false); const [confirmDel, setConfirmDel] = useState(false);
+  const list = [...journal].sort((a,b)=> (b.session_no??0)-(a.session_no??0) || b.created_at.localeCompare(a.created_at));
+  const nextNo = (journal.reduce((m,j)=>Math.max(m, j.session_no||0), 0)) + 1;
+  const today = new Date().toISOString().slice(0,10);
+  const save = async (f) => { setBusy(true); setErr("");
+    const row = {session_no:f.session_no||null, title:f.title.trim(), played_on:f.played_on||null, body:f.body, visible:f.visible, updated_at:new Date().toISOString()};
+    const r = f.id ? await sb.from("journal").update(row).eq("id", f.id).select("id") : await sb.from("journal").insert({...row, author:me.id}).select("id");
+    setBusy(false);
+    if (r.error || !r.data?.length) { setErr("Non salvato"+(r.error?": "+r.error.message:": puoi modificare solo le voci che hai scritto tu.")); return; }
+    setEditing(null); setOpenId(r.data[0].id); reload(); };
+  const del = async (j) => { const {error} = await sb.from("journal").delete().eq("id", j.id); if (error) setErr(error.message); setConfirmDel(false); setOpenId(null); reload(); };
+  const open = journal.find(j=>j.id===openId);
+  const canEdit = j => M || j.author===me.id;
+
+  if (editing) return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); save(editing);}}>
+    <h3>${editing.id ? "Modifica la voce" : "Nuova voce del diario"}</h3>
+    <div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 110px"}}>Sessione n.<${Num} id="jr-no" value=${editing.session_no||0} min=${0} onChange=${v=>setEditing(x=>({...x,session_no:v}))}/></label>
+      <label className="lab" style=${{flex:"0 0 170px"}}>Giocata il<input id="jr-date" type="date" className="field" value=${editing.played_on||""} onChange=${e=>setEditing({...editing,played_on:e.target.value})}/></label>
+      <label className="lab grow">Titolo<input id="jr-title" className="field" value=${editing.title} placeholder="es. L’isola caduta" onChange=${e=>setEditing({...editing,title:e.target.value})}/></label>
+    </div>
+    <label className="lab">Cosa è successo<textarea id="jr-body" className="field" style=${{minHeight:260}} value=${editing.body} placeholder="Racconta la sessione: dove siete andati, chi avete incontrato, cosa avete scoperto, cosa resta in sospeso." onChange=${e=>setEditing({...editing,body:e.target.value})}></textarea></label>
+    ${M && html`<label className="row" style=${{gap:6}}><input id="jr-vis" type="checkbox" checked=${editing.visible} onChange=${e=>setEditing({...editing,visible:e.target.checked})}/>Visibile al gruppo (togli la spunta per tenerla come bozza)</label>`}
+    <div className="row"><span className="spacer"></span><button type="button" className="btn" onClick=${()=>setEditing(null)}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button></div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </form>`;
+
+  return html`<div className="jr-layout">
+    <aside className="jr-list">
+      <button type="button" className="btn primary" onClick=${()=>setEditing({session_no:nextNo, played_on:today, title:"", body:"", visible:true})}>+ Scrivi la sessione ${nextNo}</button>
+      ${list.length===0 && html`<p className="muted">Il diario è vuoto. Dopo ogni sessione, il master o un giocatore a turno racconta cosa è successo.</p>`}
+      ${list.map(j=>html`<button type="button" key=${j.id} className="jr-item" aria-current=${j.id===openId} onClick=${()=>{ setOpenId(j.id); setConfirmDel(false); }}>
+        <span className="eyebrow">${j.session_no?"Sessione "+j.session_no:"Senza numero"}${j.played_on?" · "+fmtDate(j.played_on):""}${!j.visible?" · bozza":""}</span>
+        <b>${j.title || "Senza titolo"}</b><span className="muted" style=${{fontSize:".82rem"}}>di ${names[j.author]||"qualcuno"}</span></button>`)}
+    </aside>
+    <section className="panel jr-read">
+      ${!open ? html`<p className="muted" style=${{margin:0}}>${list.length ? "Scegli una sessione dall’elenco per leggerla." : "Qui comparirà il racconto delle vostre sessioni."}</p>`
+      : html`<div className="eyebrow">${open.session_no?"Sessione "+open.session_no:""}${open.played_on?" · "+fmtDate(open.played_on):""} · scritta da ${names[open.author]||"qualcuno"}</div>
+        <h2>${open.title || "Senza titolo"}</h2>
+        <div className="jr-body">${open.body || html`<span className="muted">Ancora vuota.</span>`}</div>
+        ${canEdit(open) && html`<div className="row"><button type="button" className="btn small" onClick=${()=>setEditing({...open})}>Modifica</button><span className="spacer"></span>
+          ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+            : html`<span className="confirm">Eliminare la voce?<button type="button" className="btn small danger" onClick=${()=>del(open)}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`}</div>`}`}
+      ${err && html`<p className="err" role="alert">${err}</p>`}
+    </section>
+  </div>`;
+}
+
+function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls}){
+  const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
+  useEffect(()=>lsSet("chronTab",tab),[tab]);
+  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"]];
+  return html`<div>
+    <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
+    <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${tab===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
+    ${tab==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
+    ${tab==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
+    ${tab==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
+  </div>`;
 }
 
 /* ---------- tavolo: tiri, iniziativa, plancia ---------- */
@@ -1579,11 +1874,22 @@ function Main({sb, me, onSignOut}){
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
   const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
-  const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo"].includes(h)?h:lsGet("view","gruppo"); });
+  const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo","cronache"].includes(h)?h:lsGet("view","gruppo"); });
   const [openId, setOpenId] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [msg, setMsg] = useState("");
   const shown = useRef(new Set());
+  const hoUrls = useHandoutUrls(sb, camp.handouts);
+  const [hoOpen, setHoOpen] = useState(null);
+  const seenKey = h => h.id + "@" + (h.revealed_at || "");
+  useEffect(()=>{
+    if (me.isMaster || hoOpen) return;
+    const seen = new Set(lsGet("seenHandouts", []));
+    const fresh = camp.handouts.filter(h=>h.revealed && h.revealed_at && !seen.has(seenKey(h)) && Date.now() - Date.parse(h.revealed_at) < 12*3600*1000)
+      .sort((a,b)=>a.revealed_at.localeCompare(b.revealed_at));
+    if (fresh.length){ setHoOpen(fresh[0]); chime(); }
+  },[camp.handouts, hoOpen]);
+  const closeHandout = () => { if (hoOpen){ const seen = lsGet("seenHandouts", []); lsSet("seenHandouts", [...seen.slice(-200), seenKey(hoOpen)]); } setHoOpen(null); };
   useEffect(()=>{ if(view!=="scheda") lsSet("view",view); },[view]);
 
   const showToast = useCallback((r)=>{
@@ -1705,7 +2011,7 @@ function Main({sb, me, onSignOut}){
   const openChar = chars.find(c=>c.id===openId);
   const mine = chars.find(c=>c.owner===me.id);
   const goMine = () => { if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
-  const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa","Mappa"]];
+  const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa","Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
   return html`<div>
@@ -1724,6 +2030,7 @@ function Main({sb, me, onSignOut}){
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
       ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
+      ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} onOpenHandout=${h=>setHoOpen(h)}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp}/>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
@@ -1733,6 +2040,7 @@ function Main({sb, me, onSignOut}){
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps}/>`}
     </main>
+    ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
     <${Toasts} toasts=${toasts}/>
   </div>`;
 }
