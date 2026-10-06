@@ -430,6 +430,29 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 @media (max-width:560px){.cfg-row.pin-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.cfg-row.pin-row > .field{flex:1 1 42%;min-width:0}.cfg-row.pin-row > select.field{flex-basis:60%}}
 .darkdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--surface);margin-right:6px;vertical-align:middle;opacity:.75}
 .addmap{margin:0 0 10px}
+.bt{position:absolute;inset:0;pointer-events:none}
+.bt > *{position:absolute}
+.bt-grid,.bt-ruler,.bt-fog{left:0;top:0;width:100%;height:100%}
+.bt-walls{overflow:visible}
+.bt-walls line{stroke:#e0524a;stroke-width:.07;stroke-linecap:round;opacity:.85}
+.bt-door{pointer-events:auto;transform:translate(-50%,-50%) scale(var(--inv));width:22px;height:22px;border-radius:5px;border:1.5px solid #1e2923;background:#b9844a;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;display:grid;place-items:center;z-index:3}
+.bt-door.open{background:#3f8f6b}
+.bt-tok{pointer-events:auto;transform:translate(-50%,-50%);aspect-ratio:1;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 1px 4px rgb(0 0 0/.55);display:grid;place-items:center;cursor:pointer;touch-action:none;container-type:inline-size;z-index:4;box-sizing:border-box}
+.bt-tok.mine{cursor:grab}
+.bt-in{color:#fff;font-weight:700;font-size:36cqw;line-height:1;text-shadow:0 1px 2px rgb(0 0 0/.6);font-family:var(--f-ui,system-ui)}
+.bt-tok.hid{opacity:.55;border-style:dashed}
+.bt-tok.sel{outline:3px solid var(--gold);outline-offset:2px}
+.bt-tok.turn{box-shadow:0 0 0 4px var(--gold),0 0 18px var(--gold)}
+.bt-tok.hp-ferito{border-color:#e8c15a}.bt-tok.hp-malconcio{border-color:#e07b39}.bt-tok.hp-allo-stremo{border-color:#d0453b}.bt-tok.hp-a-terra{border-color:#444;filter:grayscale(.8)}
+.bt-dist{transform:translate(-50%,-170%) scale(var(--inv));transform-origin:50% 100%;background:var(--ink);color:var(--surface);font-size:.8rem;padding:2px 8px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:6}
+.bt-ruler line{stroke:var(--gold);stroke-linecap:round}
+.bt-rect{border:2px dashed var(--gold);background:rgb(216 164 66/.15);z-index:5}
+.bt-tools{display:grid;gap:8px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.bt-tools .btn[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.bt-sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+.bt-form{padding-top:8px;border-top:1px dashed var(--line)}
+.bt-sel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px;border:1px solid var(--gold);border-radius:8px}
+.bt-sw{width:18px;height:18px;border-radius:50%;flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -1048,8 +1071,294 @@ function PinForm({initial, master, onSave, onCancel, busy}){
   </form>`;
 }
 
+/* ---------- mappe da battaglia: griglia, pedine, nebbia, muri ---------- */
+const CELL_M = 1.5;
+const TOKEN_SIZES = [[0.5,"Minuscola"],[1,"Piccola o Media"],[2,"Grande"],[3,"Enorme"],[4,"Mastodontica"]];
+const FOG_MODES = [["none","Nessuna"],["manual","A mano (pennello del master)"],["walls","Automatica con i muri"]];
+const ENEMY_COLOR = "#9b2c2c";
+
+function rayHit(ox, oy, dx, dy, s){
+  const sx = s[2]-s[0], sy = s[3]-s[1]; const den = dx*sy - dy*sx; if (Math.abs(den) < 1e-12) return Infinity;
+  const ax = s[0]-ox, ay = s[1]-oy; const t = (ax*sy - ay*sx)/den, u = (ax*dy - ay*dx)/den;
+  return (t >= 0 && u >= -1e-9 && u <= 1+1e-9) ? t : Infinity;
+}
+/* poligono di visibilità da (ox,oy), in unità di griglia; R limita la distanza */
+function visPoly(ox, oy, segs, cols, rows, R){
+  let x0 = 0, y0 = 0, x1 = cols, y1 = rows;
+  if (R){ x0 = Math.max(0, ox-R); y0 = Math.max(0, oy-R); x1 = Math.min(cols, ox+R); y1 = Math.min(rows, oy+R); }
+  const S = [[x0,y0,x1,y0],[x1,y0,x1,y1],[x1,y1,x0,y1],[x0,y1,x0,y0]];
+  for (const s of segs){ if (Math.max(s[0],s[2]) < x0 || Math.min(s[0],s[2]) > x1 || Math.max(s[1],s[3]) < y0 || Math.min(s[1],s[3]) > y1) continue; S.push(s); }
+  const angs = [];
+  for (const s of S){ for (const [px,py] of [[s[0],s[1]],[s[2],s[3]]]){ const a = Math.atan2(py-oy, px-ox); angs.push(a-1e-4, a, a+1e-4); } }
+  angs.sort((a,b)=>a-b);
+  const pts = []; let last = null;
+  for (const a of angs){ if (last !== null && a-last < 1e-7) continue; last = a;
+    const dx = Math.cos(a), dy = Math.sin(a); let tm = Infinity;
+    for (const s of S){ const t = rayHit(ox, oy, dx, dy, s); if (t < tm) tm = t; }
+    if (tm < Infinity) pts.push([ox+dx*tm, oy+dy*tm]); }
+  return pts;
+}
+function inPoly(x, y, P){ let c = false; for (let i = 0, j = P.length-1; i < P.length; j = i++){
+  const [xi,yi] = P[i], [xj,yj] = P[j]; if (((yi > y) !== (yj > y)) && (x < (xj-xi)*(y-yi)/((yj-yi)||1e-12) + xi)) c = !c; } return c; }
+const sceneDims = (g, W, H) => { const size = Math.max(4, Number(g?.size)||70), offX = Number(g?.offX)||0, offY = Number(g?.offY)||0;
+  return {size, offX, offY, cols: Math.max(1, Math.round(g?.cols || (W-offX)/size)), rows: Math.max(1, Math.round(g?.rows || (H-offY)/size))}; };
+const cellDist = (a, b) => Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1]));
+const snapTok = (v, size) => (size >= 1 && Math.round(size) % 2 === 0) ? Math.round(v) : Math.floor(v) + 0.5;
+/* lo stato della nebbia "a mano" in un punto: ripercorre le operazioni del master */
+function manualRevealed(ops, x, y){ let on = false;
+  for (const o of ops || []){ const t = o[0];
+    if (t === "A") on = true; else if (t === "Z") on = false;
+    else if (t === "c" || t === "h"){ if (Math.hypot(x-o[1], y-o[2]) <= o[3]) on = (t === "c"); }
+    else if (t === "r" || t === "H"){ const xa = Math.min(o[1], o[1]+o[3]), xb = Math.max(o[1], o[1]+o[3]), ya = Math.min(o[2], o[2]+o[4]), yb = Math.max(o[2], o[2]+o[4]);
+      if (x >= xa && x <= xb && y >= ya && y <= yb) on = (t === "r"); } }
+  return on; }
+
+/* legge un file Universal VTT (.dd2vtt / .uvtt / .df2vtt) esportato da Dungeondraft, Dungeon Alchemist e simili */
+function parseUvtt(j){
+  const res = j.resolution || {}; const ppg = Number(res.pixels_per_grid) || 70;
+  const ox = Number(res.map_origin?.x)||0, oy = Number(res.map_origin?.y)||0;
+  const cols = Math.round(Number(res.map_size?.x)||0), rows = Math.round(Number(res.map_size?.y)||0);
+  if (!j.image || !cols || !rows) throw new Error("il file non contiene immagine e dimensioni della mappa");
+  const r3 = v => Math.round(v*1000)/1000;
+  const walls = [];
+  for (const line of [...(j.line_of_sight||[]), ...(j.objects_line_of_sight||[])]){
+    for (let i = 1; i < (line||[]).length; i++){ const a = line[i-1], b = line[i]; walls.push([r3(a.x-ox), r3(a.y-oy), r3(b.x-ox), r3(b.y-oy), 0]); } }
+  const doors = {};
+  for (const p of j.portals || []){ const b = p.bounds || []; if (b.length < 2) continue;
+    walls.push([r3(b[0].x-ox), r3(b[0].y-oy), r3(b[1].x-ox), r3(b[1].y-oy), 1]); doors[walls.length-1] = p.closed === false; }
+  const lights = (j.lights || []).map(l => [r3((l.position?.x||0)-ox), r3((l.position?.y||0)-oy), r3(Number(l.range)||4)]).filter(l => l[2] > 0);
+  const b64 = String(j.image).replace(/^data:[^,]*,/, ""); const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const type = u8[0] === 0x89 ? "image/png" : (u8[0] === 0xff ? "image/jpeg" : "image/webp");
+  const ext = type.split("/")[1].replace("jpeg","jpg");
+  return {grid:{size:ppg, offX:0, offY:0, cols, rows, show:true}, walls, doors, lights,
+    dark: j.environment && j.environment.baked_lighting === false, blob: new Blob([u8], {type}), ext};
+}
+
+function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr}){
+  const D = sceneDims(scene.grid, W, H);
+  const fogC = useRef(null);
+  const [drag, setDrag] = useState(null);       // {id, x, y, sx, sy}
+  const [ruler, setRuler] = useState(null);     // {a:[x,y], b:[x,y]}
+  const [rect, setRect] = useState(null);       // anteprima area da scoprire/coprire
+  const [pending, setPending] = useState([]);   // operazioni del pennello non ancora salvate
+  const g = useRef(null); const saveT = useRef(0); const sent = useRef(new Set());
+  const fogOps = useMemo(()=>[...(st?.fog||[]), ...pending], [st?.fog, pending]);
+  const mode = st?.fog_mode || "none";
+  const doors = st?.doors || {};
+  const charOwner = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, c.owner])), [chars]);
+  const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
+  const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
+  const pos = tk => drag && drag.id === tk.id ? [drag.x, drag.y] : [tk.x, tk.y];
+
+  /* muri attivi (le porte aperte non bloccano) e luci */
+  const segs = useMemo(()=> (scene.walls||[]).filter((w,i)=> !(w[4] === 1 && doors[i])), [scene.walls, JSON.stringify(doors)]);
+  const lightPolys = useMemo(()=> mode === "walls" && st?.dark ? (scene.lights||[]).map(l => ({l, P: visPoly(l[0], l[1], segs, D.cols, D.rows, l[2])})) : [], [segs, mode, st?.dark, scene.lights, D.cols, D.rows]);
+  const party = tokens.filter(isParty);
+  const partyKey = JSON.stringify(party.map(tk => [tk.id, ...pos(tk), tk.vision||0]));
+  const vision = useMemo(()=> mode !== "walls" ? [] : party.map(tk => { const [x,y] = pos(tk);
+    return {x, y, dv: (Number(tk.vision)||0)/CELL_M, P: visPoly(x, y, segs, D.cols, D.rows, null)}; }), [partyKey, segs, mode, D.cols, D.rows]);
+  const seesPoint = (x, y) => vision.some(v => inPoly(x, y, v.P) && (!st?.dark || (v.dv && Math.hypot(x-v.x, y-v.y) <= v.dv) ||
+    lightPolys.some(lp => Math.hypot(x-lp.l[0], y-lp.l[1]) <= lp.l[2] && inPoly(x, y, lp.P))));
+  const explored = useMemo(()=> new Set(st?.explored || []), [st?.explored]);
+  const visibleToPlayers = (x, y) => mode === "none" || manualRevealed(fogOps, x, y) || (mode === "walls" && seesPoint(x, y));
+
+  /* celle esplorate: chi muove le pedine del gruppo (o il master) le segna */
+  useEffect(()=>{
+    if (mode !== "walls" || !vision.length) return;
+    if (!M && !party.some(tk => charOwner[tk.char_id] === me.id)) return;
+    const timer = setTimeout(()=>{ const fresh = [];
+      for (const v of vision){ let xa = D.cols, xb = 0, ya = D.rows, yb = 0;
+        for (const [px,py] of v.P){ xa = Math.min(xa,px); xb = Math.max(xb,px); ya = Math.min(ya,py); yb = Math.max(yb,py); }
+        for (let cy = Math.max(0, Math.floor(ya)); cy < Math.min(D.rows, Math.ceil(yb)); cy++)
+          for (let cx = Math.max(0, Math.floor(xa)); cx < Math.min(D.cols, Math.ceil(xb)); cx++){
+            const id = cy*D.cols + cx; if (explored.has(id) || sent.current.has(id)) continue;
+            if (seesPoint(cx+0.5, cy+0.5)){ fresh.push(id); sent.current.add(id); } } }
+      if (fresh.length) ops.markExplored(fresh.slice(0, 20000)); }, 900);
+    return ()=>clearTimeout(timer);
+  },[vision, lightPolys, explored]);
+  useEffect(()=>{ sent.current = new Set(); },[scene.plane, (st?.explored||[]).length === 0]);
+
+  /* disegno della nebbia */
+  useEffect(()=>{
+    const c = fogC.current; if (!c || mode === "none") return;
+    const k = Math.min(1, 2048 / W); const cw = Math.round(W*k), ch = Math.round(H*k);
+    if (c.width !== cw || c.height !== ch){ c.width = cw; c.height = ch; }
+    const ctx = c.getContext("2d"); const S = D.size*k, ox = D.offX*k, oy = D.offY*k;
+    const X = x => ox + x*S, Y = y => oy + y*S;
+    ctx.globalCompositeOperation = "source-over"; ctx.clearRect(0,0,cw,ch);
+    ctx.fillStyle = "rgb(6,8,10)"; ctx.fillRect(0,0,cw,ch);
+    if (mode === "walls" && explored.size){
+      ctx.globalCompositeOperation = "destination-out";
+      for (const id of explored){ const cx = id % D.cols, cy = Math.floor(id / D.cols); ctx.fillRect(X(cx)-0.5, Y(cy)-0.5, S+1, S+1); }
+      ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(6,8,10,.62)";
+      for (const id of explored){ const cx = id % D.cols, cy = Math.floor(id / D.cols); ctx.fillRect(X(cx)-0.5, Y(cy)-0.5, S+1, S+1); }
+    }
+    for (const o of fogOps){ const t = o[0];
+      if (t === "A"){ ctx.clearRect(0,0,cw,ch); continue; }
+      if (t === "Z"){ ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgb(6,8,10)"; ctx.fillRect(0,0,cw,ch); continue; }
+      ctx.globalCompositeOperation = (t === "c" || t === "r") ? "destination-out" : "source-over"; ctx.fillStyle = "rgb(6,8,10)";
+      ctx.beginPath(); if (t === "c" || t === "h") ctx.arc(X(o[1]), Y(o[2]), o[3]*S, 0, Math.PI*2); else ctx.rect(X(o[1]), Y(o[2]), o[3]*S, o[4]*S); ctx.fill(); }
+    if (mode === "walls"){ ctx.globalCompositeOperation = "destination-out"; ctx.fillStyle = "#000";
+      const path = P => { ctx.beginPath(); P.forEach(([x,y],i)=> i ? ctx.lineTo(X(x),Y(y)) : ctx.moveTo(X(x),Y(y))); ctx.closePath(); };
+      for (const v of vision){ ctx.save(); path(v.P); ctx.clip();
+        if (!st?.dark) ctx.fillRect(0,0,cw,ch);
+        else { if (v.dv){ ctx.beginPath(); ctx.arc(X(v.x), Y(v.y), v.dv*S, 0, Math.PI*2); ctx.fill(); }
+          for (const lp of lightPolys){ ctx.save(); path(lp.P); ctx.clip(); ctx.beginPath(); ctx.arc(X(lp.l[0]), Y(lp.l[1]), lp.l[2]*S, 0, Math.PI*2); ctx.fill(); ctx.restore(); } }
+        ctx.restore(); } }
+    ctx.globalCompositeOperation = "source-over";
+  },[mode, fogOps, vision, lightPolys, explored, W, H, D.size, D.offX, D.offY, st?.dark]);
+
+  /* comandi col puntatore (chiamati dalla mappa) */
+  const toGrid = (e) => { const r = imgRef.current.getBoundingClientRect(); const px = (e.clientX - r.left)/r.width*W, py = (e.clientY - r.top)/r.height*H;
+    return [(px - D.offX)/D.size, (py - D.offY)/D.size]; };
+  const flush = (list) => { clearTimeout(saveT.current);
+    saveT.current = setTimeout(async ()=>{ const all = [...(st?.fog||[]), ...list].slice(-4000);
+      const m = await ops.setState({fog: all}); if (m) onErr(m); setPending([]); }, 350); };
+  ctlRef.current = {
+    down(e){
+      const tokEl = e.target.closest && e.target.closest("[data-tok]"); const doorEl = e.target.closest && e.target.closest("[data-door]");
+      const p = toGrid(e);
+      if (doorEl){ g.current = {door: Number(doorEl.getAttribute("data-door"))}; return true; }
+      if (tool === "ruler"){ const a = [Math.floor(p[0])+0.5, Math.floor(p[1])+0.5]; g.current = {ruler:true}; setRuler({a, b:a}); return true; }
+      if (M && (tool === "reveal" || tool === "hide")){ const op = [tool === "reveal" ? "c" : "h", +p[0].toFixed(2), +p[1].toFixed(2), brushR];
+        g.current = {brush: op[0], last: p, list: [op]}; setPending(x => [...x, op]); return true; }
+      if (M && (tool === "rect" || tool === "rectHide")){ g.current = {rect: tool === "rect" ? "r" : "H", a: [Math.round(p[0]), Math.round(p[1])]}; setRect({a: g.current.a, b: g.current.a}); return true; }
+      if (tokEl){ const tk = tokens.find(x => x.id === tokEl.getAttribute("data-tok")); if (!tk) return false;
+        g.current = {tok: tk.id, can: canMove(tk), sx: tk.x, sy: tk.y, gx: p[0], gy: p[1], moved: false}; return true; }
+      return false; },
+    move(e){ const s = g.current; if (!s) return; const p = toGrid(e);
+      if (s.ruler) setRuler(r => r && {...r, b:[Math.floor(p[0])+0.5, Math.floor(p[1])+0.5]});
+      else if (s.brush){ if (Math.hypot(p[0]-s.last[0], p[1]-s.last[1]) >= Math.max(0.3, brushR*0.4)){ const op = [s.brush, +p[0].toFixed(2), +p[1].toFixed(2), brushR]; s.last = p; s.list.push(op); setPending(x => [...x, op]); } }
+      else if (s.rect) setRect({a: s.a, b: [Math.round(p[0]), Math.round(p[1])]});
+      else if (s.tok && s.can){ const dx = p[0]-s.gx, dy = p[1]-s.gy; if (!s.moved && Math.hypot(dx,dy) < 0.15) return; s.moved = true;
+        setDrag({id: s.tok, x: s.sx+dx, y: s.sy+dy, sx: s.sx, sy: s.sy}); } },
+    async up(e){ const s = g.current; g.current = null; if (!s) return;
+      if (s.door !== undefined){ const m = await ops.toggleDoor(s.door); if (m) onErr(m); return; }
+      if (s.ruler) return;
+      if (s.brush){ flush(s.list); return; }
+      if (s.rect){ const p = toGrid(e); const b = [Math.round(p[0]), Math.round(p[1])]; setRect(null);
+        const w = b[0]-s.a[0], h = b[1]-s.a[1]; if (!w || !h) return; const op = [s.rect, s.a[0], s.a[1], w, h]; setPending(x => [...x, op]); flush([op]); return; }
+      if (s.tok){ const tk = tokens.find(x => x.id === s.tok);
+        if (!s.moved || !tk){ setSelTok(s.tok); return; }
+        const p = toGrid(e); const nx = clamp(snapTok(s.sx + p[0]-s.gx, tk.size), 0, D.cols), ny = clamp(snapTok(s.sy + p[1]-s.gy, tk.size), 0, D.rows);
+        setDrag({id: tk.id, x: nx, y: ny, sx: s.sx, sy: s.sy});
+        const m = await ops.moveToken(tk.id, nx, ny); if (m) onErr(m);
+        setTimeout(()=>setDrag(d => d && d.id === tk.id ? null : d), 600); } },
+  };
+  useEffect(()=>()=>clearTimeout(saveT.current),[]);
+  useEffect(()=>{ if (tool !== "ruler") setRuler(null); },[tool]);
+
+  const pctX = x => (D.offX + x*D.size)/W*100, pctY = y => (D.offY + y*D.size)/H*100;
+  const fighterOf = tk => tk.combatant_id ? fighters.find(f => f.id === tk.combatant_id) : (tk.char_id ? fighters.find(f => f.char_id === tk.char_id) : null);
+  const turnId = combat?.active ? combat.turn_id : null;
+  const doorMarks = (scene.walls||[]).map((w,i)=>[w,i]).filter(([w,i]) => w[4] === 1);
+  const shown = tokens.filter(tk => M || (!tk.hidden && (isParty(tk) || canMove(tk) || visibleToPlayers(...pos(tk)))));
+  const doorSeen = (w) => { const mx = (w[0]+w[2])/2, my = (w[1]+w[3])/2, L = Math.hypot(w[2]-w[0], w[3]-w[1]) || 1, nx = -(w[3]-w[1])/L*0.3, ny = (w[2]-w[0])/L*0.3;
+    return visibleToPlayers(mx+nx, my+ny) || visibleToPlayers(mx-nx, my-ny); };
+  const dragTok = drag && tokens.find(x => x.id === drag.id);
+  const dist = drag ? Math.round(cellDist([drag.sx, drag.sy], [snapTok(drag.x, dragTok?.size||1), snapTok(drag.y, dragTok?.size||1)])) : 0;
+  return html`<div className="bt">
+    ${scene.grid?.show !== false && html`<svg className="bt-grid" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <defs><pattern id=${"gp-"+scene.plane} width=${D.size} height=${D.size} x=${D.offX} y=${D.offY} patternUnits="userSpaceOnUse">
+        <path d=${`M ${D.size} 0 L 0 0 0 ${D.size}`} fill="none" stroke="rgba(0,0,0,.38)" strokeWidth=${Math.max(1, D.size/60)}/></pattern></defs>
+      <rect x=${D.offX} y=${D.offY} width=${D.cols*D.size} height=${D.rows*D.size} fill=${`url(#gp-${scene.plane})`}/></svg>`}
+    ${mode !== "none" && html`<canvas className="bt-fog" ref=${fogC} style=${{opacity: M && !peek ? .5 : 1}} aria-hidden="true"></canvas>`}
+    ${M && showWalls && (scene.walls||[]).length > 0 && html`<svg className="bt-walls" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
+      style=${{left:pctX(0)+"%", top:pctY(0)+"%", width:(D.cols*D.size/W*100)+"%", height:(D.rows*D.size/H*100)+"%"}}>
+      ${(scene.walls||[]).map((w,i)=> w[4] === 1 ? null : html`<line key=${i} x1=${w[0]} y1=${w[1]} x2=${w[2]} y2=${w[3]}/>`)}</svg>`}
+    ${doorMarks.filter(([w]) => M || doorSeen(w)).map(([w,i])=>html`<button type="button" key=${"d"+i} data-door=${i}
+      className=${"bt-door"+(doors[i]?" open":"")} title=${doors[i] ? "Porta aperta: tocca per chiudere" : "Porta chiusa: tocca per aprire"}
+      style=${{left:pctX((w[0]+w[2])/2)+"%", top:pctY((w[1]+w[3])/2)+"%"}}>${doors[i] ? "◫" : "▮"}</button>`)}
+    ${shown.map(tk => { const [x,y] = pos(tk); const f = fighterOf(tk); const pc = !!(tk.char_id && charOwner[tk.char_id]);
+      const col = tk.color || (pc ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR); const sz = Number(tk.size)||1;
+      return html`<div key=${tk.id} data-tok=${tk.id} title=${tk.name}
+        className=${"bt-tok"+(tk.hidden?" hid":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
+        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col}}>
+        <span className="bt-in">${initialsOf(tk.name)}</span></div>`; })}
+    ${drag && html`<div className="bt-dist" style=${{left:pctX(drag.x)+"%", top:pctY(drag.y)+"%"}}>${String(dist*CELL_M).replace(".",",")} m</div>`}
+    ${ruler && html`<svg className="bt-ruler" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <line x1=${D.offX+ruler.a[0]*D.size} y1=${D.offY+ruler.a[1]*D.size} x2=${D.offX+ruler.b[0]*D.size} y2=${D.offY+ruler.b[1]*D.size} strokeWidth=${Math.max(2, D.size/14)}/></svg>
+      <div className="bt-dist" style=${{left:pctX(ruler.b[0])+"%", top:pctY(ruler.b[1])+"%"}}>${String(cellDist(ruler.a, ruler.b)*CELL_M).replace(".",",")} m · ${cellDist(ruler.a, ruler.b)} quad.</div>`}
+    ${rect && html`<div className="bt-rect" style=${{left:pctX(Math.min(rect.a[0],rect.b[0]))+"%", top:pctY(Math.min(rect.a[1],rect.b[1]))+"%",
+      width:(Math.abs(rect.b[0]-rect.a[0])*D.size/W*100)+"%", height:(Math.abs(rect.b[1]-rect.a[1])*D.size/H*100)+"%"}}></div>`}
+  </div>`;
+}
+
+function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, setTool, brushR, setBrushR, showWalls, setShowWalls, selTok, setSelTok, ops, onImport, busy, W, H}){
+  const [open, setOpen] = useState("");     // "" | "grid" | "token"
+  const [nt, setNt] = useState({name:"", size:1, hidden:false, vision:0});
+  const D = sceneDims(scene.grid, W||1, H||1);
+  const charOwner = Object.fromEntries(chars.map(c=>[c.id, c.owner]));
+  const tk = tokens.find(x => x.id === selTok);
+  const pcs = chars.filter(c => c.owner);
+  const center = [Math.floor(D.cols/2)+0.5, Math.floor(D.rows/2)+0.5];
+  const placeRow = (n) => Array.from({length:n}, (_,i)=>[clamp(center[0] + (i - Math.floor(n/2)), 0.5, D.cols-0.5), center[1]]);
+  const addParty = async () => { const missing = pcs.filter(c => !tokens.some(t => t.char_id === c.id)); if (!missing.length) return;
+    const P = placeRow(missing.length);
+    await ops.addTokens(missing.map((c,i)=>({name: norm(c).name || "PG", char_id: c.id, size: 1, x: P[i][0], y: P[i][1], vision: 0}))); };
+  const addFoes = async () => { const fs = fighters.filter(f => !f.char_id && !tokens.some(t => t.combatant_id === f.id)); if (!fs.length) return;
+    const P = placeRow(fs.length);
+    await ops.addTokens(fs.map((f,i)=>({name: f.name || "Avversario", combatant_id: f.id, hidden: !!f.hidden, size: 1, x: P[i][0], y: Math.min(D.rows-0.5, P[i][1]+2)}))); };
+  const setGrid = (patch) => { const gr = {...(scene.grid||{}), ...patch};
+    if (!(scene.walls||[]).length && ("size" in patch || "offX" in patch || "offY" in patch)){ delete gr.cols; delete gr.rows; }
+    ops.setScene({grid: gr}); };
+  const mode = st?.fog_mode || "none";
+  const T = (k, l, title) => html`<button type="button" className="btn small" aria-pressed=${tool===k} title=${title||l} onClick=${()=>setTool(tool===k ? null : k)}>${l}</button>`;
+  return html`<div className="bt-tools">
+    <div className="row" style=${{gap:6}}>
+      ${T(null, "✋ Sposta", "Trascina le pedine (le tue; il master tutte) e la mappa")}
+      ${T("ruler", "📏 Righello", "Misura in metri: 1 quadretto = 1,5 m, anche in diagonale")}
+      ${M && mode !== "none" && html`<span className="bt-sep"></span>${T("reveal","Scopri","Pennello: scopri la nebbia")}${T("rect","Scopri area","Trascina per scoprire un rettangolo")}${T("hide","Copri","Pennello: rimetti la nebbia")}${T("rectHide","Copri area")}
+        <label className="row" style=${{gap:4,fontSize:".85rem"}}>Pennello<select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${brushR} onChange=${e=>setBrushR(Number(e.target.value))}>
+          ${[0.5,1,2,3,5].map(r=>html`<option key=${r} value=${r}>${String(r*2*CELL_M).replace(".",",")} m</option>`)}</select></label>`}
+    </div>
+    ${M && html`<div className="row" style=${{gap:8,fontSize:".88rem"}}>
+      <label className="row" style=${{gap:4}}>Nebbia<select id="bt-fog" className="field" style=${{width:"auto",padding:"3px 6px"}} value=${mode} onChange=${e=>ops.setState({fog_mode:e.target.value})}>
+        ${FOG_MODES.filter(([k]) => k !== "walls" || (scene.walls||[]).length).map(([k,l])=>html`<option key=${k} value=${k}>${l}</option>`)}</select></label>
+      ${mode !== "none" && html`<button type="button" className="btn small" onClick=${()=>ops.setState({fog:[["A"]]})}>Scopri tutto</button><button type="button" className="btn small" onClick=${()=>ops.setState({fog:[]})}>Copri tutto</button>`}
+      ${mode === "walls" && html`<button type="button" className="btn small" onClick=${()=>ops.setState({explored:[]})} title="Dimentica le zone già viste">Azzera esplorato</button>
+        <label className="row" style=${{gap:6}}><input id="bt-dark" type="checkbox" checked=${!!st?.dark} onChange=${e=>ops.setState({dark:e.target.checked})}/>Ambiente buio (servono luci o scurovisione)</label>`}
+      ${(scene.walls||[]).length > 0 && html`<label className="row" style=${{gap:6}}><input id="bt-walls" type="checkbox" checked=${showWalls} onChange=${e=>setShowWalls(e.target.checked)}/>Mostra muri</label>`}
+    </div>
+    <div className="row" style=${{gap:6}}>
+      <button type="button" className="btn small" disabled=${!pcs.some(c=>!tokens.some(t=>t.char_id===c.id))} onClick=${addParty}>+ Pedine del gruppo</button>
+      <button type="button" className="btn small" disabled=${!fighters.some(f=>!f.char_id && !tokens.some(t=>t.combatant_id===f.id))} onClick=${addFoes} title="Crea le pedine degli avversari in Iniziativa">+ Avversari dall’iniziativa</button>
+      <button type="button" className="btn small" aria-pressed=${open==="token"} onClick=${()=>setOpen(open==="token"?"":"token")}>+ Pedina</button>
+      <button type="button" className="btn small" aria-pressed=${open==="grid"} onClick=${()=>setOpen(open==="grid"?"":"grid")}>Griglia</button>
+      <span className="spacer"></span>
+      <button type="button" className="btn small" disabled=${busy} onClick=${onImport} title="File .dd2vtt di Dungeondraft (o .uvtt / .df2vtt): immagine, griglia, muri, porte e luci">${busy ? "Importazione…" : "Importa da Dungeondraft"}</button>
+    </div>
+    ${open==="token" && html`<form className="row bt-form" onSubmit=${async e=>{ e.preventDefault(); if (!nt.name.trim()) return;
+        await ops.addTokens([{name:nt.name.trim(), size:nt.size, hidden:nt.hidden, vision:nt.vision||null, x:center[0], y:center[1]}]); setNt({...nt, name:""}); }}>
+      <input id="nt-name" className="field" style=${{flex:"1 1 160px"}} placeholder="Nome (es. Goblin 1)" value=${nt.name} onChange=${e=>setNt({...nt, name:e.target.value})}/>
+      <select className="field" style=${{width:"auto"}} aria-label="Taglia" value=${nt.size} onChange=${e=>setNt({...nt, size:Number(e.target.value)})}>${TOKEN_SIZES.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select>
+      <label className="row" style=${{gap:6}}><input type="checkbox" checked=${nt.hidden} onChange=${e=>setNt({...nt, hidden:e.target.checked})}/>nascosta</label>
+      <button className="btn small primary" disabled=${!nt.name.trim()}>Aggiungi al centro</button></form>`}
+    ${open==="grid" && html`<div className="row bt-form" style=${{fontSize:".88rem"}}>
+      <label className="lab" style=${{width:110}}>Quadretto (px)<${Num} value=${D.size} min=${4} max=${1000} onChange=${v=>setGrid({size:v})}/></label>
+      <label className="lab" style=${{width:100}}>Sposta X (px)<${Num} value=${D.offX} min=${-1000} max=${1000} onChange=${v=>setGrid({offX:v})}/></label>
+      <label className="lab" style=${{width:100}}>Sposta Y (px)<${Num} value=${D.offY} min=${-1000} max=${1000} onChange=${v=>setGrid({offY:v})}/></label>
+      <label className="row" style=${{gap:6}}><input type="checkbox" checked=${scene.grid?.show !== false} onChange=${e=>setGrid({show:e.target.checked})}/>Mostra griglia</label>
+      <span className="muted">${D.cols} × ${D.rows} quadretti · immagine ${W}×${H} px</span></div>`}`}
+    ${tk && html`<div className="bt-sel">
+      <span className="bt-sw" style=${{background: tk.color || (tk.char_id && charOwner[tk.char_id] ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR)}}></span>
+      ${M ? html`<input className="field" style=${{flex:"1 1 140px"}} aria-label="Nome della pedina" value=${tk.name} onChange=${e=>ops.updateToken(tk.id,{name:e.target.value}, true)}/>`
+          : html`<b style=${{flex:"1 1 auto"}}>${tk.name}</b>`}
+      ${M && html`<select className="field" style=${{width:"auto"}} aria-label="Taglia" value=${tk.size} onChange=${e=>ops.updateToken(tk.id,{size:Number(e.target.value)})}>${TOKEN_SIZES.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select>
+        <label className="row" style=${{gap:4,fontSize:".85rem"}} title="Scurovisione in metri (conta negli ambienti bui)">Scurovisione<select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${tk.vision||0} onChange=${e=>ops.updateToken(tk.id,{vision:Number(e.target.value)||null})}>
+          ${[0,9,18,36].map(v=>html`<option key=${v} value=${v}>${v ? v+" m" : "no"}</option>`)}</select></label>
+        <label className="row" style=${{gap:4,fontSize:".85rem"}}><input type="checkbox" checked=${tk.hidden} onChange=${e=>ops.updateToken(tk.id,{hidden:e.target.checked})}/>nascosta</label>
+        <button type="button" className="btn small danger" onClick=${()=>{ ops.deleteToken(tk.id); setSelTok(null); }}>Togli</button>`}
+      <button type="button" className="iconbtn" aria-label="Chiudi" onClick=${()=>setSelTok(null)}>×</button></div>`}
+    ${!M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina la tua pedina: si aggancia al quadretto e tutti la vedono muovere. Il righello misura in metri.</p>`}
+  </div>`;
+}
+
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps}){
+function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], sceneOps, chars=[], fighters=[], combat}){
+  const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
+  const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
   const [adding, setAdding] = useState(null);         // nuova mappa {name, dark}
   const [renaming, setRenaming] = useState(null);     // nuovo nome della mappa aperta
   const [cfgBusy, setCfgBusy] = useState(false);
@@ -1075,7 +1384,25 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   const M = me.isMaster;
   useEffect(()=>lsSet("plane",plane),[plane]);
   useEffect(()=>lsSet("pinfilter",hiddenKinds),[hiddenKinds]);
-  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); },[srcKey, plane]);
+  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); setSelTok(null); setTool(null); },[srcKey, plane]);
+  const scene = scenes[plane]; const sst = sceneStates[plane]; const battle = !!scene?.battle;
+  const planeTokens = tokens.filter(t=>t.plane===plane);
+  const bOps = sceneOps ? {
+    setScene: (patch) => sceneOps.setScene(plane, patch), setState: (patch) => sceneOps.setState(plane, patch),
+    addTokens: (rows) => sceneOps.addTokens(plane, rows), updateToken: sceneOps.updateToken, deleteToken: sceneOps.deleteToken,
+    moveToken: sceneOps.moveToken, markExplored: (cells) => sceneOps.markExplored(plane, cells), toggleDoor: (i) => sceneOps.toggleDoor(plane, i) } : null;
+  const setBattle = async (on) => { setErr("");
+    const m = await bOps.setScene({battle:on, ...(scene ? {} : {grid:{size: dims ? Math.max(20, Math.round(dims[0]/30)) : 70, offX:0, offY:0, show:true}})});
+    if (m) { setErr(m); return; }
+    if (on && !sst){ const m2 = await bOps.setState({fog_mode:"none"}); if (m2) setErr(m2); } };
+  const importUvtt = async (file) => { if (!file) return; setBusy("imp"); setErr("");
+    try { const u = parseUvtt(JSON.parse(await file.text()));
+      const f = new File([u.blob], `dd-${plane}.${u.ext}`, {type: u.blob.type});
+      const m = await onUpload(plane, f); if (m) throw new Error(m);
+      const m1 = await bOps.setScene({battle:true, grid:u.grid, walls:u.walls, lights:u.lights}); if (m1) throw new Error(m1);
+      const m2 = await bOps.setState({doors:u.doors, fog_mode: u.walls.length ? "walls" : "manual", dark: !!u.dark, explored:[], fog:[]}); if (m2) throw new Error(m2);
+    } catch(e){ setErr("Importazione non riuscita: "+e.message); }
+    setBusy(""); if (uvIn.current) uvIn.current.value = ""; };
 
   const planePins = pins.filter(p=>p.plane===plane);
   const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind));
@@ -1101,7 +1428,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   },[srcKey]);
 
   /* buio del Sottosuolo */
-  const isDeep = planeDark(plane);
+  const isDeep = planeDark(plane) && !battle;
   const lightsKey = JSON.stringify([isDeep, loaded, peek, M, planePins.filter(p=>PIN_LIGHT.has(p.kind)&&p.done).map(p=>[p.x,p.y]), party?.plane===plane ? [party.x,party.y] : null]);
   useEffect(()=>{
     const c = dark.current, im = img.current; if (!c || !im || !isDeep || !loaded) return;
@@ -1119,11 +1446,13 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   },[lightsKey]);
 
   const toNorm = (e) => { const r = img.current.getBoundingClientRect(); return {x:(e.clientX - r.left)/r.width, y:(e.clientY - r.top)/r.height}; };
-  const down = e => { if (e.target.closest(".mapctl")) return; vp.current.setPointerCapture?.(e.pointerId);
+  const down = e => { if (e.target.closest(".mapctl")) return;
+    if (battle && dims && ctl.current && ptrs.current.size === 0 && ctl.current.down(e)){ vp.current.setPointerCapture?.(e.pointerId); gesture.current = {battle:true}; return; }
+    vp.current.setPointerCapture?.(e.pointerId);
     ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const pinEl = e.target.closest("[data-pin]");
     gesture.current = {x:e.clientX, y:e.clientY, moved:false, multi: ptrs.current.size>1, pin: pinEl ? pinEl.getAttribute("data-pin") : null}; };
-  const move = e => { const P = ptrs.current; if(!P.has(e.pointerId)) return; const prev = P.get(e.pointerId);
+  const move = e => { if (gesture.current?.battle){ ctl.current?.move(e); return; } const P = ptrs.current; if(!P.has(e.pointerId)) return; const prev = P.get(e.pointerId);
     const cur = {x:e.clientX,y:e.clientY};
     if (P.size===1){ t.current.x += cur.x-prev.x; t.current.y += cur.y-prev.y; apply(); }
     else if (P.size===2){ const [a,b] = [...P.entries()].map(([id,p])=> id===e.pointerId?cur:p); const [pa,pb]=[...P.values()];
@@ -1132,7 +1461,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
       if (gesture.current) gesture.current.multi = true; }
     P.set(e.pointerId,cur);
     const g = gesture.current; if (g && Math.hypot(cur.x-g.x,cur.y-g.y)>6) g.moved = true; };
-  const up = e => { const P = ptrs.current; P.delete(e.pointerId); const g = gesture.current;
+  const up = e => { if (gesture.current?.battle){ gesture.current = null; ctl.current?.up(e); return; } const P = ptrs.current; P.delete(e.pointerId); const g = gesture.current;
     if (P.size!==0) return; gesture.current = null;
     if (!g || g.moved || g.multi || !img.current) return;
     const n = toNorm(e); const inside = n.x>=0 && n.x<=1 && n.y>=0 && n.y<=1;
@@ -1199,15 +1528,17 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     <div className=${"mapbox"+(mode?" moving":"")} ref=${vp} onPointerDown=${src?down:null} onPointerMove=${src?move:null} onPointerUp=${src?up:null} onPointerCancel=${src?up:null}>
       ${src ? html`
         <div className="layer" ref=${layer}>
-          <img key=${plane} ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${()=>{setLoaded(true); requestAnimationFrame(fit);}}
+          <img key=${plane} ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${e=>{ setDims([e.target.naturalWidth, e.target.naturalHeight]); setLoaded(true); requestAnimationFrame(fit);}}
             onError=${()=>setErr("Immagine della mappa non trovata: il master può ricaricarla.")}/>
-          ${isDeep && html`<canvas className="dark" ref=${dark} aria-hidden="true"></canvas>`}
-          ${line.length>1 && html`<svg className="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points=${line.map(p=>(p.x*100)+","+(p.y*100)).join(" ")}/></svg>`}
-          ${trailPts.map((p,i)=>html`<span key=${i} className="tdot" title=${p.label||""} style=${{left:p.x*100+"%",top:p.y*100+"%"}}></span>`)}
+          ${isDeep && !battle && html`<canvas className="dark" ref=${dark} aria-hidden="true"></canvas>`}
+          ${!battle && line.length>1 && html`<svg className="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points=${line.map(p=>(p.x*100)+","+(p.y*100)).join(" ")}/></svg>`}
+          ${!battle && trailPts.map((p,i)=>html`<span key=${i} className="tdot" title=${p.label||""} style=${{left:p.x*100+"%",top:p.y*100+"%"}}></span>`)}
           ${shownPins.map(p=>html`<span key=${p.id} data-pin=${p.id} className=${"pin"+(p.id===selId?" sel":"")+(p.hidden?" hid":"")+(PIN_LIGHT.has(p.kind)&&p.done?" lit":"")} style=${{left:p.x*100+"%",top:p.y*100+"%"}} title=${p.label||PIN_NAME[p.kind]}>
               <${Glyph} kind=${p.kind} done=${p.done}/>${p.label && html`<span className="pin-lbl">${p.label}</span>`}</span>`)}
           ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
-          ${here && !pending && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
+          ${battle && dims && loaded && html`<${BattleLayer} scene=${scene} st=${sst} tokens=${planeTokens} W=${dims[0]} H=${dims[1]} M=${M} me=${me} chars=${chars} fighters=${fighters} combat=${combat}
+            peek=${peek} tool=${tool} brushR=${brushR} showWalls=${showWalls} imgRef=${img} ctlRef=${ctl} selTok=${selTok} setSelTok=${setSelTok} ops=${bOps} onErr=${setErr}/>`}
+          ${here && !pending && !battle && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
             <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
           ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
         </div>
@@ -1217,6 +1548,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
           <button type="button" className="iconbtn" aria-label="Mostra tutta la mappa" title="Mostra tutta" onClick=${fit}>⤢</button>
           ${here && html`<button type="button" className="iconbtn" aria-label="Centra sul gruppo" title="Centra sul gruppo" onClick=${()=>centerOn(party.x,party.y)}>◎</button>`}
         </div>
+        ${battle && tool==="ruler" && html`<div className="maphint">Trascina sulla mappa per misurare.</div>`}
         ${mode==="move" && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
         ${mode==="pin" && !draft && html`<div className="maphint">Tocca la mappa dove vuoi mettere il segnaposto.</div>`}
         ${!loaded && html`<div className="maphint">Caricamento della mappa…</div>`}
@@ -1226,6 +1558,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
           ${M && html`<button type="button" className="btn primary" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Carica la mappa"}</button>`}
         </div></div>`}
     </div>
+    <input ref=${uvIn} id="uvtt-file" type="file" accept=".dd2vtt,.uvtt,.df2vtt,.json,application/json" hidden onChange=${e=>importUvtt(e.target.files[0])}/>
     <input ref=${fileIn} id="map-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange=${e=>upload(e.target.files[0])}/>
 
     ${pending && html`<div className="pendbar">
@@ -1258,7 +1591,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     </div>`}
 
     <div className="mapfoot">
-      ${src && html`<button type="button" className=${"btn "+(mode==="move"?"":"primary")} onClick=${()=>setModeTo("move")}>${mode==="move"?"Smetti di spostare":"Sposta il gruppo"}</button>`}
+      ${src && !battle && html`<button type="button" className=${"btn "+(mode==="move"?"":"primary")} onClick=${()=>setModeTo("move")}>${mode==="move"?"Smetti di spostare":"Sposta il gruppo"}</button>`}
       ${src && html`<button type="button" className="btn" aria-pressed=${mode==="pin"} onClick=${()=>setModeTo("pin")}>${mode==="pin"?"Annulla segnaposto":"+ Segnaposto"}</button>`}
       ${party && typeof party.x==="number" ? html`<span className="muted">Il gruppo è ${party.plane===plane?"qui":"su "+(PLANE_NAME[party.plane]||"un altro piano")}${party.label?": "+party.label:""} · spostato ${ago(party.at)}${byName?" da "+byName:""}</span>`
               : html`<span className="muted">Nessuna posizione segnata.</span>`}
@@ -1267,16 +1600,23 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
       ${M && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
     </div>
 
-    ${(kindsHere.length>0 || isDeep || (M && cfgOps)) && html`<div className="mapfoot">
+    ${(kindsHere.length>0 || isDeep || (M && (cfgOps || bOps))) && html`<div className="mapfoot">
       ${kindsHere.length>0 && html`<span className="muted" style=${{fontSize:".85rem"}}>Mostra:</span>`}
       ${kindsHere.map(([k,n])=>html`<button type="button" key=${k} className="kchip" aria-pressed=${!hiddenKinds.includes(k)} onClick=${()=>toggleKind(k)}><${Glyph} kind=${k} size=${16}/>${n} <span className="muted">${planePins.filter(p=>p.kind===k).length}</span></button>`)}
       ${(isDeep || (M && cfgOps)) && html`<span className="spacer"></span>`}
       ${isDeep && html`<span className="muted" style=${{fontSize:".85rem"}} title=${"Si illuminano: "+(PIN_KINDS.filter(k=>PIN_LIGHT.has(k[0])).map(k=>k[1]+" ("+k[2].toLowerCase()+")").join(", ")||"nessun tipo di segnaposto")}>Luci accese: <b className="mono">${deepLit}</b>${deepAll?` su ${deepAll}`:""}</span>`}
-      ${M && cfgOps && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="map-dark" type="checkbox" checked=${isDeep} disabled=${cfgBusy}
+      ${battle && M && sst && sst.fog_mode !== "none" && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="bt-peek" type="checkbox" checked=${peek} onChange=${e=>setPeek(e.target.checked)}/>Vedi la nebbia come i giocatori</label>`}
+      ${M && bOps && html`<label className="row" style=${{gap:6,fontSize:".85rem"}} title="Griglia, pedine, righello e nebbia"><input id="map-battle" type="checkbox" checked=${battle} disabled=${!src}
+        onChange=${e=>setBattle(e.target.checked)}/>Mappa da battaglia</label>`}
+      ${M && cfgOps && !battle && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="map-dark" type="checkbox" checked=${isDeep} disabled=${cfgBusy}
         onChange=${async e=>{ setCfgBusy(true); const m = await cfgOps.setDark(plane, e.target.checked); setCfgBusy(false); if (m) setErr(m); }}/>Mappa al buio</label>`}
       ${isDeep && M && src && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="peek" type="checkbox" checked=${peek} onChange=${e=>setPeek(e.target.checked)}/>Vedi il buio come i giocatori</label>`}
     </div>`}
-    ${isDeep && M && deepAll===0 && html`<p className="muted" style=${{margin:"8px 0 0",fontSize:".85rem"}}>Mappa al buio: i giocatori vedono solo la piccola luce del gruppo. Per illuminare una zona metti un segnaposto ${PIN_KINDS.filter(k=>PIN_LIGHT.has(k[0])).map(k=>"“"+k[1]+"”").join(" o ")||"che fa luce"} e segnalo come ${(PIN_KINDS.find(k=>PIN_LIGHT.has(k[0]))?.[2]||"fatto").toLowerCase()}.</p>`}
+    ${battle && bOps && html`<${BattleTools} scene=${scene} st=${sst} tokens=${planeTokens} chars=${chars} fighters=${fighters} names=${names} M=${M} me=${me}
+      tool=${tool} setTool=${setTool} brushR=${brushR} setBrushR=${setBrushR} showWalls=${showWalls} setShowWalls=${setShowWalls} selTok=${selTok} setSelTok=${setSelTok}
+      ops=${bOps} busy=${busy==="imp"} onImport=${()=>uvIn.current?.click()} W=${dims?.[0]} H=${dims?.[1]}/>`}
+    ${M && bOps && !battle && html`<p className="muted" style=${{margin:"8px 0 0",fontSize:".85rem"}}>Per i combattimenti spunta “Mappa da battaglia”, oppure <button type="button" className="linkish" style=${{textDecoration:"underline"}} disabled=${busy==="imp"} onClick=${()=>uvIn.current?.click()}>${busy==="imp" ? "importazione in corso…" : "importa un file .dd2vtt di Dungeondraft"}</button> in questa mappa (immagine, griglia, muri, porte e luci).</p>`}
+    ${isDeep && !battle && M && deepAll===0 && html`<p className="muted" style=${{margin:"8px 0 0",fontSize:".85rem"}}>Mappa al buio: i giocatori vedono solo la piccola luce del gruppo. Per illuminare una zona metti un segnaposto ${PIN_KINDS.filter(k=>PIN_LIGHT.has(k[0])).map(k=>"“"+k[1]+"”").join(" o ")||"che fa luce"} e segnalo come ${(PIN_KINDS.find(k=>PIN_LIGHT.has(k[0]))?.[2]||"fatto").toLowerCase()}.</p>`}
     ${err && html`<p className="notice" role="alert" style=${{marginTop:10,borderColor:"var(--heart)"}}>${err} <button type="button" className="btn small" onClick=${()=>setErr("")}>Chiudi</button></p>`}
   </div>`;
 }
@@ -1378,6 +1718,11 @@ function useCampaign(sb, active){
   const [recipes, setRecipes] = useState([]);
   const [spellsCustom, setSpellsCustom] = useState([]);
   const [config, setConfig] = useState(undefined);
+  const [scenes, setScenes] = useState({}); const [sceneStates, setSceneStates] = useState({}); const [tokens, setTokens] = useState([]);
+  const loadScenes = useCallback(async()=>{ const [a, b, c] = await Promise.all([sb.from("scenes").select("*"), sb.from("scene_state").select("*"), sb.from("tokens").select("*")]);
+    if (!a.error) setScenes(Object.fromEntries(a.data.map(r=>[r.plane, r]))); if (!b.error) setSceneStates(Object.fromEntries(b.data.map(r=>[r.plane, r]))); if (!c.error) setTokens(c.data); },[sb]);
+  const loadTokens = useCallback(async()=>{ const {data, error} = await sb.from("tokens").select("*"); if (!error) setTokens(data); },[sb]);
+  const tokT = useRef(0);
   const loadConfig = useCallback(async()=>{ const {data, error} = await sb.from("campaign").select("config").eq("id",1).maybeSingle(); if (!error) setConfig(data?.config || null); else setConfig(null); },[sb]);
   const loadSpells = useCallback(async()=>{ const {data, error} = await sb.from("spells_custom").select("*"); if (!error) setSpellsCustom(data); },[sb]);
   const onNewRoll = useRef(null);
@@ -1417,9 +1762,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1443,6 +1788,14 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"sounds"}, ()=>loadAudio())
       .on("postgres_changes",{event:"*",schema:"public",table:"recipes"}, ()=>loadAudio())
       .on("postgres_changes",{event:"*",schema:"public",table:"spells_custom"}, ()=>loadSpells())
+      .on("postgres_changes",{event:"*",schema:"public",table:"scenes"}, (pl)=>{ if (pl.eventType==="DELETE") setScenes(x=>{ const y={...x}; delete y[pl.old?.plane]; return y; });
+          else if (pl.new && pl.new.plane && pl.new.walls !== undefined) setScenes(x=>({...x, [pl.new.plane]: pl.new})); else loadScenes(); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"scene_state"}, (pl)=>{ if (pl.eventType==="DELETE") setSceneStates(x=>{ const y={...x}; delete y[pl.old?.plane]; return y; });
+          else if (pl.new && pl.new.plane && pl.new.fog !== undefined) setSceneStates(x=>({...x, [pl.new.plane]: pl.new})); else loadScenes(); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"tokens"}, (pl)=>{
+          if (pl.eventType==="DELETE") setTokens(x=>x.filter(t=>t.id!==pl.old?.id));
+          else if (pl.new && pl.new.id) setTokens(x=> x.some(t=>t.id===pl.new.id) ? x.map(t=>t.id===pl.new.id ? pl.new : t) : [...x, pl.new]);
+          clearTimeout(tokT.current); tokT.current = setTimeout(loadTokens, 700); })
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
@@ -1453,7 +1806,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens};
 }
 
 function useSignedUrls(sb, maps){
@@ -1555,11 +1908,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config")]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -1595,6 +1948,9 @@ function BackupPanel({sb, camp}){
     await up("recipes", b.recipes, "ricettario");
     await up("sounds", b.sounds, "suoni");
     await up("spells_custom", b.spells_custom, "incantesimi del gruppo", r=>({...r, created_by:null}));
+    await up("scenes", b.scenes, "mappe da battaglia");
+    await up("scene_state", b.scene_state, "nebbia delle mappe");
+    await up("tokens", b.tokens, "pedine", r=>({...r, combatant_id:null}));
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -2740,6 +3096,22 @@ function Main({sb, me, onSignOut}){
     if (error || !data) return {error: "Non salvato"+(error ? ": "+error.message : ": solo il master può cambiare le mappe.")};
     camp.setConfig(data.config); return {extra};
   },[sb, camp.config]);
+  const sceneOps = useMemo(()=>({
+    setScene: async (plane, patch) => { camp.setScenes(x=>({...x, [plane]: {...(x[plane]||{plane, grid:{}, walls:[], lights:[]}), ...patch}}));
+      const {error} = await sb.from("scenes").upsert({plane, ...patch, updated_at:new Date().toISOString()}); if (error){ camp.loadScenes(); return "Non salvato: "+error.message; } return ""; },
+    setState: async (plane, patch) => { camp.setSceneStates(x=>({...x, [plane]: {...(x[plane]||{plane, fog_mode:"none", fog:[], doors:{}, explored:[]}), ...patch}}));
+      const {error} = await sb.from("scene_state").upsert({plane, ...patch, updated_at:new Date().toISOString()}); if (error){ camp.loadScenes(); return "Non salvato: "+error.message; } return ""; },
+    addTokens: async (plane, rows) => { const {error} = await sb.from("tokens").insert(rows.map(r=>({...r, plane}))); await camp.loadTokens(); return error ? "Pedine non aggiunte: "+error.message : ""; },
+    updateToken: async (id, patch) => { camp.setTokens(x=>x.map(t=>t.id===id ? {...t, ...patch} : t));
+      const {error} = await sb.from("tokens").update({...patch, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Non salvato: "+error.message; } return ""; },
+    deleteToken: async (id) => { camp.setTokens(x=>x.filter(t=>t.id!==id)); const {error} = await sb.from("tokens").delete().eq("id", id); if (error){ camp.loadTokens(); return error.message; } return ""; },
+    moveToken: async (id, x, y) => { camp.setTokens(xs=>xs.map(t=>t.id===id ? {...t, x, y} : t));
+      if (me.isMaster){ const {error} = await sb.from("tokens").update({x, y, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Pedina non spostata: "+error.message; } return ""; }
+      const {data, error} = await sb.rpc("move_token", {p_id:id, p_x:x, p_y:y}); if (error || !data){ camp.loadTokens(); return "Pedina non spostata"+(error?": "+error.message:": puoi muovere solo la tua."); } return ""; },
+    markExplored: async (plane, cells) => { const {error} = await sb.rpc("mark_explored", {p_plane:plane, p_cells:cells}); return error ? error.message : ""; },
+    toggleDoor: async (plane, idx) => { const {data, error} = await sb.rpc("toggle_door", {p_plane:plane, p_idx:idx}); if (error || !data) return "Porta non aggiornata"+(error?": "+error.message:"");
+      camp.setSceneStates(x=>{ const s0 = x[plane]; if (!s0) return x; const d = {...(s0.doors||{})}; d[idx] = !d[idx]; return {...x, [plane]: {...s0, doors:d}}; }); return ""; },
+  }),[sb, me.isMaster]);
   const cfgOps = useMemo(()=> me.isMaster ? {
     addPlane: async (name, dark) => { let key = ""; const r = await saveCfg(c=>{ key = slugKey(name, new Set(c.planes.map(p=>p.k))); c.planes.push({k:key, name, dark:!!dark});
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(k=>k.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
@@ -2919,7 +3291,8 @@ function Main({sb, me, onSignOut}){
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
-      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}/>`}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
+          scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
     <${Toasts} toasts=${toasts}/>
