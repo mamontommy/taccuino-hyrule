@@ -1051,6 +1051,7 @@ function PinForm({initial, master, onSave, onCancel, busy}){
 /* ---------- mappa ---------- */
 function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps}){
   const [adding, setAdding] = useState(null);         // nuova mappa {name, dark}
+  const [renaming, setRenaming] = useState(null);     // nuovo nome della mappa aperta
   const [cfgBusy, setCfgBusy] = useState(false);
   const [planeSel, setPlane] = useState(party?.plane || lsGet("plane", PLANES[0][0]));
   const plane = PLANE_NAME[planeSel] ? planeSel : PLANES[0][0];
@@ -1074,7 +1075,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   const M = me.isMaster;
   useEffect(()=>lsSet("plane",plane),[plane]);
   useEffect(()=>lsSet("pinfilter",hiddenKinds),[hiddenKinds]);
-  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); },[srcKey, plane]);
+  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); },[srcKey, plane]);
 
   const planePins = pins.filter(p=>p.plane===plane);
   const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind));
@@ -1168,8 +1169,20 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
       <span className="spacer"></span>
       ${PLANES.length>1 && html`<div className="planes" role="group" aria-label="Piano">${PLANES.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${plane===k} onClick=${()=>setPlane(k)}>
         ${party?.plane===k && typeof party.x==="number" && html`<span className="here" title="Il gruppo è qui"></span>`}${planeDark(k) ? html`<span className="darkdot" title="Al buio"></span>` : null}${n}</button>`)}</div>`}
-      ${M && cfgOps && !adding && html`<button type="button" className="btn small" onClick=${()=>setAdding({name:"", dark:false})}>+ Mappa</button>`}
+      ${M && cfgOps && !adding && renaming===null && html`<button type="button" className="btn small" title="Rinomina questa mappa" onClick=${()=>setRenaming(PLANE_NAME[plane]||"")}>✎ Rinomina</button>`}
+      ${M && cfgOps && !adding && renaming===null && html`<button type="button" className="btn small" onClick=${()=>setAdding({name:"", dark:false})}>+ Mappa</button>`}
     </div>
+    ${M && cfgOps && renaming!==null && html`<form className="pincard addmap" onSubmit=${async e=>{ e.preventDefault(); const nm = renaming.trim(); if (!nm) return;
+        setCfgBusy(true); const m = await cfgOps.renamePlane(plane, nm); setCfgBusy(false);
+        if (m) setErr(m); else setRenaming(null); }}>
+      <div className="eyebrow">Rinomina la mappa</div>
+      <div className="row">
+        <input id="renmap-name" className="field" style=${{flex:"1 1 220px"}} maxLength="40" value=${renaming} onChange=${e=>setRenaming(e.target.value)} autoFocus/>
+        <button className="btn primary" disabled=${cfgBusy || !renaming.trim() || renaming.trim()===PLANE_NAME[plane]}>Salva</button>
+        <button type="button" className="btn" onClick=${()=>setRenaming(null)}>Annulla</button>
+      </div>
+      <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Cambia solo il nome: immagine, segnaposti e posizione del gruppo restano.</p>
+    </form>`}
     ${M && cfgOps && adding && html`<form className="pincard addmap" onSubmit=${async e=>{ e.preventDefault(); const nm = adding.name.trim(); if (!nm) return;
         setCfgBusy(true); const r = await cfgOps.addPlane(nm, adding.dark); setCfgBusy(false);
         if (r.error) setErr(r.error); else { setAdding(null); setPlane(r.key); } }}>
@@ -1180,7 +1193,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
         <button className="btn primary" disabled=${cfgBusy || !adding.name.trim()}>Aggiungi</button>
         <button type="button" className="btn" onClick=${()=>setAdding(null)}>Annulla</button>
       </div>
-      <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Dopo averla aggiunta carichi l’immagine. Rinominare, riordinare o togliere le mappe: ⚙ Campagna → Mappe.</p>
+      <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Dopo averla aggiunta carichi l’immagine. Riordinare o togliere le mappe: ⚙ Campagna → Mappe.</p>
     </form>`}
 
     <div className=${"mapbox"+(mode?" moving":"")} ref=${vp} onPointerDown=${src?down:null} onPointerMove=${src?move:null} onPointerUp=${src?up:null} onPointerCancel=${src?up:null}>
@@ -2731,6 +2744,7 @@ function Main({sb, me, onSignOut}){
     addPlane: async (name, dark) => { let key = ""; const r = await saveCfg(c=>{ key = slugKey(name, new Set(c.planes.map(p=>p.k))); c.planes.push({k:key, name, dark:!!dark});
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(k=>k.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
       return r.error ? {error:r.error} : {key}; },
+    renamePlane: async (k, name) => { const r = await saveCfg(c=>{ const p = c.planes.find(x=>x.k===k); if (p) p.name = String(name).trim().slice(0,40); }); return r.error || ""; },
     setDark: async (k, dark) => { const r = await saveCfg(c=>{ const p = c.planes.find(x=>x.k===k); if (p) p.dark = !!dark;
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(x=>x.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
       return r.error || ""; },
