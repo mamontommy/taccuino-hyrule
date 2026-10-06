@@ -453,6 +453,8 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .bt-form{padding-top:8px;border-top:1px dashed var(--line)}
 .bt-sel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px;border:1px solid var(--gold);border-radius:8px}
 .bt-sw{width:18px;height:18px;border-radius:50%;flex:0 0 auto}
+.bt-areas{overflow:visible;pointer-events:none}
+.bt-alabel{transform:translate(-50%,-140%) scale(var(--inv));background:rgb(30 41 35/.85);font-size:.74rem}
 </style>
 </head>
 <body>
@@ -1135,12 +1137,37 @@ function parseUvtt(j){
     dark: j.environment && j.environment.baked_lighting === false, blob: new Blob([u8], {type}), ext};
 }
 
-function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr}){
+const AREA_SHAPES = [["sfera","Sfera / cerchio"],["cono","Cono"],["linea","Linea"],["cubo","Cubo / quadrato"]];
+const AREA_NAMES = {sfera:"Sfera", cono:"Cono", linea:"Linea", cubo:"Cubo"};
+const AURA_COLORS = [["#d8a442","oro"],["#3f8fd6","blu"],["#3f8f6b","verde"],["#c0392b","rosso"],["#8e5bd6","viola"],["#e8e8e8","bianco"]];
+const fmtM = (m) => String(Math.round(m*10)/10).replace(".",",")+" m";
+function areaGeom(a){
+  const L = a.size / CELL_M, c = Math.cos(a.ang||0), s = Math.sin(a.ang||0);
+  if (a.shape === "sfera") return {kind:"circle", cx:a.x, cy:a.y, r:L};
+  if (a.shape === "cubo"){ const sx = c >= -1e-9 ? 1 : -1, sy = s >= -1e-9 ? 1 : -1; const x0 = Math.min(a.x, a.x+sx*L), y0 = Math.min(a.y, a.y+sy*L);
+    return {kind:"poly", P:[[x0,y0],[x0+L,y0],[x0+L,y0+L],[x0,y0+L]]}; }
+  const ex = a.x + c*L, ey = a.y + s*L;
+  if (a.shape === "cono"){ const h = L/2; return {kind:"poly", P:[[a.x,a.y],[ex - s*h, ey + c*h],[ex + s*h, ey - c*h]]}; }
+  const w = (a.width || CELL_M) / CELL_M / 2;
+  return {kind:"poly", P:[[a.x - s*w, a.y + c*w],[ex - s*w, ey + c*w],[ex + s*w, ey - c*w],[a.x + s*w, a.y - c*w]]};
+}
+const inArea = (gm, x, y) => gm.kind === "circle" ? Math.hypot(x-gm.cx, y-gm.cy) <= gm.r + 1e-6 : inPoly(x, y, gm.P);
+function areaCells(gm, cols, rows){ let xa, xb, ya, yb;
+  if (gm.kind === "circle"){ xa = gm.cx-gm.r; xb = gm.cx+gm.r; ya = gm.cy-gm.r; yb = gm.cy+gm.r; }
+  else { xa = Math.min(...gm.P.map(p=>p[0])); xb = Math.max(...gm.P.map(p=>p[0])); ya = Math.min(...gm.P.map(p=>p[1])); yb = Math.max(...gm.P.map(p=>p[1])); }
+  const out = [];
+  for (let cy = Math.max(0, Math.floor(ya)); cy < Math.min(rows, Math.ceil(yb)); cy++)
+    for (let cx = Math.max(0, Math.floor(xa)); cx < Math.min(cols, Math.ceil(xb)); cx++) if (inArea(gm, cx+0.5, cy+0.5)) out.push([cx, cy]);
+  return out; }
+const areaLabel = (a) => `${AREA_NAMES[a.shape]||"Area"} ${fmtM(a.size)}${a.shape === "linea" ? " × "+fmtM(a.width||CELL_M) : ""}`;
+
+function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr, areas=[], areaSpec, names={}}){
   const D = sceneDims(scene.grid, W, H);
   const fogC = useRef(null);
   const [drag, setDrag] = useState(null);       // {id, x, y, sx, sy}
   const [ruler, setRuler] = useState(null);     // {a:[x,y], b:[x,y]}
   const [rect, setRect] = useState(null);       // anteprima area da scoprire/coprire
+  const [draft, setDraft] = useState(null);     // area dell'incantesimo in preparazione
   const [pending, setPending] = useState([]);   // operazioni del pennello non ancora salvate
   const g = useRef(null); const saveT = useRef(0); const sent = useRef(new Set());
   const fogOps = useMemo(()=>[...(st?.fog||[]), ...pending], [st?.fog, pending]);
@@ -1221,6 +1248,8 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       const p = toGrid(e);
       if (doorEl){ g.current = {door: Number(doorEl.getAttribute("data-door"))}; return true; }
       if (tool === "ruler"){ const a = [Math.floor(p[0])+0.5, Math.floor(p[1])+0.5]; g.current = {ruler:true}; setRuler({a, b:a}); return true; }
+      if (tool === "area" && areaSpec){ const o = [Math.round(p[0]), Math.round(p[1])]; g.current = {area:true, o};
+        setDraft({plane: scene.plane, shape: areaSpec.shape, x:o[0], y:o[1], ang:0, size: areaSpec.size || CELL_M, width: areaSpec.shape === "linea" ? (areaSpec.width || CELL_M) : null, created_by: me.id}); return true; }
       if (M && (tool === "reveal" || tool === "hide")){ const op = [tool === "reveal" ? "c" : "h", +p[0].toFixed(2), +p[1].toFixed(2), brushR];
         g.current = {brush: op[0], last: p, list: [op]}; setPending(x => [...x, op]); return true; }
       if (M && (tool === "rect" || tool === "rectHide")){ g.current = {rect: tool === "rect" ? "r" : "H", a: [Math.round(p[0]), Math.round(p[1])]}; setRect({a: g.current.a, b: g.current.a}); return true; }
@@ -1229,6 +1258,9 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       return false; },
     move(e){ const s = g.current; if (!s) return; const p = toGrid(e);
       if (s.ruler) setRuler(r => r && {...r, b:[Math.floor(p[0])+0.5, Math.floor(p[1])+0.5]});
+      else if (s.area){ const dx = p[0]-s.o[0], dy = p[1]-s.o[1];
+        setDraft(d => d && {...d, ang: (dx || dy) ? Math.atan2(dy, dx) : d.ang,
+          size: areaSpec.size || Math.max(1, Math.round(d.shape === "cubo" ? Math.max(Math.abs(dx), Math.abs(dy)) : Math.hypot(dx, dy)))*CELL_M}); }
       else if (s.brush){ if (Math.hypot(p[0]-s.last[0], p[1]-s.last[1]) >= Math.max(0.3, brushR*0.4)){ const op = [s.brush, +p[0].toFixed(2), +p[1].toFixed(2), brushR]; s.last = p; s.list.push(op); setPending(x => [...x, op]); } }
       else if (s.rect) setRect({a: s.a, b: [Math.round(p[0]), Math.round(p[1])]});
       else if (s.tok && s.can){ const dx = p[0]-s.gx, dy = p[1]-s.gy; if (!s.moved && Math.hypot(dx,dy) < 0.15) return; s.moved = true;
@@ -1236,6 +1268,8 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
     async up(e){ const s = g.current; g.current = null; if (!s) return;
       if (s.door !== undefined){ const m = await ops.toggleDoor(s.door); if (m) onErr(m); return; }
       if (s.ruler) return;
+      if (s.area){ const d = draft; setDraft(null); if (!d) return;
+        const m = await ops.addArea({shape:d.shape, x:d.x, y:d.y, ang:+(d.ang||0).toFixed(4), size:d.size, width:d.width}); if (m) onErr(m); return; }
       if (s.brush){ flush(s.list); return; }
       if (s.rect){ const p = toGrid(e); const b = [Math.round(p[0]), Math.round(p[1])]; setRect(null);
         const w = b[0]-s.a[0], h = b[1]-s.a[1]; if (!w || !h) return; const op = [s.rect, s.a[0], s.a[1], w, h]; setPending(x => [...x, op]); flush([op]); return; }
@@ -1247,7 +1281,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
         setTimeout(()=>setDrag(d => d && d.id === tk.id ? null : d), 600); } },
   };
   useEffect(()=>()=>clearTimeout(saveT.current),[]);
-  useEffect(()=>{ if (tool !== "ruler") setRuler(null); },[tool]);
+  useEffect(()=>{ if (tool !== "ruler") setRuler(null); if (tool !== "area") setDraft(null); },[tool]);
 
   const pctX = x => (D.offX + x*D.size)/W*100, pctY = y => (D.offY + y*D.size)/H*100;
   const fighterOf = tk => tk.combatant_id ? fighters.find(f => f.id === tk.combatant_id) : (tk.char_id ? fighters.find(f => f.char_id === tk.char_id) : null);
@@ -1256,6 +1290,9 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const shown = tokens.filter(tk => M || (!tk.hidden && (isParty(tk) || canMove(tk) || visibleToPlayers(...pos(tk)))));
   const doorSeen = (w) => { const mx = (w[0]+w[2])/2, my = (w[1]+w[3])/2, L = Math.hypot(w[2]-w[0], w[3]-w[1]) || 1, nx = -(w[3]-w[1])/L*0.3, ny = (w[2]-w[0])/L*0.3;
     return visibleToPlayers(mx+nx, my+ny) || visibleToPlayers(mx-nx, my-ny); };
+  const allAreas = draft ? [...areas, {...draft, id:"draft"}] : areas;
+  const areaInfo = allAreas.map(a => { const gm = areaGeom(a); const col = a.color || (a.created_by ? colorFor(a.created_by) : "#d8a442");
+    return {a, gm, col, cells: areaCells(gm, D.cols, D.rows), inside: tokens.filter(tk => (M || !tk.hidden) && inArea(gm, ...pos(tk))).length}; });
   const dragTok = drag && tokens.find(x => x.id === drag.id);
   const dist = drag ? Math.round(cellDist([drag.sx, drag.sy], [snapTok(drag.x, dragTok?.size||1), snapTok(drag.y, dragTok?.size||1)])) : 0;
   return html`<div className="bt">
@@ -1264,6 +1301,16 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
         <path d=${`M ${D.size} 0 L 0 0 0 ${D.size}`} fill="none" stroke="rgba(0,0,0,.38)" strokeWidth=${Math.max(1, D.size/60)}/></pattern></defs>
       <rect x=${D.offX} y=${D.offY} width=${D.cols*D.size} height=${D.rows*D.size} fill=${`url(#gp-${scene.plane})`}/></svg>`}
     ${mode !== "none" && html`<canvas className="bt-fog" ref=${fogC} style=${{opacity: M && !peek ? .5 : 1}} aria-hidden="true"></canvas>`}
+    ${(areaInfo.length > 0 || shown.some(tk => tk.aura > 0)) && html`<svg className="bt-areas" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
+      style=${{left:pctX(0)+"%", top:pctY(0)+"%", width:(D.cols*D.size/W*100)+"%", height:(D.rows*D.size/H*100)+"%"}}>
+      ${shown.filter(tk => tk.aura > 0).map(tk => { const [x,y] = pos(tk); const col = tk.aura_color || "#d8a442";
+        return html`<circle key=${"au"+tk.id} cx=${x} cy=${y} r=${(Number(tk.size)||1)/2 + tk.aura/CELL_M} fill=${col} fillOpacity=".14" stroke=${col} strokeWidth=".06" strokeDasharray=".25 .15"/>`; })}
+      ${areaInfo.map(({a, gm, col, cells}) => html`<g key=${a.id}>
+        ${cells.map(([cx,cy]) => html`<rect key=${cx+"_"+cy} x=${cx} y=${cy} width="1" height="1" fill=${col} fillOpacity=".3"/>`)}
+        ${gm.kind === "circle" ? html`<circle cx=${gm.cx} cy=${gm.cy} r=${gm.r} fill=${col} fillOpacity=".08" stroke=${col} strokeWidth=".1"/>`
+          : html`<polygon points=${gm.P.map(p=>p.join(",")).join(" ")} fill=${col} fillOpacity=".08" stroke=${col} strokeWidth=".1" strokeLinejoin="round"/>`}
+        <circle cx=${a.x} cy=${a.y} r=".14" fill=${col}/></g>`)}</svg>`}
+    ${areaInfo.map(({a, inside}) => html`<div key=${"al"+a.id} className="bt-dist bt-alabel" style=${{left:pctX(a.x)+"%", top:pctY(a.y)+"%"}}>${areaLabel(a)}${inside ? " · "+inside+(inside===1?" pedina":" pedine") : ""}</div>`)}
     ${M && showWalls && (scene.walls||[]).length > 0 && html`<svg className="bt-walls" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
       style=${{left:pctX(0)+"%", top:pctY(0)+"%", width:(D.cols*D.size/W*100)+"%", height:(D.rows*D.size/H*100)+"%"}}>
       ${(scene.walls||[]).map((w,i)=> w[4] === 1 ? null : html`<line key=${i} x1=${w[0]} y1=${w[1]} x2=${w[2]} y2=${w[3]}/>`)}</svg>`}
@@ -1285,7 +1332,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   </div>`;
 }
 
-function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, setTool, brushR, setBrushR, showWalls, setShowWalls, selTok, setSelTok, ops, onImport, busy, W, H}){
+function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, setTool, brushR, setBrushR, showWalls, setShowWalls, selTok, setSelTok, ops, onImport, busy, W, H, areas=[], areaSpec, setAreaSpec}){
   const [open, setOpen] = useState("");     // "" | "grid" | "token"
   const [nt, setNt] = useState({name:"", size:1, hidden:false, vision:0});
   const D = sceneDims(scene.grid, W||1, H||1);
@@ -1309,6 +1356,14 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
     <div className="row" style=${{gap:6}}>
       ${T(null, "✋ Sposta", "Trascina le pedine (le tue; il master tutte) e la mappa")}
       ${T("ruler", "📏 Righello", "Misura in metri: 1 quadretto = 1,5 m, anche in diagonale")}
+      ${T("area", "◎ Area", "Sfera, cono, linea o cubo di un incantesimo: trascina dal punto d’origine")}
+      ${tool === "area" && html`<select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label="Forma" value=${areaSpec.shape} onChange=${e=>setAreaSpec({...areaSpec, shape:e.target.value})}>
+          ${AREA_SHAPES.map(([k,l])=>html`<option key=${k} value=${k}>${l}</option>`)}</select>
+        <select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label=${areaSpec.shape==="sfera" ? "Raggio" : areaSpec.shape==="cubo" ? "Lato" : "Lunghezza"} value=${areaSpec.size} onChange=${e=>setAreaSpec({...areaSpec, size:Number(e.target.value)})}>
+          <option value="0">${areaSpec.shape==="sfera" ? "raggio" : areaSpec.shape==="cubo" ? "lato" : "lunghezza"}: trascinando</option>
+          ${[1.5,3,4.5,6,9,12,18,27,36].map(m=>html`<option key=${m} value=${m}>${areaSpec.shape==="sfera" ? "raggio" : areaSpec.shape==="cubo" ? "lato" : "lunghezza"} ${fmtM(m)}</option>`)}</select>
+        ${areaSpec.shape === "linea" && html`<select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label="Larghezza" value=${areaSpec.width} onChange=${e=>setAreaSpec({...areaSpec, width:Number(e.target.value)})}>
+          ${[1.5,3,4.5,6].map(m=>html`<option key=${m} value=${m}>larga ${fmtM(m)}</option>`)}</select>`}`}
       ${M && mode !== "none" && html`<span className="bt-sep"></span>${T("reveal","Scopri","Pennello: scopri la nebbia")}${T("rect","Scopri area","Trascina per scoprire un rettangolo")}${T("hide","Copri","Pennello: rimetti la nebbia")}${T("rectHide","Copri area")}
         <label className="row" style=${{gap:4,fontSize:".85rem"}}>Pennello<select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${brushR} onChange=${e=>setBrushR(Number(e.target.value))}>
           ${[0.5,1,2,3,5].map(r=>html`<option key=${r} value=${r}>${String(r*2*CELL_M).replace(".",",")} m</option>`)}</select></label>`}
@@ -1341,6 +1396,10 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
       <label className="lab" style=${{width:100}}>Sposta Y (px)<${Num} value=${D.offY} min=${-1000} max=${1000} onChange=${v=>setGrid({offY:v})}/></label>
       <label className="row" style=${{gap:6}}><input type="checkbox" checked=${scene.grid?.show !== false} onChange=${e=>setGrid({show:e.target.checked})}/>Mostra griglia</label>
       <span className="muted">${D.cols} × ${D.rows} quadretti · immagine ${W}×${H} px</span></div>`}`}
+    ${areas.length > 0 && html`<div className="row" style=${{gap:6,fontSize:".85rem"}}><span className="muted">Aree:</span>
+      ${areas.map(a => html`<span key=${a.id} className="chip" style=${{borderColor: a.color || colorFor(a.created_by)}}>${areaLabel(a)}${names[a.created_by] ? " · "+names[a.created_by] : ""}
+        ${(M || a.created_by === me.id) && html` <button type="button" className="xbtn" aria-label="Togli l’area" onClick=${()=>ops.deleteArea(a.id)}>×</button>`}</span>`)}
+      ${M && areas.length > 1 && html`<button type="button" className="btn small" onClick=${()=>areas.forEach(a=>ops.deleteArea(a.id))}>Togli tutte</button>`}</div>`}
     ${tk && html`<div className="bt-sel">
       <span className="bt-sw" style=${{background: tk.color || (tk.char_id && charOwner[tk.char_id] ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR)}}></span>
       ${M ? html`<input className="field" style=${{flex:"1 1 140px"}} aria-label="Nome della pedina" value=${tk.name} onChange=${e=>ops.updateToken(tk.id,{name:e.target.value}, true)}/>`
@@ -1350,14 +1409,21 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
           ${[0,9,18,36].map(v=>html`<option key=${v} value=${v}>${v ? v+" m" : "no"}</option>`)}</select></label>
         <label className="row" style=${{gap:4,fontSize:".85rem"}}><input type="checkbox" checked=${tk.hidden} onChange=${e=>ops.updateToken(tk.id,{hidden:e.target.checked})}/>nascosta</label>
         <button type="button" className="btn small danger" onClick=${()=>{ ops.deleteToken(tk.id); setSelTok(null); }}>Togli</button>`}
+      ${(M || (tk.char_id && charOwner[tk.char_id] === me.id)) && html`<label className="row" style=${{gap:4,fontSize:".85rem"}} title="Aura o emanazione attorno alla pedina (es. Guardiani spirituali, Aura di protezione)">Aura
+        <select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${tk.aura||0} onChange=${e=>ops.setAura(tk.id, Number(e.target.value), tk.aura_color||"#d8a442")}>
+          ${[0,1.5,3,4.5,6,9,18].map(v=>html`<option key=${v} value=${v}>${v ? fmtM(v) : "no"}</option>`)}</select>
+        ${tk.aura > 0 && html`<select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label="Colore dell’aura" value=${tk.aura_color||"#d8a442"} onChange=${e=>ops.setAura(tk.id, tk.aura, e.target.value)}>
+          ${AURA_COLORS.map(([c,l])=>html`<option key=${c} value=${c}>${l}</option>`)}</select>`}</label>`}
       <button type="button" className="iconbtn" aria-label="Chiudi" onClick=${()=>setSelTok(null)}>×</button></div>`}
-    ${!M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina la tua pedina: si aggancia al quadretto e tutti la vedono muovere. Il righello misura in metri.</p>`}
+    ${tool === "area" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina dal punto d’origine nella direzione voluta: la sfera parte da un incrocio della griglia, cono e linea dal punto in cui tocchi. Sono evidenziati i quadretti colpiti (centro dentro l’area) e quante pedine ci sono. L’area resta visibile a tutti finché chi l’ha messa (o il master) non la toglie.</p>`}
+    ${!M && tool !== "area" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina la tua pedina: si aggancia al quadretto e tutti la vedono muovere. Il righello misura in metri; “Area” mostra sfere, coni e linee degli incantesimi. Toccando la tua pedina puoi darle un’aura.</p>`}
   </div>`;
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
+  const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
   const [adding, setAdding] = useState(null);         // nuova mappa {name, dark}
   const [renaming, setRenaming] = useState(null);     // nuovo nome della mappa aperta
@@ -1387,10 +1453,12 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); setSelTok(null); setTool(null); },[srcKey, plane]);
   const scene = scenes[plane]; const sst = sceneStates[plane]; const battle = !!scene?.battle;
   const planeTokens = tokens.filter(t=>t.plane===plane);
+  const planeAreas = areas.filter(a=>a.plane===plane);
   const bOps = sceneOps ? {
     setScene: (patch) => sceneOps.setScene(plane, patch), setState: (patch) => sceneOps.setState(plane, patch),
     addTokens: (rows) => sceneOps.addTokens(plane, rows), updateToken: sceneOps.updateToken, deleteToken: sceneOps.deleteToken,
-    moveToken: sceneOps.moveToken, markExplored: (cells) => sceneOps.markExplored(plane, cells), toggleDoor: (i) => sceneOps.toggleDoor(plane, i) } : null;
+    moveToken: sceneOps.moveToken, markExplored: (cells) => sceneOps.markExplored(plane, cells), toggleDoor: (i) => sceneOps.toggleDoor(plane, i),
+    addArea: (row) => sceneOps.addArea(plane, row), deleteArea: sceneOps.deleteArea, setAura: sceneOps.setAura } : null;
   const setBattle = async (on) => { setErr("");
     const m = await bOps.setScene({battle:on, ...(scene ? {} : {grid:{size: dims ? Math.max(20, Math.round(dims[0]/30)) : 70, offX:0, offY:0, show:true}})});
     if (m) { setErr(m); return; }
@@ -1537,7 +1605,8 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
               <${Glyph} kind=${p.kind} done=${p.done}/>${p.label && html`<span className="pin-lbl">${p.label}</span>`}</span>`)}
           ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
           ${battle && dims && loaded && html`<${BattleLayer} scene=${scene} st=${sst} tokens=${planeTokens} W=${dims[0]} H=${dims[1]} M=${M} me=${me} chars=${chars} fighters=${fighters} combat=${combat}
-            peek=${peek} tool=${tool} brushR=${brushR} showWalls=${showWalls} imgRef=${img} ctlRef=${ctl} selTok=${selTok} setSelTok=${setSelTok} ops=${bOps} onErr=${setErr}/>`}
+            peek=${peek} tool=${tool} brushR=${brushR} showWalls=${showWalls} imgRef=${img} ctlRef=${ctl} selTok=${selTok} setSelTok=${setSelTok} ops=${bOps} onErr=${setErr}
+            areas=${planeAreas} areaSpec=${areaSpec} names=${names}/>`}
           ${here && !pending && !battle && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
             <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
           ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
@@ -1549,6 +1618,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
           ${here && html`<button type="button" className="iconbtn" aria-label="Centra sul gruppo" title="Centra sul gruppo" onClick=${()=>centerOn(party.x,party.y)}>◎</button>`}
         </div>
         ${battle && tool==="ruler" && html`<div className="maphint">Trascina sulla mappa per misurare.</div>`}
+        ${battle && tool==="area" && html`<div className="maphint">Trascina dal punto d’origine dell’area.</div>`}
         ${mode==="move" && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
         ${mode==="pin" && !draft && html`<div className="maphint">Tocca la mappa dove vuoi mettere il segnaposto.</div>`}
         ${!loaded && html`<div className="maphint">Caricamento della mappa…</div>`}
@@ -1614,7 +1684,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     </div>`}
     ${battle && bOps && html`<${BattleTools} scene=${scene} st=${sst} tokens=${planeTokens} chars=${chars} fighters=${fighters} names=${names} M=${M} me=${me}
       tool=${tool} setTool=${setTool} brushR=${brushR} setBrushR=${setBrushR} showWalls=${showWalls} setShowWalls=${setShowWalls} selTok=${selTok} setSelTok=${setSelTok}
-      ops=${bOps} busy=${busy==="imp"} onImport=${()=>uvIn.current?.click()} W=${dims?.[0]} H=${dims?.[1]}/>`}
+      ops=${bOps} busy=${busy==="imp"} onImport=${()=>uvIn.current?.click()} W=${dims?.[0]} H=${dims?.[1]} areas=${planeAreas} areaSpec=${areaSpec} setAreaSpec=${setAreaSpec}/>`}
     ${M && bOps && !battle && html`<p className="muted" style=${{margin:"8px 0 0",fontSize:".85rem"}}>Per i combattimenti spunta “Mappa da battaglia”, oppure <button type="button" className="linkish" style=${{textDecoration:"underline"}} disabled=${busy==="imp"} onClick=${()=>uvIn.current?.click()}>${busy==="imp" ? "importazione in corso…" : "importa un file .dd2vtt di Dungeondraft"}</button> in questa mappa (immagine, griglia, muri, porte e luci).</p>`}
     ${isDeep && !battle && M && deepAll===0 && html`<p className="muted" style=${{margin:"8px 0 0",fontSize:".85rem"}}>Mappa al buio: i giocatori vedono solo la piccola luce del gruppo. Per illuminare una zona metti un segnaposto ${PIN_KINDS.filter(k=>PIN_LIGHT.has(k[0])).map(k=>"“"+k[1]+"”").join(" o ")||"che fa luce"} e segnalo come ${(PIN_KINDS.find(k=>PIN_LIGHT.has(k[0]))?.[2]||"fatto").toLowerCase()}.</p>`}
     ${err && html`<p className="notice" role="alert" style=${{marginTop:10,borderColor:"var(--heart)"}}>${err} <button type="button" className="btn small" onClick=${()=>setErr("")}>Chiudi</button></p>`}
@@ -1718,8 +1788,9 @@ function useCampaign(sb, active){
   const [recipes, setRecipes] = useState([]);
   const [spellsCustom, setSpellsCustom] = useState([]);
   const [config, setConfig] = useState(undefined);
-  const [scenes, setScenes] = useState({}); const [sceneStates, setSceneStates] = useState({}); const [tokens, setTokens] = useState([]);
-  const loadScenes = useCallback(async()=>{ const [a, b, c] = await Promise.all([sb.from("scenes").select("*"), sb.from("scene_state").select("*"), sb.from("tokens").select("*")]);
+  const [scenes, setScenes] = useState({}); const [sceneStates, setSceneStates] = useState({}); const [tokens, setTokens] = useState([]); const [areas, setAreas] = useState([]);
+  const loadAreas = useCallback(async()=>{ const {data, error} = await sb.from("areas").select("*"); if (!error) setAreas(data); },[sb]);
+  const loadScenes = useCallback(async()=>{ loadAreas(); const [a, b, c] = await Promise.all([sb.from("scenes").select("*"), sb.from("scene_state").select("*"), sb.from("tokens").select("*")]);
     if (!a.error) setScenes(Object.fromEntries(a.data.map(r=>[r.plane, r]))); if (!b.error) setSceneStates(Object.fromEntries(b.data.map(r=>[r.plane, r]))); if (!c.error) setTokens(c.data); },[sb]);
   const loadTokens = useCallback(async()=>{ const {data, error} = await sb.from("tokens").select("*"); if (!error) setTokens(data); },[sb]);
   const tokT = useRef(0);
@@ -1792,6 +1863,9 @@ function useCampaign(sb, active){
           else if (pl.new && pl.new.plane && pl.new.walls !== undefined) setScenes(x=>({...x, [pl.new.plane]: pl.new})); else loadScenes(); })
       .on("postgres_changes",{event:"*",schema:"public",table:"scene_state"}, (pl)=>{ if (pl.eventType==="DELETE") setSceneStates(x=>{ const y={...x}; delete y[pl.old?.plane]; return y; });
           else if (pl.new && pl.new.plane && pl.new.fog !== undefined) setSceneStates(x=>({...x, [pl.new.plane]: pl.new})); else loadScenes(); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"areas"}, (pl)=>{
+          if (pl.eventType==="DELETE") setAreas(x=>x.filter(a=>a.id!==pl.old?.id));
+          else if (pl.new && pl.new.id) setAreas(x=> x.some(a=>a.id===pl.new.id) ? x.map(a=>a.id===pl.new.id ? pl.new : a) : [...x, pl.new]); })
       .on("postgres_changes",{event:"*",schema:"public",table:"tokens"}, (pl)=>{
           if (pl.eventType==="DELETE") setTokens(x=>x.filter(t=>t.id!==pl.old?.id));
           else if (pl.new && pl.new.id) setTokens(x=> x.some(t=>t.id===pl.new.id) ? x.map(t=>t.id===pl.new.id ? pl.new : t) : [...x, pl.new]);
@@ -1806,7 +1880,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas};
 }
 
 function useSignedUrls(sb, maps){
@@ -1908,11 +1982,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -1951,6 +2025,7 @@ function BackupPanel({sb, camp}){
     await up("scenes", b.scenes, "mappe da battaglia");
     await up("scene_state", b.scene_state, "nebbia delle mappe");
     await up("tokens", b.tokens, "pedine", r=>({...r, combatant_id:null}));
+    await up("areas", b.areas, "aree", r=>({...r, created_by:null}));
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -3108,6 +3183,12 @@ function Main({sb, me, onSignOut}){
     moveToken: async (id, x, y) => { camp.setTokens(xs=>xs.map(t=>t.id===id ? {...t, x, y} : t));
       if (me.isMaster){ const {error} = await sb.from("tokens").update({x, y, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Pedina non spostata: "+error.message; } return ""; }
       const {data, error} = await sb.rpc("move_token", {p_id:id, p_x:x, p_y:y}); if (error || !data){ camp.loadTokens(); return "Pedina non spostata"+(error?": "+error.message:": puoi muovere solo la tua."); } return ""; },
+    addArea: async (plane, row) => { const {data, error} = await sb.from("areas").insert({...row, plane, created_by:me.id}).select("*").maybeSingle();
+      if (error) return "Area non salvata"+(/relation|does not exist/.test(error.message) ? ": esegui fase9.sql" : ": "+error.message);
+      if (data) camp.setAreas(x=> x.some(a=>a.id===data.id) ? x : [...x, data]); return ""; },
+    deleteArea: async (id) => { camp.setAreas(x=>x.filter(a=>a.id!==id)); const {error} = await sb.from("areas").delete().eq("id", id); if (error){ camp.loadAreas(); return error.message; } return ""; },
+    setAura: async (id, aura, color) => { camp.setTokens(x=>x.map(t=>t.id===id ? {...t, aura: aura || null, aura_color: color} : t));
+      const {data, error} = await sb.rpc("set_token_aura", {p_id:id, p_aura:aura||0, p_color:color||null}); if (error || !data){ camp.loadTokens(); return "Aura non salvata"+(error?": "+error.message:""); } return ""; },
     markExplored: async (plane, cells) => { const {error} = await sb.rpc("mark_explored", {p_plane:plane, p_cells:cells}); return error ? error.message : ""; },
     toggleDoor: async (plane, idx) => { const {data, error} = await sb.rpc("toggle_door", {p_plane:plane, p_idx:idx}); if (error || !data) return "Porta non aggiornata"+(error?": "+error.message:"");
       camp.setSceneStates(x=>{ const s0 = x[plane]; if (!s0) return x; const d = {...(s0.doors||{})}; d[idx] = !d[idx]; return {...x, [plane]: {...s0, doors:d}}; }); return ""; },
@@ -3292,7 +3373,7 @@ function Main({sb, me, onSignOut}){
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
-          scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
+          scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
     <${Toasts} toasts=${toasts}/>
