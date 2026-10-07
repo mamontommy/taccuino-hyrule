@@ -1200,6 +1200,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const charOwner = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, c.owner])), [chars]);
   const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
   const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
+  const V = M && !peek;   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
   const pos = tk => drag && drag.id === tk.id ? [drag.x, drag.y] : [tk.x, tk.y];
 
   /* muri attivi (le porte aperte non bloccano) e luci */
@@ -1318,12 +1319,12 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const fighterOf = tk => tk.combatant_id ? fighters.find(f => f.id === tk.combatant_id) : (tk.char_id ? fighters.find(f => f.char_id === tk.char_id) : null);
   const turnId = combat?.active ? combat.turn_id : null;
   const doorMarks = (scene.walls||[]).map((w,i)=>[w,i]).filter(([w,i]) => w[4] === 1);
-  const shown = tokens.filter(tk => M || (!tk.hidden && (isParty(tk) || canMove(tk) || visibleToPlayers(...pos(tk)))));
+  const shown = tokens.filter(tk => V || (!tk.hidden && (isParty(tk) || (!M && canMove(tk)) || visibleToPlayers(...pos(tk)))));
   const doorSeen = (w) => { const mx = (w[0]+w[2])/2, my = (w[1]+w[3])/2, L = Math.hypot(w[2]-w[0], w[3]-w[1]) || 1, nx = -(w[3]-w[1])/L*0.3, ny = (w[2]-w[0])/L*0.3;
     return visibleToPlayers(mx+nx, my+ny) || visibleToPlayers(mx-nx, my-ny); };
   const allAreas = draft ? [...areas, {...draft, id:"draft"}] : areas;
   const areaInfo = allAreas.map(a => { const gm = areaGeom(a); const col = a.color || (a.created_by ? colorFor(a.created_by) : "#d8a442");
-    return {a, gm, col, cells: areaCells(gm, D.cols, D.rows), inside: tokens.filter(tk => (M || !tk.hidden) && inArea(gm, ...pos(tk))).length}; });
+    return {a, gm, col, cells: areaCells(gm, D.cols, D.rows), inside: tokens.filter(tk => (V || !tk.hidden) && inArea(gm, ...pos(tk))).length}; });
   const dragTok = drag && tokens.find(x => x.id === drag.id);
   const dist = drag ? Math.round(cellDist([drag.sx, drag.sy], [snapTok(drag.x, dragTok?.size||1), snapTok(drag.y, dragTok?.size||1)])) : 0;
   return html`<div className="bt">
@@ -1342,10 +1343,10 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
           : html`<polygon points=${gm.P.map(p=>p.join(",")).join(" ")} fill=${col} fillOpacity=".08" stroke=${col} strokeWidth=".1" strokeLinejoin="round"/>`}
         <circle cx=${a.x} cy=${a.y} r=".14" fill=${col}/></g>`)}</svg>`}
     ${areaInfo.map(({a, inside}) => html`<div key=${"al"+a.id} className="bt-dist bt-alabel" style=${{left:pctX(a.x)+"%", top:pctY(a.y)+"%"}}>${areaLabel(a)}${inside ? " · "+inside+(inside===1?" pedina":" pedine") : ""}</div>`)}
-    ${M && showWalls && (scene.walls||[]).length > 0 && html`<svg className="bt-walls" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
+    ${V && showWalls && (scene.walls||[]).length > 0 && html`<svg className="bt-walls" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
       style=${{left:pctX(0)+"%", top:pctY(0)+"%", width:(D.cols*D.size/W*100)+"%", height:(D.rows*D.size/H*100)+"%"}}>
       ${(scene.walls||[]).map((w,i)=> w[4] === 1 ? null : html`<line key=${i} x1=${w[0]} y1=${w[1]} x2=${w[2]} y2=${w[3]}/>`)}</svg>`}
-    ${doorMarks.filter(([w,i]) => M || (doorSeen(w) && !(lockOf(i) === 2 && !doors[i]))).map(([w,i])=>{ const lk = lockOf(i);
+    ${doorMarks.filter(([w,i]) => V || (doorSeen(w) && !(lockOf(i) === 2 && !doors[i]))).map(([w,i])=>{ const lk = lockOf(i);
       const title = M && tool === "locks" ? `${["Porta normale","Chiusa a chiave","Segreta (i giocatori non la vedono)"][lk]}: tocca per cambiare`
         : doors[i] ? (lk && !M ? "Porta aperta (chiusa a chiave: solo il master la chiude)" : "Porta aperta: tocca per chiudere")
         : lk === 2 ? "Porta segreta chiusa: i giocatori non la vedono" : lk ? (M ? "Chiusa a chiave: tu puoi aprirla, i giocatori no" : "Porta chiusa a chiave") : "Porta chiusa: tocca per aprire";
@@ -1410,7 +1411,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
       ${mode !== "none" && html`<button type="button" className="btn small" onClick=${()=>ops.setState({fog:[["A"]]})}>Scopri tutto</button><button type="button" className="btn small" onClick=${()=>ops.setState({fog:[]})}>Copri tutto</button>`}
       ${mode === "walls" && html`<button type="button" className="btn small" onClick=${()=>ops.setState({explored:[]})} title="Dimentica le zone già viste">Azzera esplorato</button>
         <label className="row" style=${{gap:6}}><input id="bt-dark" type="checkbox" checked=${!!st?.dark} onChange=${e=>ops.setState({dark:e.target.checked})}/>Ambiente buio (servono luci o scurovisione)</label>`}
-      ${(scene.walls||[]).length > 0 && html`<label className="row" style=${{gap:6}}><input id="bt-walls" type="checkbox" checked=${showWalls} onChange=${e=>setShowWalls(e.target.checked)}/>Mostra muri</label>`}
+      ${(scene.walls||[]).length > 0 && html`<label className="row" style=${{gap:6}}><input id="bt-walls" type="checkbox" checked=${showWalls} onChange=${e=>setShowWalls(e.target.checked)}/>Mostra muri (solo a te)</label>`}
     </div>
     <div className="row" style=${{gap:6}}>
       <button type="button" className="btn small" disabled=${!pcs.some(c=>!tokens.some(t=>t.char_id===c.id))} onClick=${addParty}>+ Pedine del gruppo</button>
