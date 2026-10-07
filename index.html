@@ -321,6 +321,21 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .layer img.mimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill}
 .pin.mst > svg{opacity:1;filter:drop-shadow(0 0 2.5px #8e5bd6) drop-shadow(0 0 1px #8e5bd6)}
 .mapfoot.mview{border-top:1px dashed var(--line);padding-top:8px}
+.arch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.arch-card{display:grid;gap:4px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;color:inherit;font:inherit}
+.arch-card:hover{border-color:var(--accent)}.arch-card.hid{border-style:dashed;opacity:.75}
+.arch-thumb{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.arch-ph{display:grid;place-items:center}
+.arch-t{font-weight:600;line-height:1.25;overflow-wrap:anywhere}.arch-d{font-size:.78rem}
+.arch-fh{display:inline-flex;align-items:baseline;gap:6px;background:none;border:0;padding:0;cursor:pointer;color:inherit;text-decoration:none}
+.arch-foot{border-top:1px dashed var(--line);padding-top:8px}
+.mv-back{padding:12px;place-items:center;overflow:hidden}
+.mv-head a.btn{text-decoration:none;color:inherit}
+.mv-modal{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;width:min(1400px,100%);height:calc(100vh - 24px);height:calc(100dvh - 24px);display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;gap:10px;padding:14px;box-shadow:0 20px 60px rgb(0 0 0/.45)}
+.mv-head{gap:8px;align-items:center}
+.mv-box{overflow:auto;border-radius:8px;background:var(--sunk);cursor:grab;touch-action:pan-x pan-y;min-height:200px}
+.mv-box img{display:block;max-width:none;height:auto;user-select:none}
+.mv-edit{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
 .pin-lbl{position:absolute;top:13px;left:0;transform:translateX(-50%) scale(var(--inv));transform-origin:50% 0;white-space:nowrap;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink);font-size:.72rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);pointer-events:none}
 .pincard{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:grid;gap:10px}
 .pinform{display:grid;gap:10px}
@@ -574,6 +589,7 @@ function normCfg(raw){
     w: (Array.isArray(x.w) ? x.w : []).filter(Array.isArray).map(e=>[txt(e[0],40).trim(), Math.max(1, Math.min(99, parseInt(e[1],10)||1)), txt(e[2],120)]).filter(e=>e[0]).slice(0,20)
   })).filter(x=>x.k && !rk.has(x.k) && rk.add(x.k)).map(x=>({...x, w: x.w.length ? x.w : [["Sereno",1,""]]}));
   out.flags = r.flags && typeof r.flags==="object" && !Array.isArray(r.flags) ? r.flags : {};
+  out.archiveFolder = txt(r.archiveFolder, 60).trim();
   out.counters = list(r.counters, DEFAULT_CFG.counters, x => ({k:txt(x.k,40), name:txt(x.name,40).trim()||"Contatore", hint:txt(x.hint,160),
     hpMax:!!x.hpMax, reset:!!x.reset, cond:txt(x.cond,80)}));
   return out;
@@ -1462,13 +1478,13 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMaster, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
   const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
   const [adding, setAdding] = useState(null);         // nuova mappa {name, dark}
   const [renaming, setRenaming] = useState(null);     // nuovo nome della mappa aperta
-  const [cfgBusy, setCfgBusy] = useState(false);
+  const [cfgBusy, setCfgBusy] = useState(false); const [confirmRm, setConfirmRm] = useState(false);
   const [planeSel, setPlane] = useState(party?.plane || lsGet("plane", PLANES[0][0]));
   const plane = PLANE_NAME[planeSel] ? planeSel : PLANES[0][0];
   const [mode, setMode] = useState(null);           // null | "move" | "pin"
@@ -1500,7 +1516,7 @@ function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMas
   useEffect(()=>lsSet("plane",plane),[plane]);
   useEffect(()=>lsSet("pinfilter",hiddenKinds),[hiddenKinds]);
   useEffect(()=>lsSet("mview",mview),[mview]); useEffect(()=>lsSet("mopacity",mOpacity),[mOpacity]);
-  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); setSelTok(null); setTool(null); },[srcKey, plane]);
+  useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); setSelTok(null); setTool(null); setConfirmRm(false); },[srcKey, plane]);
   const scene = scenes[plane]; const sst = sceneStates[plane]; const battle = !!scene?.battle;
   const planeTokens = tokens.filter(t=>t.plane===plane);
   const planeAreas = areas.filter(a=>a.plane===plane);
@@ -1595,7 +1611,7 @@ function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMas
     if (msg) setErr(msg); else { setPending(null); setMode(null); }
     setBusy(""); };
   const upload = async (file) => { if(!file) return; setBusy("up"); setErr("");
-    const msg = await onUpload(plane, file); if (msg) setErr(msg);
+    const msg = await onUpload(plane, file, {archive:true}); if (msg) setErr(msg);
     setBusy(""); if (fileIn.current) fileIn.current.value = ""; };
   const savePin = async (f) => { setBusy("pin"); setErr("");
     const row = {kind:f.kind, label:f.label.trim(), note:f.note.trim(), done:!!f.done, hidden: M && (!!f.hidden || PIN_MASTER.has(f.kind))};
@@ -1724,6 +1740,16 @@ function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMas
       ${trailPts.length>0 && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await onClearTrail(); if (m) setErr(m); }}>Cancella percorso</button>`}
       ${M && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
     </div>
+    ${M && cfgOps && html`<div className="mapfoot arch-foot">
+      <span className="muted" style=${{fontSize:".85rem"}}>${archiveOps ? html`Le immagini che carichi qui vanno anche in Cronache → Mappe, cartella <b>${archiveFolder}</b>.` : ""}</span>
+      <span className="spacer"></span>
+      ${archiveOps && src && html`<button type="button" className="btn small" disabled=${busy==="arch"} title="Copia l’immagine attuale nell’archivio delle Cronache"
+        onClick=${async()=>{ setBusy("arch"); setErr(""); const m = await archiveOps.fromUrl(src, {folder: archiveFolder, title: PLANE_NAME[plane], plane}); setBusy(""); setErr(m || "Salvata in Cronache → Mappe, cartella “"+archiveFolder+"”."); }}>${busy==="arch" ? "Salvataggio…" : "Salva in Cronache"}</button>`}
+      ${PLANES.length > 1 && (confirmRm ? html`<span className="confirm">Togliere “${PLANE_NAME[plane]}” dalla sezione Mappe? Le copie nelle Cronache restano.
+          <button type="button" className="btn small danger" disabled=${cfgBusy} onClick=${async()=>{ setCfgBusy(true); const m = await cfgOps.removePlane(plane); setCfgBusy(false); setConfirmRm(false); if (m) setErr(m); else setPlane(PLANES.find(([k])=>k!==plane)?.[0]); }}>Togli</button>
+          <button type="button" className="btn small" onClick=${()=>setConfirmRm(false)}>Annulla</button></span>`
+        : html`<button type="button" className="btn small" onClick=${()=>setConfirmRm(true)} title="Toglie questa mappa dai pulsanti in alto (per esempio quando la sessione è finita)">Togli dalle Mappe</button>`)}
+    </div>`}
     ${M && src && html`<div className="mapfoot mview">
       <div className="modebar" role="group" aria-label="Vista della mappa">
         <button type="button" id="mv-master" aria-pressed=${mview} onClick=${()=>setMview(true)}>Vista master</button>
@@ -1840,7 +1866,7 @@ const rowToChar = (r) => ({...(r.data||{}), id:r.id, owner:r.owner});
 function useCampaign(sb, active){
   const [chars, setChars] = useState([]);
   const [party, setParty] = useState(null);
-  const [maps, setMaps] = useState({}); const [mmaps, setMmaps] = useState({});
+  const [maps, setMaps] = useState({}); const [mmaps, setMmaps] = useState({}); const [archive, setArchive] = useState([]); const [archiveErr, setArchiveErr] = useState("");
   const [members, setMembers] = useState([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -1881,6 +1907,8 @@ function useCampaign(sb, active){
     if (!h.error) setHandouts(h.data); if (!c.error) setCodex(c.data);
     if (!cs.error) setCodexSecrets(Object.fromEntries(cs.data.map(x=>[x.id,x]))); if (!j.error) setJournal(j.data);
   },[sb]);
+  const loadArchive = useCallback(async()=>{ const {data, error} = await sb.from("map_archive").select("*");
+    if (error){ setArchiveErr(error.message); return; } setArchiveErr(""); setArchive(data); },[sb]);
   const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
   const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
@@ -1909,9 +1937,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1948,6 +1976,7 @@ function useCampaign(sb, active){
           clearTimeout(tokT.current); tokT.current = setTimeout(loadTokens, 700); })
       .on("postgres_changes",{event:"*",schema:"public",table:"clocks"}, ()=>loadClocks())
       .on("postgres_changes",{event:"*",schema:"public",table:"maps_master"}, ()=>loadMmaps())
+      .on("postgres_changes",{event:"*",schema:"public",table:"map_archive"}, ()=>loadArchive())
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
@@ -1960,7 +1989,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr};
 }
 
 function useSignedUrls(sb, maps){
@@ -2123,11 +2152,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -2169,6 +2198,7 @@ function BackupPanel({sb, camp}){
     await up("areas", b.areas, "aree", r=>({...r, created_by:null}));
     await up("clocks", b.clocks, "orologi di scena");
     await up("maps_master", b.maps_master, "versioni del master delle mappe");
+    await up("map_archive", b.map_archive, "archivio delle mappe");
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -2759,19 +2789,136 @@ function CampaignSettings({sb, me, config, setConfig}){
   </div>`;
 }
 
-function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls}){
+function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, archiveFolder}){
   const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
   useEffect(()=>lsSet("chronTab",tab),[tab]);
-  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
+  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
   const cur = tabs.some(t=>t[0]===tab) ? tab : "diario";
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${cur===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
     ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
+    ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
     ${cur==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${cur==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
+  </div>`;
+}
+
+/* ---------- archivio delle mappe (Cronache → Mappe) ---------- */
+const natCmp = (a, b) => String(a).localeCompare(String(b), "it", {numeric:true, sensitivity:"base"});
+async function makeThumb(file, max=520){
+  let url = "";
+  try { url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    const W = img.naturalWidth, H = img.naturalHeight; if (!W || !H) return null;
+    const k = Math.min(1, max/Math.max(W, H)); const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(W*k)); c.height = Math.max(1, Math.round(H*k));
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(r=>c.toBlob(r, "image/jpeg", 0.8)); return blob ? {blob, w:W, h:H} : null;
+  } catch(e){ return null; } finally { if (url) URL.revokeObjectURL(url); }
+}
+function MapViewer({sb, item, master, folders, ops, onClose}){
+  const [url, setUrl] = useState(""); const [dl, setDl] = useState(""); const [zoom, setZoom] = useState(1); const [err, setErr] = useState("");
+  const [f, setF] = useState({title:item.title, note:item.note||"", folder:item.folder, visible:item.visible}); const [confirmDel, setConfirmDel] = useState(false); const [busy, setBusy] = useState(false);
+  const box = useRef(null); const drag = useRef(null);
+  useEffect(()=>{ let off = false; setUrl(""); setDl("");
+    (async()=>{ const a = await sb.storage.from("mappe").createSignedUrl(item.path, 60*60*6);
+      const ext = (item.path.split(".").pop()||"png"); const name = slugKey(item.title || "mappa", new Set())+"."+ext;
+      const b = await sb.storage.from("mappe").createSignedUrl(item.path, 60*60*6, {download: name});
+      if (off) return; if (a.data?.signedUrl) setUrl(a.data.signedUrl); else setErr("Immagine non disponibile."); if (b.data?.signedUrl) setDl(b.data.signedUrl); })();
+    return ()=>{ off = true; }; },[item.path]);
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  const zoomTo = (z) => { const el = box.current; const nz = clamp(z, 1, 8); if (!el){ setZoom(nz); return; }
+    const cx = (el.scrollLeft + el.clientWidth/2) / el.scrollWidth, cy = (el.scrollTop + el.clientHeight/2) / el.scrollHeight;
+    setZoom(nz); requestAnimationFrame(()=>{ el.scrollLeft = cx*el.scrollWidth - el.clientWidth/2; el.scrollTop = cy*el.scrollHeight - el.clientHeight/2; }); };
+  const dirty = master && (f.title !== item.title || f.note !== (item.note||"") || f.folder !== item.folder || f.visible !== item.visible);
+  return html`<div className="modal-back mv-back" role="dialog" aria-modal="true" aria-label=${item.title||"Mappa"} onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
+    <div className="mv-modal">
+      <div className="row mv-head">
+        <div style=${{minWidth:0,flex:"1 1 200px"}}><div className="eyebrow">${item.folder || "Senza cartella"}${item.created_at ? " · "+fmtDate(item.created_at) : ""}${!item.visible ? " · nascosta ai giocatori" : ""}</div>
+          <h3 style=${{margin:0}}>${item.title || "Mappa"}</h3></div>
+        <button type="button" className="iconbtn" aria-label="Riduci" disabled=${zoom<=1} onClick=${()=>zoomTo(zoom/1.4)}>−</button>
+        <span className="mono" style=${{fontSize:".85rem",minWidth:44,textAlign:"center"}}>${Math.round(zoom*100)}%</span>
+        <button type="button" className="iconbtn" aria-label="Ingrandisci" disabled=${zoom>=8} onClick=${()=>zoomTo(zoom*1.4)}>+</button>
+        ${dl && html`<a className="btn small" href=${dl} target="_blank" rel="noopener">Scarica</a>`}
+        <button type="button" className="btn small primary" onClick=${onClose} autoFocus>Chiudi</button>
+      </div>
+      <div className="mv-box" ref=${box}
+        onWheel=${e=>{ e.preventDefault(); zoomTo(zoom*(e.deltaY<0?1.15:1/1.15)); }}
+        onPointerDown=${e=>{ if (e.pointerType!=="mouse") return; drag.current = {x:e.clientX, y:e.clientY, l:box.current.scrollLeft, t:box.current.scrollTop}; }}
+        onPointerMove=${e=>{ const d = drag.current; if (!d) return; box.current.scrollLeft = d.l-(e.clientX-d.x); box.current.scrollTop = d.t-(e.clientY-d.y); }}
+        onPointerUp=${()=>{ drag.current = null; }} onPointerLeave=${()=>{ drag.current = null; }}>
+        ${url ? html`<img src=${url} alt=${item.title||"Mappa"} draggable="false" style=${{width:(zoom*100)+"%"}}/>` : html`<p className="muted" style=${{padding:20}}>${err || "Caricamento…"}</p>`}
+      </div>
+      ${item.note && !master && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${item.note}</p>`}
+      ${master && ops && html`<div className="mv-edit">
+        <label className="lab" style=${{flex:"2 1 200px"}}>Titolo<input id="arch-title" className="field" maxLength="80" value=${f.title} onChange=${e=>setF({...f, title:e.target.value})}/></label>
+        <label className="lab" style=${{flex:"1 1 150px"}}>Cartella<input id="arch-folder" className="field" list="arch-folders" maxLength="60" value=${f.folder} onChange=${e=>setF({...f, folder:e.target.value})}/></label>
+        <label className="lab" style=${{flex:"3 1 260px"}}>Nota per i giocatori<input id="arch-note" className="field" maxLength="300" value=${f.note} onChange=${e=>setF({...f, note:e.target.value})}/></label>
+        <label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="arch-vis" type="checkbox" checked=${f.visible} onChange=${e=>setF({...f, visible:e.target.checked})}/>visibile ai giocatori</label>
+        <button type="button" className="btn small primary" disabled=${!dirty || busy} onClick=${async()=>{ setBusy(true); const m = await ops.update(item.id, {title:f.title.trim().slice(0,80), note:f.note.trim().slice(0,300), folder:f.folder.trim().slice(0,60), visible:f.visible}); setBusy(false); if (m) setErr(m); }}>Salva</button>
+        <span className="spacer"></span>
+        ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+          : html`<span className="confirm">Eliminare l’immagine dall’archivio?<button type="button" className="btn small danger" onClick=${async()=>{ const m = await ops.remove(item); if (m) setErr(m); else onClose(); }}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>Annulla</button></span>`}
+        <datalist id="arch-folders">${folders.map(x=>html`<option key=${x} value=${x}/>`)}</datalist>
+      </div>`}
+      ${err && html`<p className="err" role="alert" style=${{margin:0}}>${err}</p>`}
+    </div>
+  </div>`;
+}
+function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder}){
+  const M = me.isMaster;
+  const [openId, setOpenId] = useState(null); const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [msg, setMsg] = useState("");
+  const [folderIn, setFolderIn] = useState(defaultFolder); const [ren, setRen] = useState(null);   // {from, to}
+  const fileIn = useRef(null);
+  useEffect(()=>setFolderIn(defaultFolder),[defaultFolder]);
+  const thumbs = useSignedUrls(sb, useMemo(()=>Object.fromEntries(archive.filter(a=>a.thumb).map(a=>[a.id, a.thumb])), [archive]));
+  const list = archive.filter(a => !q.trim() || (a.title+" "+a.folder+" "+(a.note||"")).toLowerCase().includes(q.trim().toLowerCase()));
+  const lastOf = {}; for (const a of archive){ const t = String(a.created_at||""); if (!lastOf[a.folder] || t > lastOf[a.folder]) lastOf[a.folder] = t; }
+  const byRecent = (a,b) => (lastOf[b]||"").localeCompare(lastOf[a]||"") || natCmp(b,a);   // la cartella usata più di recente in alto
+  const folders = [...new Set(archive.map(a=>a.folder))].sort(byRecent);
+  const groups = [...new Set(list.map(a=>a.folder))].sort(byRecent).map(fd => [fd, list.filter(a=>a.folder===fd).sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))]);
+  const [closed, setClosed] = useState(()=>new Set(lsGet("archClosed", [])));
+  const toggle = fd => setClosed(x=>{ const y = new Set(x); y.has(fd) ? y.delete(fd) : y.add(fd); lsSet("archClosed", [...y].slice(-100)); return y; });
+  const item = archive.find(a=>a.id===openId);
+  const missing = archiveErr && /relation|does not exist|schema cache/i.test(archiveErr);
+  if (missing) return html`<p className="muted">${M ? "Esegui fase12.sql su Supabase per attivare l’archivio delle mappe." : "L’archivio delle mappe non è ancora attivo."}</p>`;
+  return html`<div style=${{display:"grid",gap:14}}>
+    <p className="muted" style=${{margin:0,fontSize:".9rem"}}>Le mappe della storia, divise per sessione. Tocca una mappa per aprirla grande, ingrandirla o scaricarla.</p>
+    ${M && html`<section className="panel arch-tools">
+      <div className="row" style=${{gap:8,alignItems:"flex-end"}}>
+        <label className="lab" style=${{flex:"1 1 200px"}}>Cartella per le nuove mappe<input id="arch-cur" className="field" list="arch-folders-top" maxLength="60" value=${folderIn} onChange=${e=>setFolderIn(e.target.value)}/></label>
+        <button type="button" className="btn small" disabled=${busy || !folderIn.trim() || folderIn.trim()===defaultFolder} onClick=${async()=>{ setBusy(true); setErr(""); const m = await ops.setFolder(folderIn.trim()); setBusy(false); if (m) setErr(m); else setMsg("Le prossime mappe caricate andranno in “"+folderIn.trim()+"”."); }}>Usa questa cartella</button>
+        <span className="spacer"></span>
+        <button type="button" className="btn primary" disabled=${busy} onClick=${()=>fileIn.current?.click()}>${busy ? "Caricamento…" : "+ Aggiungi immagine"}</button>
+        <input ref=${fileIn} id="arch-file" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange=${async e=>{ const files = [...e.target.files]; if (!files.length) return;
+          setBusy(true); setErr(""); setMsg(""); let ok = 0;
+          for (const file of files){ const m = await ops.addFile(file, {folder: folderIn.trim() || defaultFolder, title: file.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").slice(0,80)}); if (m){ setErr(m); break; } ok++; }
+          setBusy(false); if (ok) setMsg(ok === 1 ? "Mappa aggiunta." : ok+" mappe aggiunte."); if (fileIn.current) fileIn.current.value = ""; }}/>
+        <datalist id="arch-folders-top">${folders.map(x=>html`<option key=${x} value=${x}/>`)}</datalist>
+      </div>
+      <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Ogni immagine PNG o JPG caricata nella sezione Mappe finisce anche qui, nella cartella scelta (all’inizio “${defaultFolder}”). I file Dungeondraft e le versioni del master non vengono archiviati. Tocca una mappa per rinominarla, spostarla di cartella, nasconderla o eliminarla.</p>
+    </section>`}
+    ${archive.length > 6 && html`<input id="arch-q" className="field" placeholder="Cerca una mappa…" value=${q} onChange=${e=>setQ(e.target.value)}/>`}
+    ${archive.length === 0 && html`<div className="empty"><h3>Nessuna mappa archiviata</h3><p className="muted">${M ? "Carica una mappa nella sezione Mappe o aggiungi un’immagine qui." : "Le mappe che il master condivide compariranno qui, divise per sessione."}</p></div>`}
+    ${groups.map(([fd, items]) => html`<section key=${fd} className="panel arch-folder">
+      <div className="panel-h">
+        <button type="button" className="linkish arch-fh" aria-expanded=${!closed.has(fd)} onClick=${()=>toggle(fd)}><span aria-hidden="true">${closed.has(fd) ? "▸" : "▾"}</span> <h3 style=${{display:"inline"}}>${fd || "Senza cartella"}</h3> <span className="muted">${items.length}</span></button>
+        ${M && (ren && ren.from === fd ? html`<span className="row" style=${{gap:6}}><input className="field" style=${{width:180}} aria-label="Nuovo nome della cartella" maxLength="60" value=${ren.to} onChange=${e=>setRen({...ren, to:e.target.value})} autoFocus/>
+            <button type="button" className="btn small primary" disabled=${!ren.to.trim()} onClick=${async()=>{ const m = await ops.renameFolder(fd, ren.to.trim()); if (m) setErr(m); setRen(null); }}>Salva</button><button type="button" className="btn small" onClick=${()=>setRen(null)}>Annulla</button></span>`
+          : html`<button type="button" className="btn small" onClick=${()=>setRen({from:fd, to:fd})}>✎ Rinomina</button>`)}
+      </div>
+      ${!closed.has(fd) && html`<div className="arch-grid">${items.map(a => html`<button type="button" key=${a.id} className=${"arch-card"+(a.visible?"":" hid")} onClick=${()=>setOpenId(a.id)}>
+        ${thumbs[a.id] ? html`<img className="arch-thumb" src=${thumbs[a.id]} alt="" loading="lazy"/>` : html`<span className="arch-thumb arch-ph"><${Glyph} icon="stella" size=${30}/></span>`}
+        <span className="arch-t">${a.title || "Mappa"}</span>
+        <span className="muted arch-d">${fmtDate(a.created_at)}${!a.visible ? " · nascosta" : ""}</span>
+      </button>`)}</div>`}
+    </section>`)}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+    ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
+    ${item && html`<${MapViewer} key=${item.id} sb=${sb} item=${item} master=${M} folders=${folders} ops=${ops} onClose=${()=>setOpenId(null)}/>`}
   </div>`;
 }
 
@@ -3368,6 +3515,8 @@ function Main({sb, me, onSignOut}){
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(k=>k.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
       return r.error ? {error:r.error} : {key}; },
     renamePlane: async (k, name) => { const r = await saveCfg(c=>{ const p = c.planes.find(x=>x.k===k); if (p) p.name = String(name).trim().slice(0,40); }); return r.error || ""; },
+    removePlane: async (k) => { const r = await saveCfg(c=>{ if (c.planes.length > 1) c.planes = c.planes.filter(p=>p.k!==k); }); return r.error || ""; },
+    setArchiveFolder: async (name) => { const r = await saveCfg(c=>{ c.archiveFolder = String(name||"").trim().slice(0,60); }); return r.error || ""; },
     setDark: async (k, dark) => { const r = await saveCfg(c=>{ const p = c.planes.find(x=>x.k===k); if (p) p.dark = !!dark;
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(x=>x.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
       return r.error || ""; },
@@ -3516,7 +3665,35 @@ function Main({sb, me, onSignOut}){
     camp.setParty(rows[0].state); return "";
   };
   const onClearTrail = () => writeParty({...(party||{}), trail:[]});
-  const onUpload = async (plane, file) => {
+  /* archivio delle mappe nelle Cronache (solo master) */
+  const archiveFolder = CFG.archiveFolder || ("Sessione " + ((camp.journal||[]).reduce((m,j)=>Math.max(m, j.session_no||0), 0) + 1));
+  const archiveOps = me.isMaster ? {
+    addFile: async (file, {folder, title, plane}) => {
+      if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+      const type = file.type || "image/png"; if (!/^image\/(png|jpe?g|webp)$/.test(type)) return "Nell’archivio vanno solo immagini PNG, JPG o WebP.";
+      const ext = type === "image/jpeg" || type === "image/jpg" ? "jpg" : type.split("/")[1]; const stamp = Date.now()+"-"+uid();
+      const path = `archivio/${stamp}.${ext}`;
+      const up = await sb.storage.from("mappe").upload(path, file, {contentType:type, upsert:false});
+      if (up.error) return "Archivio: caricamento non riuscito: "+up.error.message;
+      const th = await makeThumb(file); let thumb = null;
+      if (th){ const tp = `archivio/${stamp}-mini.jpg`; const u2 = await sb.storage.from("mappe").upload(tp, th.blob, {contentType:"image/jpeg", upsert:false}); if (!u2.error) thumb = tp; }
+      const {error:e} = await sb.from("map_archive").insert({folder: String(folder||archiveFolder).slice(0,60), title: String(title||"Mappa").slice(0,80), path, thumb, plane: plane||null, w: th?.w||null, h: th?.h||null, visible: true});
+      if (e){ sb.storage.from("mappe").remove([path, ...(thumb?[thumb]:[])]); return "Archivio: "+e.message+(/map_archive|schema cache|relation/i.test(e.message) ? " (esegui fase12.sql)" : ""); }
+      await camp.loadArchive(); return ""; },
+    fromUrl: async (url, opts) => { try { const r = await fetch(url); if (!r.ok) throw new Error("download "+r.status); const blob = await r.blob();
+        return await archiveOps.addFile(blob, opts); } catch(e){ return "Non salvata in Cronache: "+e.message; } },
+    update: async (id, patch) => { camp.setArchive(x=>x.map(a=>a.id===id ? {...a, ...patch} : a));
+      const {error:e} = await sb.from("map_archive").update(patch).eq("id", id); if (e){ camp.loadArchive(); return "Non salvato: "+e.message; } return ""; },
+    renameFolder: async (from, to) => { camp.setArchive(x=>x.map(a=>a.folder===from ? {...a, folder:to} : a));
+      const {error:e} = await sb.from("map_archive").update({folder:to.slice(0,60)}).eq("folder", from);
+      if (!e && CFG.archiveFolder === from) await cfgOps.setArchiveFolder(to);
+      if (e){ camp.loadArchive(); return "Non rinominata: "+e.message; } return ""; },
+    remove: async (a) => { const {error:e} = await sb.from("map_archive").delete().eq("id", a.id); if (e) return "Non eliminata: "+e.message;
+      sb.storage.from("mappe").remove([a.path, ...(a.thumb?[a.thumb]:[])]); camp.setArchive(x=>x.filter(y=>y.id!==a.id)); return ""; },
+    setFolder: (name) => cfgOps.setArchiveFolder(name),
+  } : null;
+
+  const onUpload = async (plane, file, opts={}) => {
     if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
     const ext = (file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
     const path = `${plane}-${Date.now()}.${ext}`;
@@ -3526,7 +3703,11 @@ function Main({sb, me, onSignOut}){
     const {error:e} = await sb.from("maps").upsert({plane, path, updated_at:new Date().toISOString()});
     if (e) return "Mappa caricata ma non registrata: "+e.message;
     if (prev && prev!==path) sb.storage.from("mappe").remove([prev]);
-    camp.reload(); return "";
+    camp.reload();
+    if (opts.archive && archiveOps && /^image\/(png|jpe?g|webp)$/.test(file.type||"")){
+      const m = await archiveOps.addFile(file, {folder: archiveFolder, title: PLANE_NAME[plane] || "Mappa", plane});
+      if (m) return "Mappa caricata, ma non salvata in Cronache: "+m; }
+    return "";
   };
 
   const onUploadMaster = async (plane, file) => {
@@ -3570,7 +3751,7 @@ function Main({sb, me, onSignOut}){
       ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
-      ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} onOpenHandout=${h=>setHoOpen(h)}/>`}
+      ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps}/>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
@@ -3579,7 +3760,7 @@ function Main({sb, me, onSignOut}){
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} masterUrls=${masterUrls}
-          onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
+          onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
