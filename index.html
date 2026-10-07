@@ -318,6 +318,9 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .pin.hid > svg{opacity:.6}
 .pin.lit::before{content:"";position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--gold) 55%,transparent),transparent 70%);transform:scale(var(--inv));pointer-events:none}
 .pin.draft > svg{opacity:.75}
+.layer img.mimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill}
+.pin.mst > svg{opacity:1;filter:drop-shadow(0 0 2.5px #8e5bd6) drop-shadow(0 0 1px #8e5bd6)}
+.mapfoot.mview{border-top:1px dashed var(--line);padding-top:8px}
 .pin-lbl{position:absolute;top:13px;left:0;transform:translateX(-50%) scale(var(--inv));transform-origin:50% 0;white-space:nowrap;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink);font-size:.72rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);pointer-events:none}
 .pincard{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:grid;gap:10px}
 .pinform{display:grid;gap:10px}
@@ -563,18 +566,19 @@ function normCfg(raw){
   out.planes = list(r.planes, DEFAULT_CFG.planes, x => ({k:txt(x.k,40), name:txt(x.name,40).trim()||"Mappa", dark:!!x.dark}));
   if (!out.planes.length) out.planes = JSON.parse(JSON.stringify(DEFAULT_CFG.planes));
   out.pinKinds = list(r.pinKinds, DEFAULT_CFG.pinKinds, x => ({k:txt(x.k,40), name:txt(x.name,40).trim()||"Segnaposto", done:txt(x.done,30).trim()||"Fatto",
-    icon: PIN_ICONS.some(i=>i[0]===x.icon) ? x.icon : "nota", light:!!x.light}));
+    icon: PIN_ICONS.some(i=>i[0]===x.icon) ? x.icon : "nota", light:!!x.light, master:!!x.master}));
   if (!out.pinKinds.length) out.pinKinds = [{k:"nota", name:"Nota", done:"Fatto", icon:"nota", light:false}];
   const rk = new Set();
   out.regions = (Array.isArray(r.regions) ? r.regions : DEFAULT_CFG.regions).filter(x=>x && typeof x==="object").map(x=>({
     k: txt(x.k,60).trim(), climate: CLIMATES.some(c=>c[0]===x.climate) ? x.climate : "", note: txt(x.note,120),
     w: (Array.isArray(x.w) ? x.w : []).filter(Array.isArray).map(e=>[txt(e[0],40).trim(), Math.max(1, Math.min(99, parseInt(e[1],10)||1)), txt(e[2],120)]).filter(e=>e[0]).slice(0,20)
   })).filter(x=>x.k && !rk.has(x.k) && rk.add(x.k)).map(x=>({...x, w: x.w.length ? x.w : [["Sereno",1,""]]}));
+  out.flags = r.flags && typeof r.flags==="object" && !Array.isArray(r.flags) ? r.flags : {};
   out.counters = list(r.counters, DEFAULT_CFG.counters, x => ({k:txt(x.k,40), name:txt(x.name,40).trim()||"Contatore", hint:txt(x.hint,160),
     hpMax:!!x.hpMax, reset:!!x.reset, cond:txt(x.cond,80)}));
   return out;
 }
-let CFG, PLANES, PLANE_NAME, PIN_KINDS, PIN_NAME, PIN_DONE, PIN_ICON, PIN_LIGHT, REGIONS, REGION, COUNTERS;
+let CFG, PLANES, PLANE_NAME, PIN_KINDS, PIN_NAME, PIN_DONE, PIN_ICON, PIN_LIGHT, PIN_MASTER, REGIONS, REGION, COUNTERS;
 let CFG_SIG = "";
 function applyCfg(raw){
   const sig = JSON.stringify(raw ?? null); if (sig === CFG_SIG && CFG) return CFG; CFG_SIG = sig;
@@ -583,6 +587,7 @@ function applyCfg(raw){
   PIN_KINDS = CFG.pinKinds.map(p=>[p.k, p.name, p.done]);
   PIN_NAME = Object.fromEntries(CFG.pinKinds.map(p=>[p.k, p.name])); PIN_DONE = Object.fromEntries(CFG.pinKinds.map(p=>[p.k, p.done]));
   PIN_ICON = Object.fromEntries(CFG.pinKinds.map(p=>[p.k, p.icon])); PIN_LIGHT = new Set(CFG.modules.buio ? CFG.pinKinds.filter(p=>p.light).map(p=>p.k) : []);
+  PIN_MASTER = new Set(CFG.pinKinds.filter(p=>p.master).map(p=>p.k));
   REGIONS = CFG.modules.clima ? CFG.regions : []; REGION = Object.fromEntries(REGIONS.map(r=>[r.k, r]));
   COUNTERS = CFG.modules.contatori ? CFG.counters : [];
   return CFG;
@@ -1075,13 +1080,14 @@ function PinForm({initial, master, onSave, onCancel, busy}){
   return html`<form className="pinform" onSubmit=${e=>{e.preventDefault(); onSave(f);}}>
     <div className="pf-row">
       <label className="lab">Tipo<select id="pin-kind" className="field" value=${f.kind} onChange=${e=>setF({...f,kind:e.target.value})}>
-        ${PIN_KINDS.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}${!PIN_NAME[f.kind] && html`<option value=${f.kind}>(tipo non più in uso)</option>`}</select></label>
+        ${PIN_KINDS.filter(([k])=>master || !PIN_MASTER.has(k)).map(([k,n])=>html`<option key=${k} value=${k}>${n}${PIN_MASTER.has(k)?" (solo master)":""}</option>`)}${!PIN_NAME[f.kind] && html`<option value=${f.kind}>(tipo non più in uso)</option>`}</select></label>
       <label className="lab grow">Nome<input id="pin-label" className="field" value=${f.label} placeholder="es. Torre del mago" onChange=${e=>setF({...f,label:e.target.value})} autoFocus/></label>
     </div>
     <label className="lab">Nota<textarea id="pin-note" className="field" style=${{minHeight:60}} value=${f.note} placeholder="Cosa c’è, chi lo ha trovato, cosa manca…" onChange=${e=>setF({...f,note:e.target.value})}></textarea></label>
     <div className="row">
       ${master && html`<label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="pin-done" type="checkbox" checked=${f.done} onChange=${e=>setF({...f,done:e.target.checked})}/>${PIN_DONE[f.kind]||"Fatto"}</label>`}
-      ${master && html`<label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="pin-hidden" type="checkbox" checked=${f.hidden} onChange=${e=>setF({...f,hidden:e.target.checked})}/>Nascosto ai giocatori</label>`}
+      ${master && (PIN_MASTER.has(f.kind) ? html`<span className="muted" style=${{fontSize:".85rem"}}>Tipo solo master: i giocatori non lo vedono mai</span>`
+        : html`<label className="row" style=${{gap:6,fontSize:".9rem"}}><input id="pin-hidden" type="checkbox" checked=${f.hidden} onChange=${e=>setF({...f,hidden:e.target.checked})}/>Nascosto ai giocatori</label>`)}
       <span className="spacer"></span>
       <button type="button" className="btn" onClick=${onCancel}>Annulla</button>
       <button className="btn primary" disabled=${busy}>Salva</button>
@@ -1455,7 +1461,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMaster, names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
   const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
@@ -1475,15 +1481,24 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
   const [err, setErr] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [hiddenKinds, setHiddenKinds] = useState(()=>lsGet("pinfilter", []));
-  const [peek, setPeek] = useState(false);          // il master vede il buio come i giocatori
+  const [peekSel, setPeek] = useState(false);       // il master vede il buio come i giocatori
+  const [mview, setMview] = useState(()=>lsGet("mview", true));   // vista del master (versione annotata, segnaposti nascosti)
+  const [mOpacity, setMOpacity] = useState(()=>lsGet("mopacity", 1));
+  const [mRatio, setMRatio] = useState(null);       // proporzioni dell'immagine del master
+  const mFileIn = useRef(null);
+  const peek = peekSel || (me.isMaster && !mview);  // in "Vista giocatori" nebbia e buio come li vedono loro
   const vp = useRef(null), layer = useRef(null), img = useRef(null), fileIn = useRef(null), dark = useRef(null);
   const t = useRef({s:1,x:0,y:0});
   const ptrs = useRef(new Map()); const gesture = useRef(null);
   const src = mapUrls[plane];
   const srcKey = src ? src.split("?")[0] : "";
   const M = me.isMaster;
+  const msrc = M ? masterUrls[plane] : null;
+  const showMaster = M && mview;
+  useEffect(()=>{ setMRatio(null); },[msrc ? msrc.split("?")[0] : "", plane]);
   useEffect(()=>lsSet("plane",plane),[plane]);
   useEffect(()=>lsSet("pinfilter",hiddenKinds),[hiddenKinds]);
+  useEffect(()=>lsSet("mview",mview),[mview]); useEffect(()=>lsSet("mopacity",mOpacity),[mOpacity]);
   useEffect(()=>{ setLoaded(false); setPending(null); setDraft(null); setSelId(null); setRenaming(null); setSelTok(null); setTool(null); },[srcKey, plane]);
   const scene = scenes[plane]; const sst = sceneStates[plane]; const battle = !!scene?.battle;
   const planeTokens = tokens.filter(t=>t.plane===plane);
@@ -1509,7 +1524,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     setBusy(""); if (uvIn.current) uvIn.current.value = ""; };
 
   const planePins = pins.filter(p=>p.plane===plane);
-  const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind));
+  const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind) && (!M || mview || !p.hidden));
   const sel = pins.find(p=>p.id===selId);
   const canEditPin = p => p && (M || p.created_by===me.id);
 
@@ -1582,7 +1597,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     const msg = await onUpload(plane, file); if (msg) setErr(msg);
     setBusy(""); if (fileIn.current) fileIn.current.value = ""; };
   const savePin = async (f) => { setBusy("pin"); setErr("");
-    const row = {kind:f.kind, label:f.label.trim(), note:f.note.trim(), done:!!f.done, hidden: M && !!f.hidden};
+    const row = {kind:f.kind, label:f.label.trim(), note:f.note.trim(), done:!!f.done, hidden: M && (!!f.hidden || PIN_MASTER.has(f.kind))};
     const msg = editing && sel ? await pinOps.update(sel.id, row) : await pinOps.add({...row, plane, x:draft.x, y:draft.y});
     setBusy(""); if (msg) { setErr(msg); return; }
     setDraft(null); setEditing(false); if (!sel) setMode(null); };
@@ -1634,10 +1649,12 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
         <div className="layer" ref=${layer}>
           <img key=${plane} ref=${img} src=${src} alt=${"Mappa: "+PLANE_NAME[plane]} draggable="false" onLoad=${e=>{ setDims([e.target.naturalWidth, e.target.naturalHeight]); setLoaded(true); requestAnimationFrame(fit);}}
             onError=${()=>setErr("Immagine della mappa non trovata: il master può ricaricarla.")}/>
+          ${showMaster && msrc && html`<img key=${"m"+plane} className="mimg" src=${msrc} alt="" aria-hidden="true" draggable="false" style=${{opacity:mOpacity}}
+            onLoad=${e=>setMRatio(e.target.naturalWidth/(e.target.naturalHeight||1))} onError=${()=>setErr("Versione del master non trovata: ricaricala.")}/>`}
           ${isDeep && !battle && html`<canvas className="dark" ref=${dark} aria-hidden="true"></canvas>`}
           ${!battle && line.length>1 && html`<svg className="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points=${line.map(p=>(p.x*100)+","+(p.y*100)).join(" ")}/></svg>`}
           ${!battle && trailPts.map((p,i)=>html`<span key=${i} className="tdot" title=${p.label||""} style=${{left:p.x*100+"%",top:p.y*100+"%"}}></span>`)}
-          ${shownPins.map(p=>html`<span key=${p.id} data-pin=${p.id} className=${"pin"+(p.id===selId?" sel":"")+(p.hidden?" hid":"")+(PIN_LIGHT.has(p.kind)&&p.done?" lit":"")} style=${{left:p.x*100+"%",top:p.y*100+"%"}} title=${p.label||PIN_NAME[p.kind]}>
+          ${shownPins.map(p=>html`<span key=${p.id} data-pin=${p.id} className=${"pin"+(p.id===selId?" sel":"")+(p.hidden?" hid":"")+(PIN_MASTER.has(p.kind)?" mst":"")+(PIN_LIGHT.has(p.kind)&&p.done?" lit":"")} style=${{left:p.x*100+"%",top:p.y*100+"%"}} title=${p.label||PIN_NAME[p.kind]}>
               <${Glyph} kind=${p.kind} done=${p.done}/>${p.label && html`<span className="pin-lbl">${p.label}</span>`}</span>`)}
           ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
           ${battle && dims && loaded && html`<${BattleLayer} scene=${scene} st=${sst} tokens=${planeTokens} W=${dims[0]} H=${dims[1]} M=${M} me=${me} chars=${chars} fighters=${fighters} combat=${combat}
@@ -1706,18 +1723,34 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
       ${trailPts.length>0 && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await onClearTrail(); if (m) setErr(m); }}>Cancella percorso</button>`}
       ${M && src && html`<button type="button" className="btn small" disabled=${busy==="up"} onClick=${()=>fileIn.current?.click()}>${busy==="up"?"Caricamento…":"Sostituisci mappa"}</button>`}
     </div>
+    ${M && src && html`<div className="mapfoot mview">
+      <div className="modebar" role="group" aria-label="Vista della mappa">
+        <button type="button" id="mv-master" aria-pressed=${mview} onClick=${()=>setMview(true)}>Vista master</button>
+        <button type="button" id="mv-players" aria-pressed=${!mview} onClick=${()=>setMview(false)}>Vista giocatori</button></div>
+      <span className="muted" style=${{fontSize:".85rem"}}>${mview ? (msrc ? "Vedi la tua versione annotata e tutti i segnaposti nascosti." : "Vedi anche i segnaposti nascosti. Puoi aggiungere una versione annotata della mappa che vedi solo tu.")
+        : "Vedi la mappa come i giocatori: niente versione del master né segnaposti nascosti."}</span>
+      <span className="spacer"></span>
+      ${mview && msrc && html`<label className="row" style=${{gap:4,fontSize:".85rem"}}>Opacità<select id="mv-op" className="field" style=${{width:"auto",padding:"3px 6px"}} value=${mOpacity} onChange=${e=>setMOpacity(Number(e.target.value))}>
+        ${[[1,"piena"],[0.7,"70%"],[0.45,"45%"]].map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select></label>`}
+      ${onUploadMaster && html`<button type="button" className="btn small" disabled=${busy==="mup"} onClick=${()=>mFileIn.current?.click()}
+        title="Un'immagine della stessa mappa con etichette, trappole, stanze numerate: la vedi solo tu, sopra quella dei giocatori">${busy==="mup" ? "Caricamento…" : msrc ? "Sostituisci versione master" : "+ Versione master"}</button>`}
+      ${msrc && onRemoveMaster && html`<button type="button" className="btn small danger" disabled=${busy==="mup"} onClick=${async()=>{ setBusy("mup"); const m = await onRemoveMaster(plane); setBusy(""); if (m) setErr(m); }}>Togli versione master</button>`}
+    </div>`}
+    ${M && showMaster && msrc && mRatio && dims && Math.abs(mRatio - dims[0]/dims[1]) / (dims[0]/dims[1]) > 0.02 && html`<p className="notice" role="status" style=${{marginTop:8}}>La versione del master ha proporzioni diverse dalla mappa dei giocatori (${Math.round(mRatio*100)/100} contro ${Math.round(dims[0]/dims[1]*100)/100}): viene stirata per combaciare. Esportala con la stessa inquadratura.</p>`}
+    <input ref=${mFileIn} id="mmap-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange=${async e=>{ const f = e.target.files[0]; if (!f) return;
+      setBusy("mup"); setErr(""); const m = await onUploadMaster(plane, f); setBusy(""); if (m) setErr(m); else setMview(true); if (mFileIn.current) mFileIn.current.value = ""; }}/>
 
     ${(kindsHere.length>0 || isDeep || (M && (cfgOps || bOps))) && html`<div className="mapfoot">
       ${kindsHere.length>0 && html`<span className="muted" style=${{fontSize:".85rem"}}>Mostra:</span>`}
       ${kindsHere.map(([k,n])=>html`<button type="button" key=${k} className="kchip" aria-pressed=${!hiddenKinds.includes(k)} onClick=${()=>toggleKind(k)}><${Glyph} kind=${k} size=${16}/>${n} <span className="muted">${planePins.filter(p=>p.kind===k).length}</span></button>`)}
       ${(isDeep || (M && cfgOps)) && html`<span className="spacer"></span>`}
       ${isDeep && html`<span className="muted" style=${{fontSize:".85rem"}} title=${"Si illuminano: "+(PIN_KINDS.filter(k=>PIN_LIGHT.has(k[0])).map(k=>k[1]+" ("+k[2].toLowerCase()+")").join(", ")||"nessun tipo di segnaposto")}>Luci accese: <b className="mono">${deepLit}</b>${deepAll?` su ${deepAll}`:""}</span>`}
-      ${battle && M && sst && sst.fog_mode !== "none" && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="bt-peek" type="checkbox" checked=${peek} onChange=${e=>setPeek(e.target.checked)}/>Vedi la nebbia come i giocatori</label>`}
+      ${battle && M && sst && sst.fog_mode !== "none" && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="bt-peek" type="checkbox" checked=${peek} disabled=${!mview} onChange=${e=>setPeek(e.target.checked)}/>Vedi la nebbia come i giocatori</label>`}
       ${M && bOps && html`<label className="row" style=${{gap:6,fontSize:".85rem"}} title="Griglia, pedine, righello e nebbia"><input id="map-battle" type="checkbox" checked=${battle} disabled=${!src}
         onChange=${e=>setBattle(e.target.checked)}/>Mappa da battaglia</label>`}
       ${M && cfgOps && !battle && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="map-dark" type="checkbox" checked=${isDeep} disabled=${cfgBusy}
         onChange=${async e=>{ setCfgBusy(true); const m = await cfgOps.setDark(plane, e.target.checked); setCfgBusy(false); if (m) setErr(m); }}/>Mappa al buio</label>`}
-      ${isDeep && M && src && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="peek" type="checkbox" checked=${peek} onChange=${e=>setPeek(e.target.checked)}/>Vedi il buio come i giocatori</label>`}
+      ${isDeep && M && src && html`<label className="row" style=${{gap:6,fontSize:".85rem"}}><input id="peek" type="checkbox" checked=${peek} disabled=${!mview} onChange=${e=>setPeek(e.target.checked)}/>Vedi il buio come i giocatori</label>`}
     </div>`}
     ${battle && bOps && html`<${BattleTools} scene=${scene} st=${sst} tokens=${planeTokens} chars=${chars} fighters=${fighters} names=${names} M=${M} me=${me}
       tool=${tool} setTool=${setTool} brushR=${brushR} setBrushR=${setBrushR} showWalls=${showWalls} setShowWalls=${setShowWalls} selTok=${selTok} setSelTok=${setSelTok}
@@ -1806,7 +1839,7 @@ const rowToChar = (r) => ({...(r.data||{}), id:r.id, owner:r.owner});
 function useCampaign(sb, active){
   const [chars, setChars] = useState([]);
   const [party, setParty] = useState(null);
-  const [maps, setMaps] = useState({});
+  const [maps, setMaps] = useState({}); const [mmaps, setMmaps] = useState({});
   const [members, setMembers] = useState([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -1847,6 +1880,7 @@ function useCampaign(sb, active){
     if (!h.error) setHandouts(h.data); if (!c.error) setCodex(c.data);
     if (!cs.error) setCodexSecrets(Object.fromEntries(cs.data.map(x=>[x.id,x]))); if (!j.error) setJournal(j.data);
   },[sb]);
+  const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
   const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
 
@@ -1874,9 +1908,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1912,6 +1946,7 @@ function useCampaign(sb, active){
           else if (pl.new && pl.new.id) setTokens(x=> x.some(t=>t.id===pl.new.id) ? x.map(t=>t.id===pl.new.id ? pl.new : t) : [...x, pl.new]);
           clearTimeout(tokT.current); tokT.current = setTimeout(loadTokens, 700); })
       .on("postgres_changes",{event:"*",schema:"public",table:"clocks"}, ()=>loadClocks())
+      .on("postgres_changes",{event:"*",schema:"public",table:"maps_master"}, ()=>loadMmaps())
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
@@ -1924,7 +1959,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps};
 }
 
 function useSignedUrls(sb, maps){
@@ -2087,11 +2122,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -2132,6 +2167,7 @@ function BackupPanel({sb, camp}){
     await up("tokens", b.tokens, "pedine", r=>({...r, combatant_id:null}));
     await up("areas", b.areas, "aree", r=>({...r, created_by:null}));
     await up("clocks", b.clocks, "orologi di scena");
+    await up("maps_master", b.maps_master, "versioni del master delle mappe");
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -2672,7 +2708,8 @@ function CampaignSettings({sb, me, config, setConfig}){
         <input className="field" aria-label="Nome del tipo" value=${p.name} onChange=${e=>up(c=>{ c.pinKinds[i].name = e.target.value; })}/>
         <input className="field" aria-label="Quando è fatto" placeholder="Quando è fatto" value=${p.done} onChange=${e=>up(c=>{ c.pinKinds[i].done = e.target.value; })}/>
         <select className="field" aria-label="Icona" value=${p.icon} onChange=${e=>up(c=>{ c.pinKinds[i].icon = e.target.value; })}>${PIN_ICONS.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select>
-        ${M.buio ? html`<label className="row" style=${{gap:6,flexWrap:"nowrap"}}><input type="checkbox" checked=${p.light} onChange=${e=>up(c=>{ c.pinKinds[i].light = e.target.checked; })}/>fa luce</label>` : html`<span></span>`}
+        <span className="row" style=${{gap:10,flexWrap:"nowrap"}}>${M.buio && html`<label className="row" style=${{gap:6,flexWrap:"nowrap"}}><input type="checkbox" checked=${p.light} onChange=${e=>up(c=>{ c.pinKinds[i].light = e.target.checked; })}/>fa luce</label>`}
+          <label className="row" style=${{gap:6,flexWrap:"nowrap"}} title="I segnaposti di questo tipo li vede solo il master"><input type="checkbox" checked=${!!p.master} onChange=${e=>up(c=>{ c.pinKinds[i].master = e.target.checked; })}/>solo master</label></span>
         <button type="button" className="iconbtn" aria-label="Togli il tipo" disabled=${f.pinKinds.length<=1} onClick=${()=>up(c=>{ c.pinKinds.splice(i,1); })}>×</button>
       </div>`)}</div>
     </section>
@@ -3336,6 +3373,7 @@ function Main({sb, me, onSignOut}){
   } : null, [me.isMaster, saveCfg]);
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
+  const masterUrls = useSignedUrls(sb, me.isMaster ? camp.mmaps : {});
   const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
   const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo","cronache","campagna"].includes(h)?h:lsGet("view","gruppo"); });
   const [openId, setOpenId] = useState(null);
@@ -3490,6 +3528,21 @@ function Main({sb, me, onSignOut}){
     camp.reload(); return "";
   };
 
+  const onUploadMaster = async (plane, file) => {
+    if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+    const ext = (file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const path = `master/${plane}-${Date.now()}.${ext}`;
+    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false});
+    if (up.error) return "Caricamento non riuscito: "+up.error.message;
+    const prev = camp.mmaps[plane];
+    const {error:e} = await sb.from("maps_master").upsert({plane, path, updated_at:new Date().toISOString()});
+    if (e){ sb.storage.from("mappe").remove([path]); return "Versione del master non registrata: "+e.message+(/maps_master|schema cache|relation/i.test(e.message) ? " (esegui fase11.sql)" : ""); }
+    if (prev && prev!==path) sb.storage.from("mappe").remove([prev]);
+    await camp.loadMmaps(); return ""; };
+  const onRemoveMaster = async (plane) => { const prev = camp.mmaps[plane];
+    const {error:e} = await sb.from("maps_master").delete().eq("plane", plane); if (e) return "Non tolta: "+e.message;
+    if (prev) sb.storage.from("mappe").remove([prev]); await camp.loadMmaps(); return ""; };
+
   const openChar = chars.find(c=>c.id===openId);
   const mine = chars.find(c=>c.owner===me.id);
   const goMine = () => { if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
@@ -3524,7 +3577,8 @@ function Main({sb, me, onSignOut}){
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
-      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} masterUrls=${masterUrls}
+          onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
