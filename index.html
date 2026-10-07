@@ -437,6 +437,22 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .bt-walls line{stroke:#e0524a;stroke-width:.07;stroke-linecap:round;opacity:.85}
 .bt-door{pointer-events:auto;transform:translate(-50%,-50%) scale(var(--inv));width:22px;height:22px;border-radius:5px;border:1.5px solid #1e2923;background:#b9844a;color:#fff;font-size:12px;line-height:1;cursor:pointer;padding:0;display:grid;place-items:center;z-index:3}
 .bt-door.open{background:#3f8f6b}
+.bt-door.locked{background:#8a3232}.bt-door.secret{background:#5b3f8f;border-style:dashed;font-weight:700}.bt-door.locked.open{background:#3f8f6b;box-shadow:0 0 0 2px #8a3232}
+.bt-tok.lit:not(.turn){box-shadow:0 1px 4px rgb(0 0 0/.55),0 0 14px 5px rgb(255 205 100/.8)}
+.clockbar{border-top:1px solid var(--line);background:var(--surface);font-size:.9rem}
+.clockbar .tb-in{padding-block:5px;gap:16px;flex-wrap:wrap}
+.clk{display:inline-flex;align-items:center;gap:6px;min-width:0}.clk.hid{opacity:.65}.clk.full b{color:var(--heart)}
+.clk .btn.small{padding:1px 8px;min-width:0}
+.clk-note{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem}
+.clkface{flex:none;display:block}.clkface path{fill:var(--sunk);stroke:var(--ink);stroke-width:.6;stroke-opacity:.5}.clkface path.on{fill:var(--heart)}.clkface .rim{fill:none;stroke:var(--ink);stroke-width:1.1}
+.clk-list{display:grid;gap:10px}
+.clk-row{display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;align-items:start;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}.clk-row.hid{border-style:dashed}
+.clk-main{display:grid;gap:6px;min-width:0}
+.turnbar.ev{background:color-mix(in srgb,var(--heart) 15%,var(--surface));border-top-color:var(--heart)}
+.ir.ev{background:color-mix(in srgb,var(--gold) 9%,var(--bg))}
+.evform{grid-template-columns:minmax(0,1.4fr) minmax(52px,.5fr) minmax(0,1.6fr)}
+.evform .hidchk{grid-column:1/3}.evform .btn{grid-column:3/-1}.evform p{grid-column:1/-1}
+@media (max-width:520px){.evform{grid-template-columns:minmax(0,1fr) 90px}.evform .nm,.evform .hidchk,.evform .btn,.evform p{grid-column:1/-1}}
 .bt-tok{pointer-events:auto;transform:translate(-50%,-50%);aspect-ratio:1;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 1px 4px rgb(0 0 0/.55);display:grid;place-items:center;cursor:pointer;touch-action:none;container-type:inline-size;z-index:4;box-sizing:border-box}
 .bt-tok.mine{cursor:grab}
 .bt-in{color:#fff;font-weight:700;font-size:36cqw;line-height:1;text-shadow:0 1px 2px rgb(0 0 0/.6);font-family:var(--f-ui,system-ui)}
@@ -1106,14 +1122,15 @@ const sceneDims = (g, W, H) => { const size = Math.max(4, Number(g?.size)||70), 
   return {size, offX, offY, cols: Math.max(1, Math.round(g?.cols || (W-offX)/size)), rows: Math.max(1, Math.round(g?.rows || (H-offY)/size))}; };
 const cellDist = (a, b) => Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1]));
 const snapTok = (v, size) => (size >= 1 && Math.round(size) % 2 === 0) ? Math.round(v) : Math.floor(v) + 0.5;
-/* lo stato della nebbia "a mano" in un punto: ripercorre le operazioni del master */
-function manualRevealed(ops, x, y){ let on = false;
+/* lo stato della nebbia del master in un punto: 1 scoperto, -1 coperto, 0 mai toccato (ripercorre le operazioni) */
+function manualState(ops, x, y){ let on = 0;
   for (const o of ops || []){ const t = o[0];
-    if (t === "A") on = true; else if (t === "Z") on = false;
-    else if (t === "c" || t === "h"){ if (Math.hypot(x-o[1], y-o[2]) <= o[3]) on = (t === "c"); }
+    if (t === "A") on = 1; else if (t === "Z") on = 0;
+    else if (t === "c" || t === "h"){ if (Math.hypot(x-o[1], y-o[2]) <= o[3]) on = (t === "c") ? 1 : -1; }
     else if (t === "r" || t === "H"){ const xa = Math.min(o[1], o[1]+o[3]), xb = Math.max(o[1], o[1]+o[3]), ya = Math.min(o[2], o[2]+o[4]), yb = Math.max(o[2], o[2]+o[4]);
-      if (x >= xa && x <= xb && y >= ya && y <= yb) on = (t === "r"); } }
+      if (x >= xa && x <= xb && y >= ya && y <= yb) on = (t === "r") ? 1 : -1; } }
   return on; }
+const LIGHT_OPTS = [[0,"no"],[3,"3 m"],[6,"6 m"],[12,"12 m (torcia, Luce)"],[18,"18 m (lanterna)"],[36,"36 m"]];
 
 /* legge un file Universal VTT (.dd2vtt / .uvtt / .df2vtt) esportato da Dungeondraft, Dungeon Alchemist e simili */
 function parseUvtt(j){
@@ -1173,6 +1190,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const fogOps = useMemo(()=>[...(st?.fog||[]), ...pending], [st?.fog, pending]);
   const mode = st?.fog_mode || "none";
   const doors = st?.doors || {};
+  const locks = st?.locks || {}; const lockOf = i => Number(locks[i]) || 0;   // 1 a chiave, 2 segreta
   const charOwner = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, c.owner])), [chars]);
   const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
   const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
@@ -1180,7 +1198,9 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
 
   /* muri attivi (le porte aperte non bloccano) e luci */
   const segs = useMemo(()=> (scene.walls||[]).filter((w,i)=> !(w[4] === 1 && doors[i])), [scene.walls, JSON.stringify(doors)]);
-  const lightPolys = useMemo(()=> mode === "walls" && st?.dark ? (scene.lights||[]).map(l => ({l, P: visPoly(l[0], l[1], segs, D.cols, D.rows, l[2])})) : [], [segs, mode, st?.dark, scene.lights, D.cols, D.rows]);
+  /* luci della mappa e luci portate dalle pedine (raggio in metri dal bordo della pedina) */
+  const litKey = JSON.stringify(tokens.filter(tk => !tk.hidden && tk.light > 0).map(tk => [...pos(tk), tk.light/CELL_M + (Number(tk.size)||1)/2]));
+  const lightPolys = useMemo(()=> mode === "walls" && st?.dark ? [...(scene.lights||[]), ...JSON.parse(litKey)].map(l => ({l, P: visPoly(l[0], l[1], segs, D.cols, D.rows, l[2])})) : [], [segs, mode, st?.dark, scene.lights, D.cols, D.rows, litKey]);
   const party = tokens.filter(isParty);
   const partyKey = JSON.stringify(party.map(tk => [tk.id, ...pos(tk), tk.vision||0]));
   const vision = useMemo(()=> mode !== "walls" ? [] : party.map(tk => { const [x,y] = pos(tk);
@@ -1188,7 +1208,9 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const seesPoint = (x, y) => vision.some(v => inPoly(x, y, v.P) && (!st?.dark || (v.dv && Math.hypot(x-v.x, y-v.y) <= v.dv) ||
     lightPolys.some(lp => Math.hypot(x-lp.l[0], y-lp.l[1]) <= lp.l[2] && inPoly(x, y, lp.P))));
   const explored = useMemo(()=> new Set(st?.explored || []), [st?.explored]);
-  const visibleToPlayers = (x, y) => mode === "none" || manualRevealed(fogOps, x, y) || (mode === "walls" && seesPoint(x, y));
+  /* con la nebbia automatica le aree coperte dal master restano coperte anche se i PG le vedrebbero */
+  const visibleToPlayers = (x, y) => { if (mode === "none") return true; const ms = manualState(fogOps, x, y);
+    return ms === 1 || (mode === "walls" && ms === 0 && seesPoint(x, y)); };
 
   /* celle esplorate: chi muove le pedine del gruppo (o il master) le segna */
   useEffect(()=>{
@@ -1200,7 +1222,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
         for (let cy = Math.max(0, Math.floor(ya)); cy < Math.min(D.rows, Math.ceil(yb)); cy++)
           for (let cx = Math.max(0, Math.floor(xa)); cx < Math.min(D.cols, Math.ceil(xb)); cx++){
             const id = cy*D.cols + cx; if (explored.has(id) || sent.current.has(id)) continue;
-            if (seesPoint(cx+0.5, cy+0.5)){ fresh.push(id); sent.current.add(id); } } }
+            if (seesPoint(cx+0.5, cy+0.5) && manualState(fogOps, cx+0.5, cy+0.5) !== -1){ fresh.push(id); sent.current.add(id); } } }
       if (fresh.length) ops.markExplored(fresh.slice(0, 20000)); }, 900);
     return ()=>clearTimeout(timer);
   },[vision, lightPolys, explored]);
@@ -1221,11 +1243,6 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(6,8,10,.62)";
       for (const id of explored){ const cx = id % D.cols, cy = Math.floor(id / D.cols); ctx.fillRect(X(cx)-0.5, Y(cy)-0.5, S+1, S+1); }
     }
-    for (const o of fogOps){ const t = o[0];
-      if (t === "A"){ ctx.clearRect(0,0,cw,ch); continue; }
-      if (t === "Z"){ ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgb(6,8,10)"; ctx.fillRect(0,0,cw,ch); continue; }
-      ctx.globalCompositeOperation = (t === "c" || t === "r") ? "destination-out" : "source-over"; ctx.fillStyle = "rgb(6,8,10)";
-      ctx.beginPath(); if (t === "c" || t === "h") ctx.arc(X(o[1]), Y(o[2]), o[3]*S, 0, Math.PI*2); else ctx.rect(X(o[1]), Y(o[2]), o[3]*S, o[4]*S); ctx.fill(); }
     if (mode === "walls"){ ctx.globalCompositeOperation = "destination-out"; ctx.fillStyle = "#000";
       const path = P => { ctx.beginPath(); P.forEach(([x,y],i)=> i ? ctx.lineTo(X(x),Y(y)) : ctx.moveTo(X(x),Y(y))); ctx.closePath(); };
       for (const v of vision){ ctx.save(); path(v.P); ctx.clip();
@@ -1233,6 +1250,11 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
         else { if (v.dv){ ctx.beginPath(); ctx.arc(X(v.x), Y(v.y), v.dv*S, 0, Math.PI*2); ctx.fill(); }
           for (const lp of lightPolys){ ctx.save(); path(lp.P); ctx.clip(); ctx.beginPath(); ctx.arc(X(lp.l[0]), Y(lp.l[1]), lp.l[2]*S, 0, Math.PI*2); ctx.fill(); ctx.restore(); } }
         ctx.restore(); } }
+    for (const o of fogOps){ const t = o[0];
+      if (t === "A"){ ctx.clearRect(0,0,cw,ch); continue; }
+      if (t === "Z"){ ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgb(6,8,10)"; ctx.fillRect(0,0,cw,ch); continue; }
+      ctx.globalCompositeOperation = (t === "c" || t === "r") ? "destination-out" : "source-over"; ctx.fillStyle = "rgb(6,8,10)";
+      ctx.beginPath(); if (t === "c" || t === "h") ctx.arc(X(o[1]), Y(o[2]), o[3]*S, 0, Math.PI*2); else ctx.rect(X(o[1]), Y(o[2]), o[3]*S, o[4]*S); ctx.fill(); }
     ctx.globalCompositeOperation = "source-over";
   },[mode, fogOps, vision, lightPolys, explored, W, H, D.size, D.offX, D.offY, st?.dark]);
 
@@ -1266,7 +1288,10 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       else if (s.tok && s.can){ const dx = p[0]-s.gx, dy = p[1]-s.gy; if (!s.moved && Math.hypot(dx,dy) < 0.15) return; s.moved = true;
         setDrag({id: s.tok, x: s.sx+dx, y: s.sy+dy, sx: s.sx, sy: s.sy}); } },
     async up(e){ const s = g.current; g.current = null; if (!s) return;
-      if (s.door !== undefined){ const m = await ops.toggleDoor(s.door); if (m) onErr(m); return; }
+      if (s.door !== undefined){
+        if (M && tool === "locks"){ const m = await ops.setLock(s.door, (lockOf(s.door)+1) % 3); if (m) onErr(m); return; }
+        if (!M && lockOf(s.door)){ onErr("Questa porta è chiusa a chiave: serve una chiave, un incantesimo o una prova (chiedi al master)."); return; }
+        const m = await ops.toggleDoor(s.door); if (m) onErr(m); return; }
       if (s.ruler) return;
       if (s.area){ const d = draft; setDraft(null); if (!d) return;
         const m = await ops.addArea({shape:d.shape, x:d.x, y:d.y, ang:+(d.ang||0).toFixed(4), size:d.size, width:d.width}); if (m) onErr(m); return; }
@@ -1314,13 +1339,17 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
     ${M && showWalls && (scene.walls||[]).length > 0 && html`<svg className="bt-walls" viewBox=${`0 0 ${D.cols} ${D.rows}`} preserveAspectRatio="none" aria-hidden="true"
       style=${{left:pctX(0)+"%", top:pctY(0)+"%", width:(D.cols*D.size/W*100)+"%", height:(D.rows*D.size/H*100)+"%"}}>
       ${(scene.walls||[]).map((w,i)=> w[4] === 1 ? null : html`<line key=${i} x1=${w[0]} y1=${w[1]} x2=${w[2]} y2=${w[3]}/>`)}</svg>`}
-    ${doorMarks.filter(([w]) => M || doorSeen(w)).map(([w,i])=>html`<button type="button" key=${"d"+i} data-door=${i}
-      className=${"bt-door"+(doors[i]?" open":"")} title=${doors[i] ? "Porta aperta: tocca per chiudere" : "Porta chiusa: tocca per aprire"}
-      style=${{left:pctX((w[0]+w[2])/2)+"%", top:pctY((w[1]+w[3])/2)+"%"}}>${doors[i] ? "◫" : "▮"}</button>`)}
+    ${doorMarks.filter(([w,i]) => M || (doorSeen(w) && !(lockOf(i) === 2 && !doors[i]))).map(([w,i])=>{ const lk = lockOf(i);
+      const title = M && tool === "locks" ? `${["Porta normale","Chiusa a chiave","Segreta (i giocatori non la vedono)"][lk]}: tocca per cambiare`
+        : doors[i] ? (lk && !M ? "Porta aperta (chiusa a chiave: solo il master la chiude)" : "Porta aperta: tocca per chiudere")
+        : lk === 2 ? "Porta segreta chiusa: i giocatori non la vedono" : lk ? (M ? "Chiusa a chiave: tu puoi aprirla, i giocatori no" : "Porta chiusa a chiave") : "Porta chiusa: tocca per aprire";
+      return html`<button type="button" key=${"d"+i} data-door=${i}
+      className=${"bt-door"+(doors[i]?" open":"")+(lk===1?" locked":"")+(lk===2?" secret":"")} title=${title} aria-label=${title}
+      style=${{left:pctX((w[0]+w[2])/2)+"%", top:pctY((w[1]+w[3])/2)+"%"}}>${doors[i] ? "◫" : lk === 1 ? "🔒" : lk === 2 ? "S" : "▮"}</button>`; })}
     ${shown.map(tk => { const [x,y] = pos(tk); const f = fighterOf(tk); const pc = !!(tk.char_id && charOwner[tk.char_id]);
       const col = tk.color || (pc ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR); const sz = Number(tk.size)||1;
       return html`<div key=${tk.id} data-tok=${tk.id} title=${tk.name}
-        className=${"bt-tok"+(tk.hidden?" hid":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
+        className=${"bt-tok"+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
         style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col}}>
         <span className="bt-in">${initialsOf(tk.name)}</span></div>`; })}
     ${drag && html`<div className="bt-dist" style=${{left:pctX(drag.x)+"%", top:pctY(drag.y)+"%"}}>${String(dist*CELL_M).replace(".",",")} m</div>`}
@@ -1344,7 +1373,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
   const addParty = async () => { const missing = pcs.filter(c => !tokens.some(t => t.char_id === c.id)); if (!missing.length) return;
     const P = placeRow(missing.length);
     await ops.addTokens(missing.map((c,i)=>({name: norm(c).name || "PG", char_id: c.id, size: 1, x: P[i][0], y: P[i][1], vision: 0}))); };
-  const addFoes = async () => { const fs = fighters.filter(f => !f.char_id && !tokens.some(t => t.combatant_id === f.id)); if (!fs.length) return;
+  const addFoes = async () => { const fs = fighters.filter(f => !f.char_id && f.kind !== "evento" && !tokens.some(t => t.combatant_id === f.id)); if (!fs.length) return;
     const P = placeRow(fs.length);
     await ops.addTokens(fs.map((f,i)=>({name: f.name || "Avversario", combatant_id: f.id, hidden: !!f.hidden, size: 1, x: P[i][0], y: Math.min(D.rows-0.5, P[i][1]+2)}))); };
   const setGrid = (patch) => { const gr = {...(scene.grid||{}), ...patch};
@@ -1364,9 +1393,10 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
           ${[1.5,3,4.5,6,9,12,18,27,36].map(m=>html`<option key=${m} value=${m}>${areaSpec.shape==="sfera" ? "raggio" : areaSpec.shape==="cubo" ? "lato" : "lunghezza"} ${fmtM(m)}</option>`)}</select>
         ${areaSpec.shape === "linea" && html`<select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label="Larghezza" value=${areaSpec.width} onChange=${e=>setAreaSpec({...areaSpec, width:Number(e.target.value)})}>
           ${[1.5,3,4.5,6].map(m=>html`<option key=${m} value=${m}>larga ${fmtM(m)}</option>`)}</select>`}`}
-      ${M && mode !== "none" && html`<span className="bt-sep"></span>${T("reveal","Scopri","Pennello: scopri la nebbia")}${T("rect","Scopri area","Trascina per scoprire un rettangolo")}${T("hide","Copri","Pennello: rimetti la nebbia")}${T("rectHide","Copri area")}
+      ${M && mode !== "none" && html`<span className="bt-sep"></span>${T("reveal","Scopri","Pennello: scopri la nebbia")}${T("rect","Scopri area","Trascina per scoprire un rettangolo")}${T("hide","Copri","Pennello: rimetti la nebbia (anche sopra la nebbia automatica)")}${T("rectHide","Copri area","Trascina per coprire un rettangolo: resta coperto anche se i personaggi lo vedrebbero")}
         <label className="row" style=${{gap:4,fontSize:".85rem"}}>Pennello<select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${brushR} onChange=${e=>setBrushR(Number(e.target.value))}>
           ${[0.5,1,2,3,5].map(r=>html`<option key=${r} value=${r}>${String(r*2*CELL_M).replace(".",",")} m</option>`)}</select></label>`}
+      ${M && (scene.walls||[]).some(w=>w[4]===1) && html`<span className="bt-sep"></span>${T("locks","🔒 Porte","Tocca una porta per cambiarla: normale → chiusa a chiave → segreta")}`}
     </div>
     ${M && html`<div className="row" style=${{gap:8,fontSize:".88rem"}}>
       <label className="row" style=${{gap:4}}>Nebbia<select id="bt-fog" className="field" style=${{width:"auto",padding:"3px 6px"}} value=${mode} onChange=${e=>ops.setState({fog_mode:e.target.value})}>
@@ -1378,7 +1408,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
     </div>
     <div className="row" style=${{gap:6}}>
       <button type="button" className="btn small" disabled=${!pcs.some(c=>!tokens.some(t=>t.char_id===c.id))} onClick=${addParty}>+ Pedine del gruppo</button>
-      <button type="button" className="btn small" disabled=${!fighters.some(f=>!f.char_id && !tokens.some(t=>t.combatant_id===f.id))} onClick=${addFoes} title="Crea le pedine degli avversari in Iniziativa">+ Avversari dall’iniziativa</button>
+      <button type="button" className="btn small" disabled=${!fighters.some(f=>!f.char_id && f.kind !== "evento" && !tokens.some(t=>t.combatant_id===f.id))} onClick=${addFoes} title="Crea le pedine degli avversari in Iniziativa">+ Avversari dall’iniziativa</button>
       <button type="button" className="btn small" aria-pressed=${open==="token"} onClick=${()=>setOpen(open==="token"?"":"token")}>+ Pedina</button>
       <button type="button" className="btn small" aria-pressed=${open==="grid"} onClick=${()=>setOpen(open==="grid"?"":"grid")}>Griglia</button>
       <span className="spacer"></span>
@@ -1413,10 +1443,14 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
         <select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${tk.aura||0} onChange=${e=>ops.setAura(tk.id, Number(e.target.value), tk.aura_color||"#d8a442")}>
           ${[0,1.5,3,4.5,6,9,18].map(v=>html`<option key=${v} value=${v}>${v ? fmtM(v) : "no"}</option>`)}</select>
         ${tk.aura > 0 && html`<select className="field" style=${{width:"auto",padding:"3px 6px"}} aria-label="Colore dell’aura" value=${tk.aura_color||"#d8a442"} onChange=${e=>ops.setAura(tk.id, tk.aura, e.target.value)}>
-          ${AURA_COLORS.map(([c,l])=>html`<option key=${c} value=${c}>${l}</option>`)}</select>`}</label>`}
+          ${AURA_COLORS.map(([c,l])=>html`<option key=${c} value=${c}>${l}</option>`)}</select>`}</label>
+        <label className="row" style=${{gap:4,fontSize:".85rem"}} title="Raggio della luce portata (intensa + fioca): illumina gli ambienti bui">Luce
+        <select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${tk.light||0} onChange=${e=>ops.setLight(tk.id, Number(e.target.value))}>
+          ${LIGHT_OPTS.concat(LIGHT_OPTS.some(([v])=>v===(tk.light||0)) ? [] : [[tk.light, fmtM(tk.light)]]).map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select></label>`}
       <button type="button" className="iconbtn" aria-label="Chiudi" onClick=${()=>setSelTok(null)}>×</button></div>`}
+    ${tool === "locks" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Tocca una porta per cambiarla: ▮ normale (la apre chiunque) → 🔒 chiusa a chiave (la apri solo tu) → S segreta (i giocatori non la vedono finché non la apri). Per aprirla o chiuderla torna su “✋ Sposta”.</p>`}
     ${tool === "area" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina dal punto d’origine nella direzione voluta: la sfera parte da un incrocio della griglia, cono e linea dal punto in cui tocchi. Sono evidenziati i quadretti colpiti (centro dentro l’area) e quante pedine ci sono. L’area resta visibile a tutti finché chi l’ha messa (o il master) non la toglie.</p>`}
-    ${!M && tool !== "area" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina la tua pedina: si aggancia al quadretto e tutti la vedono muovere. Il righello misura in metri; “Area” mostra sfere, coni e linee degli incantesimi. Toccando la tua pedina puoi darle un’aura.</p>`}
+    ${!M && tool !== "area" && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Trascina la tua pedina: si aggancia al quadretto e tutti la vedono muovere. Il righello misura in metri; “Area” mostra sfere, coni e linee degli incantesimi. Toccando la tua pedina puoi darle un’aura o una luce (lanterna, torcia).</p>`}
   </div>`;
 }
 
@@ -1458,7 +1492,8 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
     setScene: (patch) => sceneOps.setScene(plane, patch), setState: (patch) => sceneOps.setState(plane, patch),
     addTokens: (rows) => sceneOps.addTokens(plane, rows), updateToken: sceneOps.updateToken, deleteToken: sceneOps.deleteToken,
     moveToken: sceneOps.moveToken, markExplored: (cells) => sceneOps.markExplored(plane, cells), toggleDoor: (i) => sceneOps.toggleDoor(plane, i),
-    addArea: (row) => sceneOps.addArea(plane, row), deleteArea: sceneOps.deleteArea, setAura: sceneOps.setAura } : null;
+    addArea: (row) => sceneOps.addArea(plane, row), deleteArea: sceneOps.deleteArea, setAura: sceneOps.setAura, setLight: sceneOps.setLight,
+    setLock: (i, v) => { const L = {...(sst?.locks||{})}; if (v) L[i] = v; else delete L[i]; return sceneOps.setState(plane, {locks: L}); } } : null;
   const setBattle = async (on) => { setErr("");
     const m = await bOps.setScene({battle:on, ...(scene ? {} : {grid:{size: dims ? Math.max(20, Math.round(dims[0]/30)) : 70, offX:0, offY:0, show:true}})});
     if (m) { setErr(m); return; }
@@ -1469,6 +1504,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
       const m = await onUpload(plane, f); if (m) throw new Error(m);
       const m1 = await bOps.setScene({battle:true, grid:u.grid, walls:u.walls, lights:u.lights}); if (m1) throw new Error(m1);
       const m2 = await bOps.setState({doors:u.doors, fog_mode: u.walls.length ? "walls" : "manual", dark: !!u.dark, explored:[], fog:[]}); if (m2) throw new Error(m2);
+      if (Object.keys(sst?.locks||{}).length) await bOps.setState({locks:{}});
     } catch(e){ setErr("Importazione non riuscita: "+e.message); }
     setBusy(""); if (uvIn.current) uvIn.current.value = ""; };
 
@@ -1619,6 +1655,7 @@ function MapView({me, party, mapUrls, names, onMove, onClearTrail, onUpload, pin
         </div>
         ${battle && tool==="ruler" && html`<div className="maphint">Trascina sulla mappa per misurare.</div>`}
         ${battle && tool==="area" && html`<div className="maphint">Trascina dal punto d’origine dell’area.</div>`}
+        ${battle && tool==="locks" && html`<div className="maphint">Tocca una porta: normale → chiusa a chiave → segreta.</div>`}
         ${mode==="move" && !pending && html`<div className="maphint">Tocca la mappa nel punto in cui si trova il gruppo.</div>`}
         ${mode==="pin" && !draft && html`<div className="maphint">Tocca la mappa dove vuoi mettere il segnaposto.</div>`}
         ${!loaded && html`<div className="maphint">Caricamento della mappa…</div>`}
@@ -1789,6 +1826,10 @@ function useCampaign(sb, active){
   const [spellsCustom, setSpellsCustom] = useState([]);
   const [config, setConfig] = useState(undefined);
   const [scenes, setScenes] = useState({}); const [sceneStates, setSceneStates] = useState({}); const [tokens, setTokens] = useState([]); const [areas, setAreas] = useState([]);
+  const [clocks, setClocks] = useState([]); const [clocksErr, setClocksErr] = useState("");
+  const loadClocks = useCallback(async()=>{ const {data, error} = await sb.from("clocks").select("*").order("sort");
+    if (error){ setClocksErr(error.message); return; } setClocksErr("");
+    setClocks([...data].sort((a,b)=>(a.sort-b.sort) || String(a.created_at).localeCompare(String(b.created_at)))); },[sb]);
   const loadAreas = useCallback(async()=>{ const {data, error} = await sb.from("areas").select("*"); if (!error) setAreas(data); },[sb]);
   const loadScenes = useCallback(async()=>{ loadAreas(); const [a, b, c] = await Promise.all([sb.from("scenes").select("*"), sb.from("scene_state").select("*"), sb.from("tokens").select("*")]);
     if (!a.error) setScenes(Object.fromEntries(a.data.map(r=>[r.plane, r]))); if (!b.error) setSceneStates(Object.fromEntries(b.data.map(r=>[r.plane, r]))); if (!c.error) setTokens(c.data); },[sb]);
@@ -1833,9 +1874,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -1870,17 +1911,20 @@ function useCampaign(sb, active){
           if (pl.eventType==="DELETE") setTokens(x=>x.filter(t=>t.id!==pl.old?.id));
           else if (pl.new && pl.new.id) setTokens(x=> x.some(t=>t.id===pl.new.id) ? x.map(t=>t.id===pl.new.id ? pl.new : t) : [...x, pl.new]);
           clearTimeout(tokT.current); tokT.current = setTimeout(loadTokens, 700); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"clocks"}, ()=>loadClocks())
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
-    return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); };
+    /* un orologio nascosto dal master non arriva in tempo reale ai giocatori: ricontrollo ogni tanto */
+    const clkT = setInterval(()=>{ if (document.visibilityState==="visible") loadClocks(); }, 30000);
+    return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); clearInterval(clkT); };
   },[sb, active, loadAll]);
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr};
 }
 
 function useSignedUrls(sb, maps){
@@ -1929,6 +1973,67 @@ function WorldStrip({world, chars, me}){
     ${haz.notes.map(n=>html`<span key=${n} className="chip">${n}</span>`)}
     ${exposed.map(c=>html`<span key=${c.id} className="chip bad">${c.name||"Il tuo PG"} non è vestito per il ${haz.kind}</span>`)}
   </div></div>`;
+}
+
+/* ---------- orologi di scena (si riempiono durante una scena: crollo, inseguimento, rituale…) ---------- */
+function ClockFace({n, f, size=26, label}){
+  const r = 10.5, c = 12; const pt = a => `${(c + r*Math.cos(a)).toFixed(3)} ${(c + r*Math.sin(a)).toFixed(3)}`;
+  const full = f >= n;
+  return html`<svg className=${"clkface"+(full?" full":"")} viewBox="0 0 24 24" width=${size} height=${size} role="img" aria-label=${label || `${f} tacche su ${n}`}>
+    ${Array.from({length:n}, (_,i)=>{ const a0 = -Math.PI/2 + i*2*Math.PI/n, a1 = a0 + 2*Math.PI/n;
+      return html`<path key=${i} className=${i < f ? "on" : ""} d=${`M${c} ${c} L${pt(a0)} A${r} ${r} 0 0 1 ${pt(a1)} Z`}/>`; })}
+    <circle cx=${c} cy=${c} r=${r} className="rim"/></svg>`;
+}
+function ClocksBar({clocks, me, ops}){
+  const M = me.isMaster; const list = clocks.filter(k => M || k.visible);
+  if (!list.length) return null;
+  return html`<div className="clockbar"><div className="tb-in">
+    ${list.map(k => html`<span key=${k.id} className=${"clk"+(k.filled >= k.segments ? " full" : "")+(k.visible ? "" : " hid")} title=${k.note || k.name}>
+      <${ClockFace} n=${k.segments} f=${k.filled} label=${`${k.name}: ${k.filled} su ${k.segments}`}/>
+      <b>${k.name}</b><span className="mono">${k.filled}/${k.segments}</span>
+      ${k.note && html`<span className="muted clk-note">${k.note}</span>`}
+      ${!k.visible && html`<span className="chip">nascosto</span>`}
+      ${M && ops && html`<button type="button" className="btn small" aria-label=${"Togli una tacca a "+k.name} disabled=${k.filled<=0} onClick=${()=>ops.step(k,-1)}>−</button><button type="button" className="btn small" aria-label=${"Aggiungi una tacca a "+k.name} disabled=${k.filled>=k.segments} onClick=${()=>ops.step(k,1)}>+</button>`}
+    </span>`)}
+  </div></div>`;
+}
+function ClocksPanel({clocks, ops, err: loadErr}){
+  const [form, setForm] = useState({name:"", segments:6, visible:true, note:""});
+  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false); const [del, setDel] = useState(null);
+  const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); return m; };
+  const missing = loadErr && /relation|does not exist|schema cache/i.test(loadErr);
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Orologi di scena</h3><span className="muted" style=${{fontSize:".82rem"}}>Tacche che si riempiono durante una scena</span></div>
+    ${missing ? html`<p className="muted" style=${{margin:0}}>Esegui fase10.sql su Supabase per attivare gli orologi.</p>` : html`
+    ${clocks.length === 0 && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>Per esempio il crollo dell’isola a 6 tacche. Quelli visibili compaiono a tutti sotto la barra in alto e ogni tacca in più arriva ai giocatori con un avviso.</p>`}
+    <div className="clk-list">${clocks.map(k => html`<div key=${k.id} className=${"clk-row"+(k.visible?"":" hid")}>
+      <${ClockFace} n=${k.segments} f=${k.filled} size=${40}/>
+      <div className="clk-main">
+        <input className="field" aria-label="Nome dell’orologio" defaultValue=${k.name} key=${"n"+k.name} onBlur=${e=>{ const v = e.target.value.trim(); if (v && v !== k.name) run(()=>ops.update(k.id, {name:v.slice(0,60)})); }}/>
+        <input className="field" aria-label="Nota (la vedono tutti se l’orologio è visibile)" placeholder="Nota per tutti (es. a 4 tacche l’isola sussulta)" defaultValue=${k.note} key=${"t"+k.note} onBlur=${e=>{ const v = e.target.value.trim().slice(0,200); if (v !== k.note) run(()=>ops.update(k.id, {note:v})); }}/>
+        <div className="row" style=${{gap:6,fontSize:".85rem"}}>
+          <button type="button" className="btn small" disabled=${k.filled<=0} onClick=${()=>run(()=>ops.step(k,-1))}>−</button>
+          <b className="mono">${k.filled}/${k.segments}</b>
+          <button type="button" className="btn small primary" disabled=${k.filled>=k.segments} onClick=${()=>run(()=>ops.step(k,1))}>+ tacca</button>
+          <label className="row" style=${{gap:4}}>Tacche<select className="field" style=${{width:"auto",padding:"3px 6px"}} value=${k.segments} onChange=${e=>{ const n = Number(e.target.value); run(()=>ops.update(k.id, {segments:n, filled:Math.min(k.filled, n)})); }}>
+            ${Array.from({length:11},(_,i)=>i+2).map(n=>html`<option key=${n} value=${n}>${n}</option>`)}</select></label>
+          <label className="row" style=${{gap:4}}><input type="checkbox" checked=${k.visible} onChange=${e=>run(()=>ops.update(k.id, {visible:e.target.checked}))}/>visibile ai giocatori</label>
+          ${k.filled > 0 && html`<button type="button" className="btn small" onClick=${()=>run(()=>ops.update(k.id, {filled:0}))}>Azzera</button>`}
+          <span className="spacer"></span>
+          ${del === k.id ? html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>{ setDel(null); run(()=>ops.remove(k.id)); }}>Elimina</button><button type="button" className="btn small" onClick=${()=>setDel(null)}>No</button></span>`
+            : html`<button type="button" className="iconbtn" aria-label=${"Elimina "+k.name} onClick=${()=>setDel(k.id)}>×</button>`}
+        </div></div></div>`)}</div>
+    <form className="row" style=${{gap:6,alignItems:"flex-end"}} onSubmit=${async e=>{ e.preventDefault(); if (!form.name.trim()) return; setBusy(true);
+        const m = await run(()=>ops.add({name:form.name.trim().slice(0,60), segments:form.segments, visible:form.visible, note:form.note.trim().slice(0,200)}));
+        setBusy(false); if (!m) setForm({...form, name:"", note:""}); }}>
+      <label className="lab" style=${{flex:"1 1 150px"}}>Nuovo orologio<input id="clk-name" className="field" placeholder="es. Crollo dell’isola" value=${form.name} onChange=${e=>setForm({...form, name:e.target.value})}/></label>
+      <label className="lab" style=${{width:80}}>Tacche<${Num} id="clk-seg" value=${form.segments} min=${2} max=${12} onChange=${v=>setForm(x=>({...x, segments:v}))}/></label>
+      <label className="lab" style=${{flex:"1 1 180px"}}>Nota<input id="clk-note" className="field" placeholder="facoltativa, la vedono tutti" value=${form.note} onChange=${e=>setForm({...form, note:e.target.value})}/></label>
+      <label className="row" style=${{gap:4,fontSize:".85rem"}}><input id="clk-vis" type="checkbox" checked=${form.visible} onChange=${e=>setForm({...form, visible:e.target.checked})}/>visibile</label>
+      <button className="btn" disabled=${busy || !form.name.trim()}>+ Crea</button>
+    </form>`}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+  </section>`;
 }
 
 function WorldPanel({sb, world, setWorld, chars}){
@@ -1982,11 +2087,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks] = await Promise.all([
         q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -2026,6 +2131,7 @@ function BackupPanel({sb, camp}){
     await up("scene_state", b.scene_state, "nebbia delle mappe");
     await up("tokens", b.tokens, "pedine", r=>({...r, combatant_id:null}));
     await up("areas", b.areas, "aree", r=>({...r, created_by:null}));
+    await up("clocks", b.clocks, "orologi di scena");
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -3000,7 +3106,7 @@ function DiceTray({onFree, master}){
   </section>`;
 }
 
-function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable}){
+function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable, onNext}){
   const myChars = new Set(chars.filter(c=>c.owner===me.id).map(c=>c.id));
   const nameOf = f => { const c = f.char_id && chars.find(x=>x.id===f.char_id); return (c && c.name) || f.name || "?"; };
   const waiting = fighters.filter(f=>f.char_id && myChars.has(f.char_id) && f.init==null);
@@ -3010,11 +3116,14 @@ function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable
   if (!combat.active) return null;
   const cur = fighters.find(f=>f.id===combat.turn_id);
   const mine = cur && cur.char_id && myChars.has(cur.char_id);
-  return html`<div className=${"turnbar"+(mine?" mine":"")}><div className="tb-in">
+  const ev = cur && cur.kind === "evento";
+  return html`<div className=${"turnbar"+(mine?" mine":"")+(ev?" ev":"")}><div className="tb-in">
     <span className="mono">Round ${combat.round}</span>
-    <span>${mine ? html`<b>Tocca a te, ${nameOf(cur)}!</b>` : html`Turno di <b>${cur && !(cur.hidden && !me.isMaster) ? nameOf(cur) : "un avversario"}</b>`}</span>
+    <span>${mine ? html`<b>Tocca a te, ${nameOf(cur)}!</b>` : ev ? html`⚡ <b>${cur.name}</b>${cur.note ? html` <span className="muted">— ${cur.note}</span>` : null}`
+      : html`Turno di <b>${cur && !(cur.hidden && !me.isMaster) ? nameOf(cur) : "un avversario"}</b>`}</span>
     <span className="spacer"></span>
     ${mine && html`<button type="button" className="btn primary small" onClick=${onEndTurn}>Fine turno</button>`}
+    ${me.isMaster && onNext && html`<button type="button" className=${"btn small"+(ev?" primary":"")} onClick=${onNext}>Turno successivo →</button>`}
     <button type="button" className="btn small" onClick=${goTable}>${me.isMaster?"Plancia":"Iniziativa"}</button>
   </div></div>`;
 }
@@ -3024,13 +3133,22 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
   const ordered = orderFighters(fighters);
   const charOf = id => chars.find(c=>c.id===id);
   const [form, setForm] = useState({name:"", n:1, mod:0, hp:7, ac:12, hidden:false});
+  const [evf, setEvf] = useState({name:"", init:20, note:"", hidden:false}); const [evOpen, setEvOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [err, setErr] = useState("");
   const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); };
   const inIds = new Set(fighters.map(f=>f.char_id).filter(Boolean));
   const pcsOut = chars.filter(c=>!inIds.has(c.id) && (c.owner || M));
-  const monstersNoInit = fighters.filter(f=>!f.char_id && f.init==null);
-  const canRoll = f => M || (f.char_id && charOf(f.char_id)?.owner===me.id);
+  const monstersNoInit = fighters.filter(f=>!f.char_id && f.kind !== "evento" && f.init==null);
+  const canRoll = f => f.kind !== "evento" && (M || (f.char_id && charOf(f.char_id)?.owner===me.id));
+  const evForm = html`<form className="mform evform" onSubmit=${e=>{e.preventDefault(); if(!evf.name.trim()) return; run(async()=>{ const m = await act.addEvent(evf); if(!m){ setEvf({...evf, name:"", note:""}); setEvOpen(false); } return m; });}}>
+      <label className="lab nm">Evento<input id="ev-name" className="field" placeholder="es. L’isola sussulta" value=${evf.name} onChange=${e=>setEvf({...evf,name:e.target.value})}/></label>
+      <label className="lab">Iniziativa<${Num} id="ev-init" value=${evf.init} min=${-10} max=${40} onChange=${v=>setEvf(x=>({...x,init:v}))}/></label>
+      <label className="lab nm">Cosa succede<input id="ev-note" className="field" placeholder="es. TS Destrezza CD 12 o prono" value=${evf.note} onChange=${e=>setEvf({...evf,note:e.target.value})}/></label>
+      <label className="row hidchk"><input id="ev-hid" type="checkbox" checked=${evf.hidden} onChange=${e=>setEvf({...evf,hidden:e.target.checked})}/>Solo per me</label>
+      <button className="btn">+ Evento</button>
+      <p className="muted" style=${{margin:0,fontSize:".8rem",flexBasis:"100%"}}>Un evento fisso arriva ogni round al suo punteggio, dopo le creature con lo stesso punteggio. Non ha PF e non tira.</p>
+    </form>`;
 
   return html`<section className="panel">
     <div className="panel-h"><h3>Iniziativa</h3>
@@ -3041,7 +3159,15 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
     ${ordered.length>0 && html`<ol className="init-list">${ordered.map(f=>{
       const c = f.char_id && charOf(f.char_id); const s = c ? norm(c) : null; const Dd = s ? derived(s) : null;
       const sec = secrets[f.id]; const cur = combat.active && combat.turn_id===f.id;
-      const conds = s ? s.cond : (f.conds||[]);
+      const conds = s ? s.cond : (f.conds||[]); const ev = f.kind === "evento";
+      if (ev) return html`<li key=${f.id} className=${"ir ev"+(cur?" cur":"")+(f.hidden?" hid":"")}>
+        <span className="ir-init mono">${M ? html`<${Num} id=${"init-"+f.id} value=${f.init??0} label="Iniziativa dell’evento" onChange=${v=>act.setInit(f,v)}/>` : (f.init ?? "—")}</span>
+        <div className="ir-main">
+          <div className="ir-name">${cur && html`<span aria-label="turno attuale">▶ </span>`}⚡ ${f.name}${f.hidden && html`<span className="chip" style=${{marginLeft:6}}>solo master</span>`}</div>
+          <div className="ir-hp"><span className="chip gold">evento</span>${f.note && html`<span className="muted">${f.note}</span>`}</div>
+        </div>
+        <div className="ir-act">${M && html`<button type="button" className="iconbtn" aria-label=${"Togli l’evento "+f.name} onClick=${()=>run(()=>act.remove(f))}>×</button>`}</div>
+      </li>`;
       return html`<li key=${f.id} className=${"ir"+(cur?" cur":"")+(f.hidden?" hid":"")+(c?" pc":"")}>
         <span className="ir-init mono">${M ? html`<${Num} id=${"init-"+f.id} value=${f.init??0} label="Iniziativa" onChange=${v=>act.setInit(f,v)}/>` : (f.init ?? "—")}</span>
         <div className="ir-main">
@@ -3070,6 +3196,7 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
         <label className="row hidchk"><input id="m-hid" type="checkbox" checked=${form.hidden} onChange=${e=>setForm({...form,hidden:e.target.checked})}/>Nascosto ai giocatori</label>
         <button className="btn">+ Aggiungi</button>
       </form>
+      ${evOpen ? evForm : html`<div><button type="button" className="btn small" onClick=${()=>setEvOpen(true)}>+ Evento fisso (es. sussulti a 20)</button></div>`}
       <div className="row">
         ${monstersNoInit.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.rollMonsters(monstersNoInit))}>Tira iniziativa avversari (${monstersNoInit.length})</button>`}
         <span className="spacer"></span>
@@ -3078,6 +3205,7 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
       </div>
     </div>`}
 
+    ${M && combat.active && html`<div className="setup">${evOpen ? evForm : html`<div><button type="button" className="btn small" onClick=${()=>setEvOpen(true)}>+ Evento fisso</button></div>`}</div>`}
     ${M && combat.active && html`<div className="row">
       <button type="button" className="btn" onClick=${()=>run(()=>act.step(-1))}>← Indietro</button>
       <button type="button" className="btn primary" onClick=${()=>run(()=>act.step(1))}>Turno successivo →</button>
@@ -3142,12 +3270,12 @@ function DiscordPanel({sb}){
   </section>`;
 }
 
-function TableView({sb, me, chars, names, camp, onFree, act, adjustHp}){
+function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps}){
   const {combat, fighters, secrets, rolls} = camp;
   if (me.isMaster) return html`<div>
     <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
     <div className="table3">
-      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/></div>
+      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/><${ClocksPanel} clocks=${camp.clocks} ops=${clockOps} err=${camp.clocksErr}/></div>
       <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
       <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
     </div></div>`;
@@ -3175,7 +3303,8 @@ function Main({sb, me, onSignOut}){
     setScene: async (plane, patch) => { camp.setScenes(x=>({...x, [plane]: {...(x[plane]||{plane, grid:{}, walls:[], lights:[]}), ...patch}}));
       const {error} = await sb.from("scenes").upsert({plane, ...patch, updated_at:new Date().toISOString()}); if (error){ camp.loadScenes(); return "Non salvato: "+error.message; } return ""; },
     setState: async (plane, patch) => { camp.setSceneStates(x=>({...x, [plane]: {...(x[plane]||{plane, fog_mode:"none", fog:[], doors:{}, explored:[]}), ...patch}}));
-      const {error} = await sb.from("scene_state").upsert({plane, ...patch, updated_at:new Date().toISOString()}); if (error){ camp.loadScenes(); return "Non salvato: "+error.message; } return ""; },
+      const {error} = await sb.from("scene_state").upsert({plane, ...patch, updated_at:new Date().toISOString()});
+      if (error){ camp.loadScenes(); return "Non salvato: "+error.message+("locks" in patch && /locks|schema cache|column/i.test(error.message) ? " (esegui fase10.sql)" : ""); } return ""; },
     addTokens: async (plane, rows) => { const {error} = await sb.from("tokens").insert(rows.map(r=>({...r, plane}))); await camp.loadTokens(); return error ? "Pedine non aggiunte: "+error.message : ""; },
     updateToken: async (id, patch) => { camp.setTokens(x=>x.map(t=>t.id===id ? {...t, ...patch} : t));
       const {error} = await sb.from("tokens").update({...patch, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Non salvato: "+error.message; } return ""; },
@@ -3187,10 +3316,13 @@ function Main({sb, me, onSignOut}){
       if (error) return "Area non salvata"+(/relation|does not exist/.test(error.message) ? ": esegui fase9.sql" : ": "+error.message);
       if (data) camp.setAreas(x=> x.some(a=>a.id===data.id) ? x : [...x, data]); return ""; },
     deleteArea: async (id) => { camp.setAreas(x=>x.filter(a=>a.id!==id)); const {error} = await sb.from("areas").delete().eq("id", id); if (error){ camp.loadAreas(); return error.message; } return ""; },
+    setLight: async (id, light) => { camp.setTokens(x=>x.map(t=>t.id===id ? {...t, light: light || null} : t));
+      const {data, error} = await sb.rpc("set_token_light", {p_id:id, p_light:light||0});
+      if (error || !data){ camp.loadTokens(); return "Luce non salvata"+(error ? (/function|schema cache/i.test(error.message) ? ": esegui fase10.sql" : ": "+error.message) : ""); } return ""; },
     setAura: async (id, aura, color) => { camp.setTokens(x=>x.map(t=>t.id===id ? {...t, aura: aura || null, aura_color: color} : t));
       const {data, error} = await sb.rpc("set_token_aura", {p_id:id, p_aura:aura||0, p_color:color||null}); if (error || !data){ camp.loadTokens(); return "Aura non salvata"+(error?": "+error.message:""); } return ""; },
     markExplored: async (plane, cells) => { const {error} = await sb.rpc("mark_explored", {p_plane:plane, p_cells:cells}); return error ? error.message : ""; },
-    toggleDoor: async (plane, idx) => { const {data, error} = await sb.rpc("toggle_door", {p_plane:plane, p_idx:idx}); if (error || !data) return "Porta non aggiornata"+(error?": "+error.message:"");
+    toggleDoor: async (plane, idx) => { const {data, error} = await sb.rpc("toggle_door", {p_plane:plane, p_idx:idx}); if (error || !data) return "Porta non aggiornata"+(error?": "+error.message:": è chiusa a chiave.");
       camp.setSceneStates(x=>{ const s0 = x[plane]; if (!s0) return x; const d = {...(s0.doors||{})}; d[idx] = !d[idx]; return {...x, [plane]: {...s0, doors:d}}; }); return ""; },
   }),[sb, me.isMaster]);
   const cfgOps = useMemo(()=> me.isMaster ? {
@@ -3295,7 +3427,26 @@ function Main({sb, me, onSignOut}){
     start: async () => { const {error:e} = await sb.rpc("start_combat"); return errText(e); },
     step: async (dir) => { const {error:e} = await sb.rpc("step_turn", {p_dir:dir}); return errText(e); },
     end: async () => { const {error:e} = await sb.rpc("end_combat"); await camp.loadFighters(); return errText(e); },
+    addEvent: async (f) => { const {error:e} = await sb.from("combatants").insert({name:f.name.trim().slice(0,60), init:clamp(Number(f.init)||0,-10,40), dex:-99, kind:"evento", note:String(f.note||"").trim().slice(0,200), hidden:!!f.hidden});
+      await camp.loadFighters(); return e ? "Evento non aggiunto: "+e.message+(/kind|note|schema cache|column/i.test(e.message) ? " (esegui fase10.sql)" : "") : ""; },
   };
+  const clockOps = useMemo(()=> me.isMaster ? (()=>{ const o = {
+    add: async (row) => { const {error} = await sb.from("clocks").insert({filled:0, ...row, sort: (camp.clocks.reduce((m,k)=>Math.max(m, k.sort||0), 0) + 1)});
+      await camp.loadClocks(); return error ? "Orologio non creato: "+error.message : ""; },
+    update: async (id, patch) => { camp.setClocks(x=>x.map(k=>k.id===id ? {...k, ...patch} : k));
+      const {error} = await sb.from("clocks").update({...patch, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadClocks(); return "Non salvato: "+error.message; } return ""; },
+    step: (k, d) => o.update(k.id, {filled: clamp((Number(k.filled)||0) + d, 0, k.segments)}),
+    remove: async (id) => { camp.setClocks(x=>x.filter(k=>k.id!==id)); const {error} = await sb.from("clocks").delete().eq("id", id); if (error){ camp.loadClocks(); return error.message; } return ""; } };
+    return o; })() : null, [me.isMaster, sb, camp.clocks]);
+  /* avviso ai giocatori quando un orologio avanza o compare */
+  const clkSeen = useRef(null);
+  useEffect(()=>{ if (!ready) return; const prev = clkSeen.current; clkSeen.current = Object.fromEntries(camp.clocks.map(k=>[k.id, k.filled]));
+    if (!prev || me.isMaster) return; let ring = false;
+    for (const k of camp.clocks){ if (!k.visible) continue; const was = prev[k.id];
+      if (was === undefined || k.filled > was){ ring = true;
+        showToast({id:"clk"+k.id+":"+k.filled+":"+(was===undefined?"n":""), who:"⏳ "+k.name, label: was === undefined ? "nuovo orologio" : k.filled >= k.segments ? "completo!" : "avanza", total:`${k.filled}/${k.segments}`, detail:k.note||""}); } }
+    if (ring) chime();
+  },[camp.clocks, ready]);
   const pinOps = {
     add: async (row) => { const {error:e} = await sb.from("pins").insert({...row, created_by:me.id}); await camp.loadPins(); return e ? "Segnaposto non salvato: "+e.message : ""; },
     update: async (id, patch) => { const {data, error:e} = await sb.from("pins").update(patch).eq("id", id).select("id"); await camp.loadPins();
@@ -3312,7 +3463,7 @@ function Main({sb, me, onSignOut}){
     if (combat.turn_id === lastTurn.current) return;
     lastTurn.current = combat.turn_id;
     const f = fighters.find(x=>x.id===combat.turn_id); const c = f && f.char_id && chars.find(x=>x.id===f.char_id);
-    if (c && c.owner===me.id) chime();
+    if ((c && c.owner===me.id) || (f && f.kind === "evento")) chime();
   },[combat.active, combat.turn_id, fighters, chars]);
 
   const onMove = async (pos) => {
@@ -3356,7 +3507,8 @@ function Main({sb, me, onSignOut}){
         <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
     </div>
     <${WorldStrip} world=${camp.world} chars=${chars} me=${me}/>
-    <${TurnBanner} combat=${combat} fighters=${fighters} chars=${chars} me=${me} onEndTurn=${endMyTurn}
+    <${ClocksBar} clocks=${camp.clocks} me=${me} ops=${clockOps}/>
+    <${TurnBanner} combat=${combat} fighters=${fighters} chars=${chars} me=${me} onEndTurn=${endMyTurn} onNext=${endMyTurn}
       onRollInit=${async f=>{ const m = await act.rollInit(f); if (m) setMsg(m); }} goTable=${()=>{setView("tavolo"); setOpenId(null);}}/>
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
@@ -3365,7 +3517,7 @@ function Main({sb, me, onSignOut}){
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} onOpenHandout=${h=>setHoOpen(h)}/>`}
-      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp}/>`}
+      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps}/>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
