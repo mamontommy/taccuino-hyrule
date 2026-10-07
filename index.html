@@ -1734,6 +1734,8 @@ function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMas
     <div className="mapfoot">
       ${src && !battle && html`<button type="button" className=${"btn "+(mode==="move"?"":"primary")} onClick=${()=>setModeTo("move")}>${mode==="move"?"Smetti di spostare":"Sposta il gruppo"}</button>`}
       ${src && html`<button type="button" className="btn" aria-pressed=${mode==="pin"} onClick=${()=>setModeTo("pin")}>${mode==="pin"?"Annulla segnaposto":"+ Segnaposto"}</button>`}
+      ${src && (M || (!battle && !isDeep)) && html`<button type="button" className="btn" id="map-dl" disabled=${busy==="dl"} title=${M ? "Scarica l’immagine della mappa dei giocatori" : "Scarica l’immagine della mappa"}
+        onClick=${async()=>{ setBusy("dl"); setErr(""); try { await downloadUrl(src, slugKey(PLANE_NAME[plane]||"mappa", new Set())); } catch(e){ setErr("Non scaricata: "+e.message); } setBusy(""); }}>${busy==="dl" ? "Scarico…" : "Scarica"}</button>`}
       ${party && typeof party.x==="number" ? html`<span className="muted">Il gruppo è ${party.plane===plane?"qui":"su "+(PLANE_NAME[party.plane]||"un altro piano")}${party.label?": "+party.label:""} · spostato ${ago(party.at)}${byName?" da "+byName:""}</span>`
               : html`<span className="muted">Nessuna posizione segnata.</span>`}
       <span className="spacer"></span>
@@ -2198,7 +2200,7 @@ function BackupPanel({sb, camp}){
     await up("areas", b.areas, "aree", r=>({...r, created_by:null}));
     await up("clocks", b.clocks, "orologi di scena");
     await up("maps_master", b.maps_master, "versioni del master delle mappe");
-    await up("map_archive", b.map_archive, "archivio delle mappe");
+    await up("map_archive", b.map_archive, "archivio delle mappe", r=>({...r, created_by:null}));
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -2799,7 +2801,7 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${cur===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
     ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
-    ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder}/>`}
+    ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
     ${cur==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${cur==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
@@ -2807,6 +2809,12 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
 }
 
 /* ---------- archivio delle mappe (Cronache → Mappe) ---------- */
+async function downloadUrl(url, name){
+  const r = await fetch(url); if (!r.ok) throw new Error("download non riuscito ("+r.status+")");
+  const blob = await r.blob(); const ext = (blob.type.split("/")[1]||"png").split("+")[0].replace("jpeg","jpg");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (name || "mappa")+"."+ext;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
 const natCmp = (a, b) => String(a).localeCompare(String(b), "it", {numeric:true, sensitivity:"base"});
 async function makeThumb(file, max=520){
   let url = "";
@@ -2818,7 +2826,7 @@ async function makeThumb(file, max=520){
     const blob = await new Promise(r=>c.toBlob(r, "image/jpeg", 0.8)); return blob ? {blob, w:W, h:H} : null;
   } catch(e){ return null; } finally { if (url) URL.revokeObjectURL(url); }
 }
-function MapViewer({sb, item, master, folders, ops, onClose}){
+function MapViewer({sb, item, master, canEdit, by, folders, ops, onClose}){
   const [url, setUrl] = useState(""); const [dl, setDl] = useState(""); const [zoom, setZoom] = useState(1); const [err, setErr] = useState("");
   const [f, setF] = useState({title:item.title, note:item.note||"", folder:item.folder, visible:item.visible}); const [confirmDel, setConfirmDel] = useState(false); const [busy, setBusy] = useState(false);
   const box = useRef(null); const drag = useRef(null);
@@ -2832,11 +2840,11 @@ function MapViewer({sb, item, master, folders, ops, onClose}){
   const zoomTo = (z) => { const el = box.current; const nz = clamp(z, 1, 8); if (!el){ setZoom(nz); return; }
     const cx = (el.scrollLeft + el.clientWidth/2) / el.scrollWidth, cy = (el.scrollTop + el.clientHeight/2) / el.scrollHeight;
     setZoom(nz); requestAnimationFrame(()=>{ el.scrollLeft = cx*el.scrollWidth - el.clientWidth/2; el.scrollTop = cy*el.scrollHeight - el.clientHeight/2; }); };
-  const dirty = master && (f.title !== item.title || f.note !== (item.note||"") || f.folder !== item.folder || f.visible !== item.visible);
+  const dirty = canEdit && (f.title !== item.title || f.note !== (item.note||"") || f.folder !== item.folder || f.visible !== item.visible);
   return html`<div className="modal-back mv-back" role="dialog" aria-modal="true" aria-label=${item.title||"Mappa"} onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
     <div className="mv-modal">
       <div className="row mv-head">
-        <div style=${{minWidth:0,flex:"1 1 200px"}}><div className="eyebrow">${item.folder || "Senza cartella"}${item.created_at ? " · "+fmtDate(item.created_at) : ""}${!item.visible ? " · nascosta ai giocatori" : ""}</div>
+        <div style=${{minWidth:0,flex:"1 1 200px"}}><div className="eyebrow">${item.folder || "Senza cartella"}${item.created_at ? " · "+fmtDate(item.created_at) : ""}${by ? " · caricata da "+by : ""}${!item.visible ? " · nascosta ai giocatori" : ""}</div>
           <h3 style=${{margin:0}}>${item.title || "Mappa"}</h3></div>
         <button type="button" className="iconbtn" aria-label="Riduci" disabled=${zoom<=1} onClick=${()=>zoomTo(zoom/1.4)}>−</button>
         <span className="mono" style=${{fontSize:".85rem",minWidth:44,textAlign:"center"}}>${Math.round(zoom*100)}%</span>
@@ -2851,13 +2859,13 @@ function MapViewer({sb, item, master, folders, ops, onClose}){
         onPointerUp=${()=>{ drag.current = null; }} onPointerLeave=${()=>{ drag.current = null; }}>
         ${url ? html`<img src=${url} alt=${item.title||"Mappa"} draggable="false" style=${{width:(zoom*100)+"%"}}/>` : html`<p className="muted" style=${{padding:20}}>${err || "Caricamento…"}</p>`}
       </div>
-      ${item.note && !master && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${item.note}</p>`}
-      ${master && ops && html`<div className="mv-edit">
+      ${item.note && !canEdit && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${item.note}</p>`}
+      ${canEdit && ops && html`<div className="mv-edit">
         <label className="lab" style=${{flex:"2 1 200px"}}>Titolo<input id="arch-title" className="field" maxLength="80" value=${f.title} onChange=${e=>setF({...f, title:e.target.value})}/></label>
         <label className="lab" style=${{flex:"1 1 150px"}}>Cartella<input id="arch-folder" className="field" list="arch-folders" maxLength="60" value=${f.folder} onChange=${e=>setF({...f, folder:e.target.value})}/></label>
-        <label className="lab" style=${{flex:"3 1 260px"}}>Nota per i giocatori<input id="arch-note" className="field" maxLength="300" value=${f.note} onChange=${e=>setF({...f, note:e.target.value})}/></label>
-        <label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="arch-vis" type="checkbox" checked=${f.visible} onChange=${e=>setF({...f, visible:e.target.checked})}/>visibile ai giocatori</label>
-        <button type="button" className="btn small primary" disabled=${!dirty || busy} onClick=${async()=>{ setBusy(true); const m = await ops.update(item.id, {title:f.title.trim().slice(0,80), note:f.note.trim().slice(0,300), folder:f.folder.trim().slice(0,60), visible:f.visible}); setBusy(false); if (m) setErr(m); }}>Salva</button>
+        <label className="lab" style=${{flex:"3 1 260px"}}>${master ? "Nota per i giocatori" : "Nota"}<input id="arch-note" className="field" maxLength="300" value=${f.note} onChange=${e=>setF({...f, note:e.target.value})}/></label>
+        ${master && html`<label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="arch-vis" type="checkbox" checked=${f.visible} onChange=${e=>setF({...f, visible:e.target.checked})}/>visibile ai giocatori</label>`}
+        <button type="button" className="btn small primary" disabled=${!dirty || busy} onClick=${async()=>{ setBusy(true); const m = await ops.update(item.id, {title:f.title.trim().slice(0,80), note:f.note.trim().slice(0,300), folder:f.folder.trim().slice(0,60), ...(master ? {visible:f.visible} : {})}); setBusy(false); if (m) setErr(m); }}>Salva</button>
         <span className="spacer"></span>
         ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
           : html`<span className="confirm">Eliminare l’immagine dall’archivio?<button type="button" className="btn small danger" onClick=${async()=>{ const m = await ops.remove(item); if (m) setErr(m); else onClose(); }}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>Annulla</button></span>`}
@@ -2867,8 +2875,8 @@ function MapViewer({sb, item, master, folders, ops, onClose}){
     </div>
   </div>`;
 }
-function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder}){
-  const M = me.isMaster;
+function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names={}}){
+  const M = me.isMaster; const canEdit = a => M || (a.created_by && a.created_by === me.id);
   const [openId, setOpenId] = useState(null); const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [msg, setMsg] = useState("");
   const [folderIn, setFolderIn] = useState(defaultFolder); const [ren, setRen] = useState(null);   // {from, to}
@@ -2887,10 +2895,10 @@ function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder}){
   if (missing) return html`<p className="muted">${M ? "Esegui fase12.sql su Supabase per attivare l’archivio delle mappe." : "L’archivio delle mappe non è ancora attivo."}</p>`;
   return html`<div style=${{display:"grid",gap:14}}>
     <p className="muted" style=${{margin:0,fontSize:".9rem"}}>Le mappe della storia, divise per sessione. Tocca una mappa per aprirla grande, ingrandirla o scaricarla.</p>
-    ${M && html`<section className="panel arch-tools">
+    ${ops && html`<section className="panel arch-tools">
       <div className="row" style=${{gap:8,alignItems:"flex-end"}}>
-        <label className="lab" style=${{flex:"1 1 200px"}}>Cartella per le nuove mappe<input id="arch-cur" className="field" list="arch-folders-top" maxLength="60" value=${folderIn} onChange=${e=>setFolderIn(e.target.value)}/></label>
-        <button type="button" className="btn small" disabled=${busy || !folderIn.trim() || folderIn.trim()===defaultFolder} onClick=${async()=>{ setBusy(true); setErr(""); const m = await ops.setFolder(folderIn.trim()); setBusy(false); if (m) setErr(m); else setMsg("Le prossime mappe caricate andranno in “"+folderIn.trim()+"”."); }}>Usa questa cartella</button>
+        <label className="lab" style=${{flex:"1 1 200px"}}>${M ? "Cartella per le nuove mappe" : "Cartella"}<input id="arch-cur" className="field" list="arch-folders-top" maxLength="60" value=${folderIn} onChange=${e=>setFolderIn(e.target.value)}/></label>
+        ${M && html`<button type="button" className="btn small" disabled=${busy || !folderIn.trim() || folderIn.trim()===defaultFolder} onClick=${async()=>{ setBusy(true); setErr(""); const m = await ops.setFolder(folderIn.trim()); setBusy(false); if (m) setErr(m); else setMsg("Le prossime mappe caricate andranno in “"+folderIn.trim()+"”."); }}>Usa questa cartella</button>`}
         <span className="spacer"></span>
         <button type="button" className="btn primary" disabled=${busy} onClick=${()=>fileIn.current?.click()}>${busy ? "Caricamento…" : "+ Aggiungi immagine"}</button>
         <input ref=${fileIn} id="arch-file" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange=${async e=>{ const files = [...e.target.files]; if (!files.length) return;
@@ -2899,26 +2907,27 @@ function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder}){
           setBusy(false); if (ok) setMsg(ok === 1 ? "Mappa aggiunta." : ok+" mappe aggiunte."); if (fileIn.current) fileIn.current.value = ""; }}/>
         <datalist id="arch-folders-top">${folders.map(x=>html`<option key=${x} value=${x}/>`)}</datalist>
       </div>
-      <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Ogni immagine PNG o JPG caricata nella sezione Mappe finisce anche qui, nella cartella scelta (all’inizio “${defaultFolder}”). I file Dungeondraft e le versioni del master non vengono archiviati. Tocca una mappa per rinominarla, spostarla di cartella, nasconderla o eliminarla.</p>
+      ${!M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Puoi aggiungere le tue immagini (PNG, JPG o WebP, fino a 20 MB): mappe disegnate da voi, schizzi, foto del tavolo. Le vede tutto il gruppo; puoi modificarle o eliminarle solo tu (e il master).</p>`}
+      ${M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Ogni immagine PNG o JPG caricata nella sezione Mappe finisce anche qui, nella cartella scelta (all’inizio “${defaultFolder}”). I file Dungeondraft e le versioni del master non vengono archiviati. Tocca una mappa per rinominarla, spostarla di cartella, nasconderla o eliminarla. Anche i giocatori possono aggiungere immagini: le loro le puoi nascondere o eliminare.</p>`}
     </section>`}
     ${archive.length > 6 && html`<input id="arch-q" className="field" placeholder="Cerca una mappa…" value=${q} onChange=${e=>setQ(e.target.value)}/>`}
     ${archive.length === 0 && html`<div className="empty"><h3>Nessuna mappa archiviata</h3><p className="muted">${M ? "Carica una mappa nella sezione Mappe o aggiungi un’immagine qui." : "Le mappe che il master condivide compariranno qui, divise per sessione."}</p></div>`}
     ${groups.map(([fd, items]) => html`<section key=${fd} className="panel arch-folder">
       <div className="panel-h">
         <button type="button" className="linkish arch-fh" aria-expanded=${!closed.has(fd)} onClick=${()=>toggle(fd)}><span aria-hidden="true">${closed.has(fd) ? "▸" : "▾"}</span> <h3 style=${{display:"inline"}}>${fd || "Senza cartella"}</h3> <span className="muted">${items.length}</span></button>
-        ${M && (ren && ren.from === fd ? html`<span className="row" style=${{gap:6}}><input className="field" style=${{width:180}} aria-label="Nuovo nome della cartella" maxLength="60" value=${ren.to} onChange=${e=>setRen({...ren, to:e.target.value})} autoFocus/>
+        ${M && ops && (ren && ren.from === fd ? html`<span className="row" style=${{gap:6}}><input className="field" style=${{width:180}} aria-label="Nuovo nome della cartella" maxLength="60" value=${ren.to} onChange=${e=>setRen({...ren, to:e.target.value})} autoFocus/>
             <button type="button" className="btn small primary" disabled=${!ren.to.trim()} onClick=${async()=>{ const m = await ops.renameFolder(fd, ren.to.trim()); if (m) setErr(m); setRen(null); }}>Salva</button><button type="button" className="btn small" onClick=${()=>setRen(null)}>Annulla</button></span>`
           : html`<button type="button" className="btn small" onClick=${()=>setRen({from:fd, to:fd})}>✎ Rinomina</button>`)}
       </div>
       ${!closed.has(fd) && html`<div className="arch-grid">${items.map(a => html`<button type="button" key=${a.id} className=${"arch-card"+(a.visible?"":" hid")} onClick=${()=>setOpenId(a.id)}>
         ${thumbs[a.id] ? html`<img className="arch-thumb" src=${thumbs[a.id]} alt="" loading="lazy"/>` : html`<span className="arch-thumb arch-ph"><${Glyph} icon="stella" size=${30}/></span>`}
         <span className="arch-t">${a.title || "Mappa"}</span>
-        <span className="muted arch-d">${fmtDate(a.created_at)}${!a.visible ? " · nascosta" : ""}</span>
+        <span className="muted arch-d">${fmtDate(a.created_at)}${a.created_by && names[a.created_by] && !(M && a.created_by === me.id) ? " · "+names[a.created_by] : ""}${!a.visible ? " · nascosta" : ""}</span>
       </button>`)}</div>`}
     </section>`)}
     ${err && html`<p className="err" role="alert">${err}</p>`}
     ${msg && html`<p className="muted" role="status" style=${{margin:0}}>${msg}</p>`}
-    ${item && html`<${MapViewer} key=${item.id} sb=${sb} item=${item} master=${M} folders=${folders} ops=${ops} onClose=${()=>setOpenId(null)}/>`}
+    ${item && html`<${MapViewer} key=${item.id} sb=${sb} item=${item} master=${M} canEdit=${canEdit(item)} by=${item.created_by ? names[item.created_by] : ""} folders=${folders} ops=${ops} onClose=${()=>setOpenId(null)}/>`}
   </div>`;
 }
 
@@ -3667,18 +3676,20 @@ function Main({sb, me, onSignOut}){
   const onClearTrail = () => writeParty({...(party||{}), trail:[]});
   /* archivio delle mappe nelle Cronache (solo master) */
   const archiveFolder = CFG.archiveFolder || ("Sessione " + ((camp.journal||[]).reduce((m,j)=>Math.max(m, j.session_no||0), 0) + 1));
-  const archiveOps = me.isMaster ? {
+  const archiveOps = {
     addFile: async (file, {folder, title, plane}) => {
-      if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+      const maxMb = me.isMaster ? 45 : 20;
+      if (file.size > maxMb*1024*1024) return "Immagine troppo grande: resta sotto i "+maxMb+" MB.";
       const type = file.type || "image/png"; if (!/^image\/(png|jpe?g|webp)$/.test(type)) return "Nell’archivio vanno solo immagini PNG, JPG o WebP.";
       const ext = type === "image/jpeg" || type === "image/jpg" ? "jpg" : type.split("/")[1]; const stamp = Date.now()+"-"+uid();
-      const path = `archivio/${stamp}.${ext}`;
+      const dir = me.isMaster ? "archivio/" : `archivio/${me.id}/`;
+      const path = `${dir}${stamp}.${ext}`;
       const up = await sb.storage.from("mappe").upload(path, file, {contentType:type, upsert:false});
       if (up.error) return "Archivio: caricamento non riuscito: "+up.error.message;
       const th = await makeThumb(file); let thumb = null;
-      if (th){ const tp = `archivio/${stamp}-mini.jpg`; const u2 = await sb.storage.from("mappe").upload(tp, th.blob, {contentType:"image/jpeg", upsert:false}); if (!u2.error) thumb = tp; }
-      const {error:e} = await sb.from("map_archive").insert({folder: String(folder||archiveFolder).slice(0,60), title: String(title||"Mappa").slice(0,80), path, thumb, plane: plane||null, w: th?.w||null, h: th?.h||null, visible: true});
-      if (e){ sb.storage.from("mappe").remove([path, ...(thumb?[thumb]:[])]); return "Archivio: "+e.message+(/map_archive|schema cache|relation/i.test(e.message) ? " (esegui fase12.sql)" : ""); }
+      if (th){ const tp = `${dir}${stamp}-mini.jpg`; const u2 = await sb.storage.from("mappe").upload(tp, th.blob, {contentType:"image/jpeg", upsert:false}); if (!u2.error) thumb = tp; }
+      const {error:e} = await sb.from("map_archive").insert({folder: String(folder||archiveFolder).slice(0,60), title: String(title||"Mappa").slice(0,80), path, thumb, plane: plane||null, w: th?.w||null, h: th?.h||null, visible: true, created_by: me.id});
+      if (e){ sb.storage.from("mappe").remove([path, ...(thumb?[thumb]:[])]); return "Archivio: "+e.message+(/created_by|schema cache|relation|row-level/i.test(e.message) ? " (esegui fase12.sql e fase13.sql)" : ""); }
       await camp.loadArchive(); return ""; },
     fromUrl: async (url, opts) => { try { const r = await fetch(url); if (!r.ok) throw new Error("download "+r.status); const blob = await r.blob();
         return await archiveOps.addFile(blob, opts); } catch(e){ return "Non salvata in Cronache: "+e.message; } },
@@ -3690,8 +3701,8 @@ function Main({sb, me, onSignOut}){
       if (e){ camp.loadArchive(); return "Non rinominata: "+e.message; } return ""; },
     remove: async (a) => { const {error:e} = await sb.from("map_archive").delete().eq("id", a.id); if (e) return "Non eliminata: "+e.message;
       sb.storage.from("mappe").remove([a.path, ...(a.thumb?[a.thumb]:[])]); camp.setArchive(x=>x.filter(y=>y.id!==a.id)); return ""; },
-    setFolder: (name) => cfgOps.setArchiveFolder(name),
-  } : null;
+    setFolder: (name) => cfgOps ? cfgOps.setArchiveFolder(name) : "Solo il master",
+  };
 
   const onUpload = async (plane, file, opts={}) => {
     if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
@@ -3704,7 +3715,7 @@ function Main({sb, me, onSignOut}){
     if (e) return "Mappa caricata ma non registrata: "+e.message;
     if (prev && prev!==path) sb.storage.from("mappe").remove([prev]);
     camp.reload();
-    if (opts.archive && archiveOps && /^image\/(png|jpe?g|webp)$/.test(file.type||"")){
+    if (opts.archive && me.isMaster && /^image\/(png|jpe?g|webp)$/.test(file.type||"")){
       const m = await archiveOps.addFile(file, {folder: archiveFolder, title: PLANE_NAME[plane] || "Mappa", plane});
       if (m) return "Mappa caricata, ma non salvata in Cronache: "+m; }
     return "";
@@ -3760,7 +3771,7 @@ function Main({sb, me, onSignOut}){
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} masterUrls=${masterUrls}
-          onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
+          onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
