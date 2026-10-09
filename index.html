@@ -375,6 +375,47 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .cardprev.draggable .tc-art{cursor:grab;touch-action:none}
 .cardprev.draggable .tc-art:active{cursor:grabbing}
 .tc-art img{transition:none}
+/* miniatura 3D in cartoncino */
+.mini-win{position:fixed;z-index:45;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgb(0 0 0/.35);display:grid;grid-template-rows:auto minmax(0,1fr) auto;resize:both;overflow:hidden;min-width:200px;min-height:280px;max-width:92vw;max-height:88vh;box-sizing:border-box}
+.mini-head{display:flex;align-items:center;gap:4px;padding:5px 6px 5px 10px;background:linear-gradient(180deg,var(--fr),var(--fr2));color:var(--ft);cursor:move;touch-action:none;user-select:none}
+.f-arcobaleno .mini-head,.f-arcobaleno.mini-pill{background:linear-gradient(90deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa);color:#fff;text-shadow:0 1px 2px rgb(0 0 0/.7)}
+.mini-title{flex:1 1 auto;min-width:0;font-family:var(--f-display);font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-b{flex:none;border:0;background:rgb(255 255 255/.28);color:inherit;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:.9rem;line-height:1;display:grid;place-items:center}
+.mini-b:hover{background:rgb(255 255 255/.45)}
+.mini-stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;perspective:900px;container-type:size;background:radial-gradient(ellipse at 50% 78%,color-mix(in srgb,var(--fr) 30%,var(--sunk)),var(--sunk) 72%);--fw:min(56cqw,38cqh);--r:calc(var(--fw)*.56);--bh:calc(var(--fw)*.15)}
+.mini-stage:active{cursor:grabbing}
+.mini-shadow{position:absolute;left:50%;top:72%;width:calc(var(--fw)*1.25);height:calc(var(--fw)*.32);transform:translate(-50%,-10%);background:radial-gradient(ellipse,rgb(0 0 0/.38),transparent 70%);pointer-events:none}
+.mini-rig{position:absolute;left:50%;top:70%;width:0;height:0;transform-style:preserve-3d}
+.mini-fig{position:absolute;width:var(--fw);height:calc(var(--fw)*1.4);left:calc(var(--fw)/-2);bottom:0;transform-style:preserve-3d}
+.mini-face,.mini-layer{position:absolute;inset:0;box-sizing:border-box;border-radius:46% 46% 6px 6px/28% 28% 6px 6px}
+.mini-layer{background:var(--fr2)}
+.mini-face{overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:3px solid var(--fr2);background:var(--fr)}
+.mini-front img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none}
+.mini-front .tc-ph{font-size:calc(var(--fw)*.32)}
+.mini-gloss{position:absolute;inset:0;background:linear-gradient(115deg,rgb(255 255 255/.75),transparent 45%);pointer-events:none;mix-blend-mode:soft-light}
+.mini-back{transform:rotateY(180deg) translateZ(6px);background:var(--tx);color:#1b1712;padding:14% 6% 5%;font-size:max(8.5px,calc(var(--fw)*.056))}
+.mini-base{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.mini-top{position:absolute;width:calc(var(--r)*2);height:calc(var(--r)*2);left:calc(var(--r)*-1);top:calc(var(--r)*-1);border-radius:50%;background:radial-gradient(circle at 40% 35%,color-mix(in srgb,var(--fr) 85%,#fff),var(--fr2));transform:rotateX(90deg);box-shadow:inset 0 0 0 2px rgb(0 0 0/.25)}
+.mini-rim{position:absolute;top:0;width:calc(var(--r)*.235);height:var(--bh);left:calc(var(--r)*-.1175);background:linear-gradient(180deg,var(--fr),var(--fr2) 70%,#000 160%);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.f-arcobaleno .mini-top{background:conic-gradient(#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
+.mini-plate{position:absolute;left:calc(var(--r)*-.72);width:calc(var(--r)*1.44);top:calc(var(--bh)*.12);height:calc(var(--bh)*.76);transform:translateZ(calc(var(--r) + 1.5px));display:grid;place-items:center;background:linear-gradient(180deg,var(--tb),color-mix(in srgb,var(--tb) 80%,#000));border:1px solid rgb(0 0 0/.45);border-radius:3px;font-family:var(--f-display);font-size:max(8px,calc(var(--bh)*.55));color:#1b1712;white-space:nowrap;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.mini-plate span{max-width:96%;overflow:hidden;text-overflow:ellipsis}
+.mini-foot{font-size:.75rem;color:var(--muted);padding:4px 10px 6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-pill{position:fixed;z-index:45;border:0;border-radius:999px;padding:6px 14px;background:linear-gradient(180deg,var(--fr),var(--fr2));color:var(--ft);box-shadow:0 6px 18px rgb(0 0 0/.3);cursor:pointer;font-family:var(--f-display);font-size:.95rem}
+.mb{display:flex;flex-direction:column;gap:.4em;height:100%;overflow:hidden;font-family:var(--f-ui,system-ui)}
+.mb-h{display:flex;justify-content:space-between;align-items:baseline;gap:.4em;font-family:var(--f-display);font-size:1.25em;line-height:1.1}
+.mb-h b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mb-h span{font-size:.7em;white-space:nowrap}
+.mb-t{font-size:.82em;color:#4a3f30}
+.mb-v{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.25em}
+.mb-ab{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.2em}
+.mb-v span,.mb-ab span{display:grid;text-align:center;background:rgb(0 0 0/.07);border-radius:4px;padding:.15em 0;min-width:0}
+.mb-v i,.mb-ab i{font-style:normal;font-size:.72em;color:#5a4f40}
+.mb-v b,.mb-ab b{font-family:var(--f-mono);font-weight:600;font-size:.95em;white-space:nowrap}
+.mb-r{font-size:.82em;line-height:1.3}.mb-r i{font-style:normal;font-weight:700}
+.mb-atk{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.6em;border-top:1px solid rgb(0 0 0/.12);padding-top:.15em}
+.mb-atk b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mb-atk span{font-family:var(--f-mono)}
+.mb-st{color:#8a2c1f;font-weight:600}
+@media (prefers-reduced-motion: reduce){.mini-win{scroll-behavior:auto}}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -808,7 +849,7 @@ function SaveState({status, ro}){
 }
 
 /* ---------- scheda personaggio ---------- */
-function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden}){
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
   const [s, change, status] = useSheet(onSave, remote);
   const [tab, setTab] = useState(()=>lsGet("tab","comb"));
   const [mode, setMode] = useState("norm");
@@ -1096,7 +1137,8 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
           upd(p=>{ p.card = {...(p.card||{}), px:nx, pos:ny}; return p; }); }}
         onPointerUp=${()=>{ artDrag.current = null; }} onPointerCancel=${()=>{ artDrag.current = null; }}><${PartyCard} c=${{...s, id:charId, owner:remote?.owner}} url=${portraitUrl} ownerName=${ownerName} world=${world}/></div>
       <section className="panel" style=${{alignSelf:"start"}}>
-        <h3>La carta del personaggio</h3>
+        <div className="row"><h3 style=${{flex:"1 1 auto"}}>La carta del personaggio</h3>
+          ${onMini && charId && html`<button type="button" className="btn small" onClick=${()=>onMini(charId)} title="Miniatura 3D in cartoncino, in una finestrella che puoi tenere dove vuoi">🧍 Apri la miniatura</button>`}</div>
         <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Così compare il personaggio nella sezione “Il gruppo”; il colore della cornice è anche quello della sua pedina sulle mappe. L’immagine la vede tutto il gruppo; meglio verticale o quadrata, viene ridotta a 1000 pixel.</p>
         <div className="row">
           <button type="button" className="btn primary" disabled=${ro || pBusy || !onPortrait} onClick=${()=>pIn.current?.click()}>${pBusy ? "Caricamento…" : s.portrait ? "Cambia immagine" : "Carica immagine"}</button>
@@ -1161,7 +1203,93 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
   <//>`;
 }
 
-function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden}){
+/* ---------- miniatura 3D in cartoncino (finestrella flottante) ---------- */
+const MINI_SEG = 28;   // spicchi del bordo della basetta
+function MiniBack({s, D, npc}){
+  const saves = ABIL.filter(([k])=>s.saves?.[k]).map(([k,,ab])=>ab+" "+sg(D.m[k]+D.pb));
+  const slots = (s.spell?.slots||[]).map((x,i)=>x.max>0 ? `${i+1}°: ${Math.max(0,x.max-x.used)}/${x.max}` : null).filter(Boolean);
+  const res = (s.res||[]).filter(r=>r.name).slice(0,3).map(r=>`${r.name} ${Math.max(0,(r.max||0)-(r.used||0))}/${r.max||0}`);
+  const ctrs = COUNTERS.filter(x=>(Number(s.ctr?.[x.k])||0)>0).map(x=>`${x.name} ${s.ctr[x.k]}`);
+  const state = [...(s.cond||[]), ...(s.exh>0 ? ["Esaurimento "+s.exh] : []), ...(s.insp ? ["★ Ispirazione"] : []), ...ctrs];
+  return html`<div className="mb">
+    <div className="mb-h"><b>${s.name || "Senza nome"}</b><span>liv. ${s.level}</span></div>
+    <div className="mb-t">${[s.species, [s.cls, s.subclass].filter(Boolean).join(" · ")].filter(Boolean).join(" — ") || (npc ? "PNG" : "Avventuriero")}${s.align ? " · "+s.align : ""}</div>
+    <div className="mb-v">
+      <span><i>CA</i><b>${s.ac}</b></span><span><i>PF</i><b>${s.hp.cur}/${D.effMax}${s.hp.temp ? "+"+s.hp.temp : ""}</b></span>
+      <span><i>Iniz.</i><b>${sg(D.init)}</b></span><span><i>Vel.</i><b>${String(s.speed).replace(".",",")} m</b></span>
+      <span><i>Perc.</i><b>${D.passPerc}</b></span><span><i>Comp.</i><b>${sg(D.pb)}</b></span>
+      ${D.dc != null && html`<span><i>CD</i><b>${D.dc}</b></span><span><i>Att. inc.</i><b>${sg(D.satk)}</b></span>`}
+    </div>
+    <div className="mb-ab">${ABIL.map(([k,,ab])=>html`<span key=${k}><i>${ab}</i><b>${sg(D.m[k])}</b></span>`)}</div>
+    ${saves.length>0 && html`<div className="mb-r"><i>TS</i> ${saves.join(" · ")}</div>`}
+    ${(s.attacks||[]).filter(a=>a.name).slice(0,4).map(a=>html`<div key=${a.id} className="mb-r mb-atk"><b>${a.name}</b><span>${a.bonus}</span><span>${a.dmg}</span></div>`)}
+    ${slots.length>0 && html`<div className="mb-r"><i>Slot</i> ${slots.join(" · ")}</div>`}
+    ${res.length>0 && html`<div className="mb-r"><i>Risorse</i> ${res.join(" · ")}</div>`}
+    ${state.length>0 && html`<div className="mb-r mb-st">${state.join(" · ")}</div>`}
+  </div>`;
+}
+function MiniWindow({c, url, idx, onClose, onFocus}){
+  const s = norm(c); const D = derived(s); const fr = frameOf(s, !c.owner); const af = artFrame(s);
+  const key = "mini:"+c.id;
+  const [box, setBox] = useState(()=>{ const v = lsGet(key, null); const W = window.innerWidth, H = window.innerHeight;
+    const def = {x: Math.max(8, W - 300 - 24 - idx*28), y: Math.max(70, 110 + idx*28), w: 280, h: 400, min:false};
+    const b = v && typeof v === "object" ? {...def, ...v} : def;
+    return {...b, x: clamp(b.x, 0, Math.max(0, W-120)), y: clamp(b.y, 0, Math.max(0, H-60))}; });
+  const [ang, setAng] = useState(-25); const [tilt, setTilt] = useState(-10); const [spin, setSpin] = useState(()=>lsGet("miniSpin", true));
+  const win = useRef(null); const drag = useRef(null); const rot = useRef(null);
+  useEffect(()=>{ lsSet(key, box); },[box]);
+  useEffect(()=>{ lsSet("miniSpin", spin); },[spin]);
+  useEffect(()=>{ if (!spin || box.min) return; let raf, last = performance.now();
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; if (reduce) return;
+    const tick = (t) => { const dt = t - last; last = t; if (!rot.current) setAng(a => (a + dt*0.025) % 360); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf); },[spin, box.min]);
+  /* ridimensionamento con la maniglia nativa: salva la misura */
+  useEffect(()=>{ const el = win.current; if (!el || !window.ResizeObserver) return; let t = 0;
+    const ro = new ResizeObserver(()=>{ clearTimeout(t); t = setTimeout(()=>{ if (box.min) return; const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+      setBox(b => (Math.abs(b.w-w) > 2 || Math.abs(b.h-h) > 2) ? {...b, w, h} : b); }, 200); });
+    ro.observe(el); return ()=>{ ro.disconnect(); clearTimeout(t); }; },[box.min]);
+  const onHeadDown = e => { if (e.target.closest("button")) return; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_){}
+    drag.current = {x:e.clientX, y:e.clientY, bx:box.x, by:box.y}; };
+  const onHeadMove = e => { const d = drag.current; if (!d) return;
+    setBox(b => ({...b, x: clamp(d.bx + e.clientX - d.x, 0, window.innerWidth - 80), y: clamp(d.by + e.clientY - d.y, 0, window.innerHeight - 40)})); };
+  const onStageDown = e => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_){} rot.current = {x:e.clientX, y:e.clientY, a:ang, t:tilt}; };
+  const onStageMove = e => { const r = rot.current; if (!r) return; setAng(r.a + (e.clientX - r.x)*0.6); setTilt(clamp(r.t - (e.clientY - r.y)*0.3, -35, 15)); };
+  const onStageUp = () => { rot.current = null; };
+  const back = (((ang % 360) + 360) % 360); const showingBack = back > 90 && back < 270;
+  const light = 0.5 + 0.5*Math.cos(ang*Math.PI/180);
+  const name = s.name || "Senza nome";
+  if (box.min) return html`<button type="button" className=${"mini-pill f-"+fr} style=${{left:box.x, top:box.y}} onClick=${()=>setBox(b=>({...b, min:false}))} title="Riapri la miniatura">🧍 ${name}</button>`;
+  return html`<div ref=${win} className=${"mini-win f-"+fr} role="dialog" aria-label=${"Miniatura di "+name} style=${{left:box.x, top:box.y, width:box.w, height:box.h}} onPointerDownCapture=${onFocus}>
+    <div className="mini-head" onPointerDown=${onHeadDown} onPointerMove=${onHeadMove} onPointerUp=${()=>{ drag.current = null; }} onPointerCancel=${()=>{ drag.current = null; }}>
+      <span className="mini-title">${name}</span>
+      <button type="button" className="mini-b" title=${spin ? "Ferma la rotazione" : "Fai ruotare"} aria-label=${spin ? "Ferma la rotazione" : "Fai ruotare"} onClick=${()=>setSpin(!spin)}>${spin ? "⏸" : "▶"}</button>
+      <button type="button" className="mini-b" title=${showingBack ? "Mostra il fronte" : "Mostra il retro con le statistiche"} aria-label="Gira la miniatura" onClick=${()=>{ setSpin(false); setAng(showingBack ? 0 : 180); setTilt(-6); }}>⟲</button>
+      <button type="button" className="mini-b" title="Riduci" aria-label="Riduci" onClick=${()=>setBox(b=>({...b, min:true}))}>–</button>
+      <button type="button" className="mini-b" title="Chiudi" aria-label="Chiudi" onClick=${onClose}>×</button>
+    </div>
+    <div className="mini-stage" onPointerDown=${onStageDown} onPointerMove=${onStageMove} onPointerUp=${onStageUp} onPointerCancel=${onStageUp}>
+      <div className="mini-shadow"></div>
+      <div className="mini-rig" style=${{transform:`rotateX(${tilt}deg) rotateY(${ang}deg)`}}>
+        <div className="mini-fig">
+          ${[1,2,3,4,5].map(i=>html`<div key=${i} className="mini-layer" style=${{transform:`translateZ(${-i}px)`}}></div>`)}
+          <div className="mini-face mini-front">
+            ${url ? html`<img src=${url} alt="" draggable="false" style=${af.style}/>` : html`<span className="tc-ph">${initialsOf(s.name)}</span>`}
+            <span className="mini-gloss" style=${{opacity: 0.08 + 0.25*light}}></span>
+          </div>
+          <div className="mini-face mini-back"><${MiniBack} s=${s} D=${D} npc=${!c.owner}/></div>
+        </div>
+        <div className="mini-base">
+          <div className="mini-top"></div>
+          ${Array.from({length:MINI_SEG}, (_,i)=>html`<div key=${i} className="mini-rim" style=${{transform:`rotateY(${i*360/MINI_SEG}deg) translateZ(var(--r))`}}></div>`)}
+          <div className="mini-plate"><span>${name}</span></div>
+        </div>
+      </div>
+    </div>
+    <div className="mini-foot">${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}</div>
+  </div>`;
+}
+
+function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini}){
   const haz = climate(world); const M = me.isMaster;
   const chars = allChars.filter(c=>!c.hidden);
   const secret = M ? allChars.filter(c=>c.hidden).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))) : [];
@@ -1185,6 +1313,7 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
           <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
           <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
       : html`<div className="cards tcards">${sorted.map(c=>html`<div key=${c.id} className="tcard-wrap"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>
+          ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)} title="Apri la miniatura 3D in una finestrella che puoi spostare">🧍 Miniatura</button>`}
           ${M && !c.owner && onSetHidden && html`<button type="button" className="btn small" disabled=${busyId===c.id} onClick=${()=>move(c, true)} title="Torna tra le schede del master: i giocatori non la vedono più">Nascondi ai giocatori</button>`}</div>`)}</div>`}
     ${M && html`<section className="secret-sheets">
       <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede del master</h2></div><span className="spacer"></span>
@@ -1192,6 +1321,7 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
       <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. I tiri fatti da una scheda segreta sono nascosti.</p>
       ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda segreta.</p>`
         : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className="tcard-wrap tc-secret"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
+            ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)}>🧍 Miniatura</button>`}
             ${onSetHidden && html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`}</div>`)}</div>`}
     </section>`}
     ${err && html`<p className="notice err" role="alert">${err}</p>`}
@@ -3680,6 +3810,10 @@ function Main({sb, me, onSignOut}){
   const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo","cronache","campagna"].includes(h)?h:lsGet("view","gruppo"); });
   const [openId, setOpenId] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [minis, setMinis] = useState(()=>{ const v = lsGet("minis", []); return Array.isArray(v) ? v.slice(0,6) : []; });
+  useEffect(()=>lsSet("minis", minis),[minis]);
+  const openMini = useCallback((id)=>setMinis(x=> x.includes(id) ? [...x.filter(y=>y!==id), id] : [...x, id].slice(-6)),[]);
+  const closeMini = (id) => { setMinis(x=>x.filter(y=>y!==id)); };
   const [msg, setMsg] = useState("");
   const shown = useRef(new Set());
   const hoUrls = useHandoutUrls(sb, camp.handouts);
@@ -3911,7 +4045,7 @@ function Main({sb, me, onSignOut}){
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
-      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
@@ -3921,13 +4055,14 @@ function Main({sb, me, onSignOut}){
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
-              portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null}/>`
+              portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} masterUrls=${masterUrls}
           onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
+    ${minis.map((id,i)=>{ const c = chars.find(x=>x.id===id); return c ? html`<${MiniWindow} key=${id} c=${c} url=${portraits[id]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
   </div><//>`;
 }
