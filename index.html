@@ -481,6 +481,34 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .as-n span{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .as-n:hover b{text-decoration:underline}
 .as-v{font-size:.8rem;flex:none}
+/* tratti e talenti */
+.traits{display:grid;gap:16px}
+.traits .panel{display:grid;gap:10px}
+.tr-group{display:grid;gap:6px}
+.tr-group>.eyebrow{margin-top:4px}
+.trait{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.trait[open]{background:var(--surface)}
+.trait.editing{border-color:var(--accent)}
+.tr-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;list-style:none}
+.tr-sum::-webkit-details-marker{display:none}
+.tr-sum::before{content:"▸";color:var(--muted);transition:transform .15s;flex:none}
+.trait[open]>.tr-sum::before{transform:rotate(90deg)}
+.tr-n{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tr-sum .tr-n{flex:1 1 140px}
+.tr-uses{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;cursor:default}
+.tr-body{padding:0 10px 10px 28px;display:grid;gap:8px}
+.tr-desc{white-space:pre-wrap;line-height:1.5;font-size:.93rem}
+.tr-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
+.tr-row .grow{flex:1 1 200px}
+.tr-lv{width:84px}
+.tr-ta{min-height:120px;resize:vertical}
+.tr-form{padding-left:10px}
+.tr-prev{margin:0;padding-left:22px;display:grid;gap:3px;font-size:.9rem;max-height:260px;overflow-y:auto}
+.tr-imp{display:grid;gap:8px}
+.tr-cuses{display:grid;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.tr-cu{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.9rem}
+.tr-cu .tr-n{flex:1 1 120px}
+.tr-cu .muted{font-size:.78rem}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -799,7 +827,7 @@ function blankSheet(){
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
     spells:[], res:[], items:[], coins:{mr:0,ma:0,me:0,mo:0,mp:0},
-    hy:{meal:"", mealUntil:null, mealProtect:null, gear:{caldo:false, freddo:false}}, ctr:{}, langs:"", profs:"", feats:"", story:"", notes:""};
+    hy:{meal:"", mealUntil:null, mealProtect:null, gear:{caldo:false, freddo:false}}, ctr:{}, langs:"", profs:"", feats:"", traits:[], story:"", notes:""};
 }
 function merge(base, src){
   if (Array.isArray(base)) return Array.isArray(src) ? JSON.parse(JSON.stringify(src)) : base;
@@ -914,6 +942,110 @@ function SaveState({status, ro}){
   return html`<span className="state" role="status"><span className=${"dot "+c}></span>${t}</span>`;
 }
 
+/* ---------- tratti e talenti: una voce per ogni privilegio, divisi per origine ---------- */
+const TRAIT_SRC = [["specie","Specie"],["classe","Classe"],["sottoclasse","Sottoclasse"],["talento","Talenti"],["background","Background"],["altro","Altro"]];
+const TRAIT_ONE = {specie:"Tratto di specie", classe:"Privilegio di classe", sottoclasse:"Privilegio di sottoclasse", talento:"Talento", background:"Background", altro:"Altro"};
+const traitSrc = t => TRAIT_ONE[t?.src] ? t.src : "altro";
+/* divide il vecchio riquadro di testo in voci: righe vuote, elenchi puntati, "Nome: descrizione" */
+function splitFeats(txt){
+  const lines = String(txt||"").replace(/\r/g,"").split("\n"); const out = []; let cur = null;
+  const bullet = /^\s*(?:[-•*·▪●–]|\d+[.)])\s+/;
+  const head = /^(.{2,50}?)\s*(?::|\s[–—-]\s|\.(?=\s+[A-ZÀ-Ý]))\s*(.+)$/;
+  const push = () => { if (cur && (cur.name.trim() || cur.desc.trim())){ const name = cur.name.replace(/\(\s*liv(?:ello)?\.?\s*\d{1,2}\s*\)/i,"").trim().replace(/[:.]$/,"").slice(0,80); const desc = cur.desc.trim();
+      const all = cur.name+" "+desc; const lv = all.match(/\(\s*liv(?:ello)?\.?\s*(\d{1,2})\s*\)/i);
+      out.push({name: name || desc.slice(0,40), desc: name ? desc : (desc.length > 40 ? desc : ""), src: /talento/i.test(all) ? "talento" : "altro", lvl: lv ? lv[1] : ""}); } cur = null; };
+  for (const raw of lines){
+    const line = raw.trim(); if (!line){ push(); continue; }
+    const isB = bullet.test(raw) || /^#/.test(line);
+    const l = line.replace(bullet,"").replace(/^#+\s*/,"").replace(/^\*\*(.+?)\*\*/,"$1").replace(/^__(.+?)__/,"$1");
+    if (!cur || isB){ push(); const m = l.match(head); cur = m ? {name:m[1], desc:m[2]} : (l.length <= 50 ? {name:l, desc:""} : {name:"", desc:l}); }
+    else cur.desc += (cur.desc ? "\n" : "") + l;
+  }
+  push(); return out.filter(x=>x.name);
+}
+function TraitItem({t, ro, editing, onEdit, onDone, patch, del, move, first, last, openV, keepOpen}){
+  const src = traitSrc(t);
+  const head = html`<summary className="tr-sum">
+      <span className="tr-n">${t.name || "Senza nome"}</span>
+      ${t.lvl && html`<span className="chip">liv. ${t.lvl}</span>`}
+      ${t.max > 0 && html`<span className="tr-uses" onClick=${e=>e.preventDefault()}><${Pips} n=${Math.min(20, t.max)} used=${Math.min(t.max, t.max - (t.used||0))} label=${(t.name||"Uso")+" usi"} onSet=${v=>patch({used: t.max - v})}/>
+        <span className="muted">${t.reset === "breve" ? "riposo breve" : t.reset === "mai" ? "non si ricarica" : "riposo lungo"}</span></span>`}
+    </summary>`;
+  if (editing && !ro) return html`<details className="trait editing" open>
+    ${head}
+    <div className="tr-body tr-form">
+      <div className="tr-row">
+        <label className="lab grow">Nome<input className="field" id=${"tr-n-"+t.id} autoFocus=${!t.name} maxLength="80" value=${t.name||""} placeholder="es. Scurovisione, Ira, Allerta" onChange=${e=>patch({name:e.target.value})}/></label>
+        <label className="lab">Origine<select className="field" id=${"tr-s-"+t.id} value=${src} onChange=${e=>patch({src:e.target.value})}>${TRAIT_SRC.map(([k])=>html`<option key=${k} value=${k}>${TRAIT_ONE[k]}</option>`)}</select></label>
+        <label className="lab tr-lv">Livello<input className="field" id=${"tr-l-"+t.id} inputMode="numeric" maxLength="2" placeholder="—" value=${t.lvl||""} onChange=${e=>patch({lvl:e.target.value.replace(/\D/g,"").slice(0,2)})}/></label>
+      </div>
+      <label className="lab">Descrizione<textarea className="field tr-ta" id=${"tr-d-"+t.id} value=${t.desc||""} placeholder="Cosa fa, quando si usa, gittata, CD, dadi…" onChange=${e=>patch({desc:e.target.value})}></textarea></label>
+      <div className="tr-row">
+        <label className="lab tr-lv">Usi<${Num} id=${"tr-m-"+t.id} value=${t.max||0} min=${0} max=${20} label="Usi massimi (0 = senza usi)" onChange=${v=>patch({max:v, used:Math.min(t.used||0, v)})}/></label>
+        ${t.max > 0 && html`<label className="lab">Si ricarica<select className="field" id=${"tr-r-"+t.id} value=${t.reset||"lungo"} onChange=${e=>patch({reset:e.target.value})}>
+          <option value="breve">Riposo breve</option><option value="lungo">Riposo lungo</option><option value="mai">Mai (a mano)</option></select></label>`}
+        <span className="spacer"></span>
+        <button type="button" className="iconbtn" disabled=${first} aria-label="Sposta su" title="Sposta su" onClick=${()=>move(-1)}>↑</button>
+        <button type="button" className="iconbtn" disabled=${last} aria-label="Sposta giù" title="Sposta giù" onClick=${()=>move(1)}>↓</button>
+        <button type="button" className="btn small danger" onClick=${del}>Elimina</button>
+        <button type="button" className="btn small primary" onClick=${onDone}>Fatto</button>
+      </div>
+    </div>
+  </details>`;
+  return html`<details className="trait" key=${openV+(keepOpen ? "k" : "")} open=${keepOpen || openV % 2 === 1}>
+    ${head}
+    <div className="tr-body">
+      ${t.desc ? html`<div className="tr-desc">${t.desc}</div>` : html`<p className="muted" style=${{margin:0}}>Nessuna descrizione.</p>`}
+      ${!ro && html`<div className="tr-row"><span className="muted" style=${{fontSize:".8rem"}}>${TRAIT_ONE[src]}${t.lvl ? " · livello "+t.lvl : ""}</span><span className="spacer"></span><button type="button" className="btn small" onClick=${onEdit}>✎ Modifica</button></div>`}
+    </div>
+  </details>`;
+}
+function TraitsTab({s, ro, upd, set}){
+  const list = s.traits || [];
+  const [filter, setFilter] = useState(()=>lsGet("traitFilter","tutti"));
+  const [editId, setEditId] = useState(null); const [lastId, setLastId] = useState(null); const [openV, setOpenV] = useState(0); const [imp, setImp] = useState(null);
+  useEffect(()=>{ lsSet("traitFilter", filter); },[filter]);
+  const add = (src) => { const id = uid(); upd(p=>{ p.traits = [...(p.traits||[]), {id, name:"", src, lvl:"", desc:"", max:0, used:0, reset:"lungo"}]; return p; }); setEditId(id); if (filter !== "tutti" && filter !== src) setFilter(src); };
+  const patch = (id, o) => upd(p=>{ const x = (p.traits||[]).find(y=>y.id===id); if (x) Object.assign(x, o); return p; });
+  const del = (id) => { upd(p=>{ p.traits = (p.traits||[]).filter(y=>y.id!==id); return p; }); if (editId===id) setEditId(null); };
+  const move = (id, dir) => upd(p=>{ const a = p.traits || []; const i = a.findIndex(y=>y.id===id); if (i<0) return p; const sk = traitSrc(a[i]);
+    let j = i + dir; while (j>=0 && j<a.length && traitSrc(a[j]) !== sk) j += dir; if (j<0 || j>=a.length) return p; [a[i], a[j]] = [a[j], a[i]]; return p; });
+  const groups = TRAIT_SRC.map(([k,n])=>({k, n, items:list.filter(x=>traitSrc(x)===k)}));
+  const shown = groups.filter(g=>g.items.length && (filter==="tutti" || filter===g.k));
+  const defSrc = filter !== "tutti" ? filter : "classe";
+  const parsed = imp ? splitFeats(s.feats) : [];
+  return html`<div className="traits">
+    <section className="panel">
+      <div className="panel-h"><h3>Tratti e talenti</h3><span className="spacer"></span>
+        ${list.length > 0 && html`<button type="button" className="btn small" onClick=${()=>setOpenV(v=>v+1)}>${openV % 2 === 1 ? "Chiudi tutti" : "Apri tutti"}</button>`}
+        ${!ro && html`<button type="button" className="btn small primary" onClick=${()=>add(defSrc)}>+ Aggiungi</button>`}</div>
+      <div className="pk-tabs" role="tablist" aria-label="Origine dei tratti">
+        <button type="button" role="tab" aria-selected=${filter==="tutti"} className=${"pk-tab"+(filter==="tutti"?" on":"")} onClick=${()=>setFilter("tutti")}>Tutti <span>${list.length}</span></button>
+        ${groups.map(g=>html`<button type="button" role="tab" key=${g.k} aria-selected=${filter===g.k} className=${"pk-tab"+(filter===g.k?" on":"")} onClick=${()=>setFilter(g.k)}>${g.n} <span>${g.items.length}</span></button>`)}</div>
+      ${list.length === 0 && html`<p className="muted" style=${{margin:0}}>Una voce per ogni tratto di specie, privilegio di classe, talento o dono del background: nome, origine, livello, descrizione e, se serve, gli usi che si ricaricano coi riposi. ${!ro && s.feats ? "Puoi partire dal vecchio testo qui sotto con “Dividi in voci”." : ""}</p>`}
+      ${filter !== "tutti" && !groups.find(g=>g.k===filter)?.items.length && list.length > 0 && html`<p className="muted" style=${{margin:0}}>Nessuna voce in questa categoria.</p>`}
+      ${shown.map(g=>html`<div key=${g.k} className="tr-group">
+        ${filter === "tutti" && html`<div className="eyebrow">${g.n}</div>`}
+        ${g.items.map((x,i)=>html`<${TraitItem} key=${x.id} t=${x} ro=${ro} editing=${editId===x.id} openV=${openV} first=${i===0} last=${i===g.items.length-1}
+          keepOpen=${lastId===x.id} onEdit=${()=>setEditId(x.id)} onDone=${()=>{ setEditId(null); setLastId(x.id); }} patch=${o=>patch(x.id, o)} del=${()=>del(x.id)} move=${d=>move(x.id, d)}/>`)}
+        ${!ro && filter === g.k && html`<div><button type="button" className="btn small" onClick=${()=>add(g.k)}>+ ${TRAIT_ONE[g.k]}</button></div>`}
+      </div>`)}
+    </section>
+    ${(s.feats || "").trim() && html`<section className="panel">
+      <div className="panel-h"><h3>Vecchio testo dei privilegi</h3><span className="spacer"></span>
+        ${!ro && html`<button type="button" className="btn small" onClick=${()=>setImp(imp ? null : true)}>${imp ? "Annulla" : "Dividi in voci"}</button>`}</div>
+      ${imp ? html`<div className="tr-imp">
+          ${parsed.length === 0 ? html`<p className="muted" style=${{margin:0}}>Non trovo voci da creare: separa i privilegi con una riga vuota o con un trattino all’inizio.</p>` : html`
+          <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Diventano ${parsed.length} voci (in “Altro”, o “Talenti” se il testo lo dice: poi cambi l’origine con ✎). Il vecchio testo resta finché non lo svuoti.</p>
+          <ol className="tr-prev">${parsed.map((x,i)=>html`<li key=${i}><b>${x.name}</b>${x.lvl && html` <span className="chip">liv. ${x.lvl}</span>`}${x.desc && html`<span className="muted"> — ${x.desc.slice(0,90)}${x.desc.length>90?"…":""}</span>`}</li>`)}</ol>
+          <div className="row"><span className="spacer"></span><button type="button" className="btn small primary" onClick=${()=>{ upd(p=>{ p.traits = [...(p.traits||[]), ...parsed.map(x=>({id:uid(), name:x.name, src:x.src, lvl:x.lvl, desc:x.desc, max:0, used:0, reset:"lungo"}))]; return p; }); setImp(null); setFilter("tutti"); }}>Crea ${parsed.length} voci</button></div>`}
+        </div>` : html`<p className="muted" style=${{margin:0,fontSize:".85rem"}}>Il riquadro unico di prima. ${!ro ? "“Dividi in voci” lo trasforma in voci separate; quando hai finito puoi svuotarlo." : ""}</p>`}
+      <${Txt} area id="feats" value=${s.feats} label="Vecchio testo dei privilegi" onChange=${v=>set("feats",v)}/>
+      ${!ro && html`<div className="row"><span className="spacer"></span><button type="button" className="btn small danger" onClick=${()=>set("feats","")} title="Cancella il vecchio riquadro (le voci restano)">Svuota il vecchio testo</button></div>`}
+    </section>`}
+  </div>`;
+}
+
 /* ---------- scheda personaggio ---------- */
 function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
   const [s, change, status] = useSheet(onSave, remote);
@@ -947,13 +1079,13 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
     const gain = Math.max(1, total);
     upd(p=>{ p.hd.spent+=1; p.hp.cur=Math.min(D.effMax,p.hp.cur+gain); return p; });
   };
-  const shortRest = () => upd(p=>{ p.res.forEach(r=>{ if(r.reset==="breve") r.used=0 }); return p; });
+  const shortRest = () => upd(p=>{ p.res.forEach(r=>{ if(r.reset==="breve") r.used=0 }); (p.traits||[]).forEach(x=>{ if (x.reset==="breve") x.used=0; }); return p; });
   const longRest = () => upd(p=>{
     p.ctr = p.ctr || {};
     COUNTERS.forEach(c=>{ if (c.reset && (!c.cond || restOk[c.k])) p.ctr[c.k] = 0; });
     const eff = Math.max(1,(p.hp.max||0)-ctrHp(p));
     p.hp.cur = eff; p.hp.temp = 0; p.hd.spent = 0; p.death={s:0,f:0};
-    p.spell.slots.forEach(x=>x.used=0); p.res.forEach(r=>r.used=0);
+    p.spell.slots.forEach(x=>x.used=0); p.res.forEach(r=>r.used=0); (p.traits||[]).forEach(x=>{ if (x.reset!=="mai") x.used=0; });
     p.exh = Math.max(0,(p.exh||0)-1); return p; });
 
   const listOps = (key, make) => ({
@@ -967,7 +1099,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
   const itm = listOps("items", ()=>({id:uid(),name:"",qty:1,notes:""}));
   const spl = listOps("spells", ()=>({id:uid(),name:"",lvl:0,prep:true,conc:false,notes:""}));
 
-  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["zaino","Zaino"],["note","Note e storia"],["carta","Carta"]];
+  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["tratti","Tratti e talenti"],["zaino","Zaino"],["note","Note e storia"],["carta","Carta"]];
   const uploadPortrait = async (file) => { if (!file || !onPortrait) return; setPBusy(true); setPMsg("");
     const r = await onPortrait(charId, file); setPBusy(false); if (pIn.current) pIn.current.value = "";
     if (r.error){ setPMsg(r.error); return; }
@@ -1004,7 +1136,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
       </div>
     </div>
 
+    </fieldset>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${tab===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
+    <fieldset disabled=${ro}>
 
     ${tab==="comb" && html`<div className="grid2">
       <div style=${{display:"grid",gap:16}}>
@@ -1095,7 +1229,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
             <button type="button" className="btn primary" onClick=${longRest}>Riposo lungo</button>
             ${COUNTERS.filter(c=>c.reset && c.cond && (s.ctr?.[c.k]||0)>0).map(c=>html`<label key=${c.k} className="row" style=${{gap:6,fontSize:".88rem"}}><input id=${"rest-"+c.k} type="checkbox" checked=${!!restOk[c.k]} onChange=${e=>setRestOk({...restOk, [c.k]:e.target.checked})}/>${c.cond} (${c.name})</label>`)}
           </div>
-          <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Il riposo lungo ripristina PF, tutti i dadi vita, slot e risorse, e toglie un livello di esaurimento. Il breve ricarica le risorse segnate “breve”.</p>
+          <p className="muted" style=${{margin:0,fontSize:".82rem"}}>Il riposo lungo ripristina PF, tutti i dadi vita, slot, risorse e usi dei tratti, e toglie un livello di esaurimento. Il breve ricarica risorse e tratti segnati “breve”.</p>
         </section>
 
         <section className="panel">
@@ -1109,6 +1243,11 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
               <option value="breve">Breve</option><option value="lungo">Lungo</option></select>
             <button type="button" className="iconbtn" aria-label="Elimina risorsa" onClick=${()=>res.del(i)}>×</button>
           </div>`)}</div>
+          ${(s.traits||[]).some(x=>x.max>0) && html`<div className="tr-cuses"><div className="eyebrow">Tratti con usi</div>
+            ${(s.traits||[]).filter(x=>x.max>0).map(x=>html`<div className="tr-cu" key=${x.id}><span className="tr-n" title=${x.desc||""}>${x.name||"Senza nome"}</span>
+              <${Pips} n=${Math.min(20,x.max)} used=${Math.min(x.max, x.max-(x.used||0))} label=${(x.name||"Uso")+" usi"} onSet=${v=>upd(p=>{ const y = p.traits.find(z=>z.id===x.id); if (y) y.used = x.max - v; return p; })}/>
+              <span className="muted">${x.reset==="breve" ? "breve" : x.reset==="mai" ? "a mano" : "lungo"}</span></div>`)}
+            <button type="button" className="btn small" style=${{justifySelf:"start"}} onClick=${()=>setTab("tratti")}>Vai a Tratti e talenti →</button></div>`}
         </section>
 
         ${(COUNTERS.length>0 || CFG.modules.cucina || hasClimate()) && html`<section className="panel">
@@ -1189,9 +1328,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
       </section>
     </div>`}
 
+    ${tab==="tratti" && html`<${TraitsTab} s=${s} ro=${ro} upd=${upd} set=${set}/>`}
     ${tab==="note" && html`<div className="grid2">
-      <section className="panel"><h3>Privilegi e tratti</h3><${Txt} area id="feats" value=${s.feats} placeholder="Tratti di specie, privilegi di classe, talenti" onChange=${v=>set("feats",v)}/></section>
-      <section className="panel"><h3>Storia del personaggio</h3><${Txt} area id="story" value=${s.story} placeholder="Da dove viene, cosa cerca, chi ha perso nella Caduta…" onChange=${v=>set("story",v)}/></section>
+      <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Storia del personaggio</h3><${Txt} area id="story" value=${s.story} placeholder="Da dove viene, cosa cerca, chi ha perso nella Caduta…" onChange=${v=>set("story",v)}/></section>
       <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Appunti di sessione</h3><${Txt} area id="notes" value=${s.notes} placeholder="Nomi, indizi, promesse fatte…" onChange=${v=>set("notes",v)}/></section>
     </div>`}
     ${tab==="carta" && html`<div className="cardtab">
@@ -1402,7 +1541,7 @@ const MINI_SEG = 28;   // spicchi del bordo della basetta
 function MiniBack({s, D, npc}){
   const saves = ABIL.filter(([k])=>s.saves?.[k]).map(([k,,ab])=>ab+" "+sg(D.m[k]+D.pb));
   const slots = (s.spell?.slots||[]).map((x,i)=>x.max>0 ? `${i+1}°: ${Math.max(0,x.max-x.used)}/${x.max}` : null).filter(Boolean);
-  const res = (s.res||[]).filter(r=>r.name).slice(0,3).map(r=>`${r.name} ${Math.max(0,(r.max||0)-(r.used||0))}/${r.max||0}`);
+  const res = [...(s.res||[]), ...(s.traits||[]).filter(x=>x.max>0)].filter(r=>r.name).slice(0,4).map(r=>`${r.name} ${Math.max(0,(r.max||0)-(r.used||0))}/${r.max||0}`);
   const ctrs = COUNTERS.filter(x=>(Number(s.ctr?.[x.k])||0)>0).map(x=>`${x.name} ${s.ctr[x.k]}`);
   const state = [...(s.cond||[]), ...(s.exh>0 ? ["Esaurimento "+s.exh] : []), ...(s.insp ? ["★ Ispirazione"] : []), ...ctrs];
   return html`<div className="mb">
