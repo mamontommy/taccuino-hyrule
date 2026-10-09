@@ -1335,39 +1335,39 @@ const shade = (hex, f) => { const n = parseInt(String(hex).slice(1), 16); if (is
 /* ---------- manichino v2: stile da gioco di ruolo, specie di D&D 2024 e di Hyrule ---------- */
 const DOLL_SPECIES = [
   ["auto","Automatica (dalla specie della scheda)"],
-  ["umano","Umano"],["hyliano","Hyliano"],["sheikah","Sheikah"],["gerudo","Gerudo"],
-  ["elfo","Elfo"],["drow","Drow"],["nano","Nano"],["goron","Goron"],["halfling","Halfling"],
-  ["gnomo","Gnomo"],["korok","Korok"],["tritone","Tritone"],["zora","Zora"],["aarakocra","Aarakocra"],["rito","Rito"],
-  ["dragonide","Dragonide"],["goliath","Goliath"],["aasimar","Aasimar"],["orco","Orco"],["tiefling","Tiefling"]];
+  ["aasimar","Aasimar"],["dragonide","Dragonide"],["elfo","Elfo"],["drow","Elfo (Drow)"],["gnomo","Gnomo"],["goliath","Goliath"],
+  ["halfling","Halfling"],["nano","Nano"],["orco","Orco"],["tiefling","Tiefling"],["umano","Umano"],
+  ["tritone","Tritone (altre specie)"],["aarakocra","Aarakocra (altre specie)"]];
+/* specie del Manuale del Giocatore 2024 (più Tritone e Aarakocra), riconosciute anche in inglese */
 const speciesOf = (txt) => { const t = String(txt||"").toLowerCase();
-  return /goron/.test(t) ? "goron" : /nano|dwarf/.test(t) ? "nano" : /zora/.test(t) ? "zora" : /triton/.test(t) ? "tritone"
-    : /rito\b|^rito/.test(t) ? "rito" : /aarakocra/.test(t) ? "aarakocra" : /korok/.test(t) ? "korok" : /gnom/.test(t) ? "gnomo"
-    : /halfling|mezzuom/.test(t) ? "halfling" : /dragon|draconi/.test(t) ? "dragonide" : /goliath/.test(t) ? "goliath"
-    : /aasimar/.test(t) ? "aasimar" : /orc|orch/.test(t) ? "orco" : /tiefling/.test(t) ? "tiefling" : /drow/.test(t) ? "drow"
-    : /elf/.test(t) ? "elfo" : /gerudo/.test(t) ? "gerudo" : /sheikah/.test(t) ? "sheikah" : /hylia/.test(t) ? "hyliano" : "umano"; };
-/* proporzioni e tratti: sx/sy = larghezza/altezza del corpo, hs = testa, ears, head, extra */
+  return /aasimar/.test(t) ? "aasimar" : /dragon|draconi/.test(t) ? "dragonide" : /drow/.test(t) ? "drow" : /elf/.test(t) ? "elfo"
+    : /gnom/.test(t) ? "gnomo" : /goliath/.test(t) ? "goliath" : /halfling|mezzuom/.test(t) ? "halfling" : /nano|nani|dwarf/.test(t) ? "nano"
+    : /orc|orch/.test(t) ? "orco" : /tiefling/.test(t) ? "tiefling" : /triton/.test(t) ? "tritone" : /aarakocra/.test(t) ? "aarakocra" : "umano"; };
+/* dragonide: colore dall'ascendenza scritta nella specie (es. "Dragonide (rosso)") */
+const DRAGON_COL = [[/ross|red/,"#9a3a2a"],[/blu|blue/,"#3f6a9a"],[/verd|green/,"#4f7a3a"],[/ner|black/,"#3a3a40"],[/bianc|white/,"#cfd6dc"],
+  [/oro|gold/,"#c9a24a"],[/argent|silver/,"#aab4bd"],[/bronz/,"#8a6a3a"],[/ottone|brass/,"#b8953f"],[/rame|copper/,"#a8643a"]];
+/* proporzioni e tratti: sx/sy = larghezza/altezza del corpo, hs = testa */
 const SPECIES_SHAPE = {
-  umano:{sx:1, sy:1, hs:1, ears:"tonde", head:"umano"}, hyliano:{sx:.98, sy:1, hs:1, ears:"punta", head:"umano"},
-  sheikah:{sx:.97, sy:1, hs:1, ears:"punta", head:"umano"}, gerudo:{sx:1.02, sy:1.06, hs:.97, ears:"tonde", head:"umano"},
+  umano:{sx:1, sy:1, hs:1, ears:"tonde", head:"umano"},
   elfo:{sx:.93, sy:1.04, hs:.96, ears:"lunghe", head:"umano"}, drow:{sx:.93, sy:1.02, hs:.96, ears:"lunghe", head:"umano"},
-  nano:{sx:1.18, sy:.76, hs:1.12, ears:"tonde", head:"umano", beard:true}, goron:{sx:1.42, sy:.98, hs:.86, ears:"nessuna", head:"roccia", dy:10},
+  nano:{sx:1.18, sy:.76, hs:1.12, ears:"tonde", head:"umano", beard:true},
   halfling:{sx:.9, sy:.66, hs:1.2, ears:"tonde", head:"umano"}, gnomo:{sx:.86, sy:.6, hs:1.3, ears:"punta", head:"umano"},
-  korok:{sx:.72, sy:.48, hs:1.55, ears:"nessuna", head:"korok", dy:6}, tritone:{sx:.98, sy:1.03, hs:1, ears:"pinna", head:"zora"},
-  zora:{sx:.96, sy:1.05, hs:1, ears:"pinna", head:"zora"}, aarakocra:{sx:1, sy:1, hs:1.05, ears:"nessuna", head:"uccello"},
-  rito:{sx:1, sy:1.02, hs:1.05, ears:"nessuna", head:"uccello"}, dragonide:{sx:1.1, sy:1.05, hs:1.08, ears:"nessuna", head:"drago"},
-  goliath:{sx:1.2, sy:1.1, hs:.95, ears:"tonde", head:"umano"}, aasimar:{sx:1, sy:1.01, hs:1, ears:"tonde", head:"umano"},
-  orco:{sx:1.14, sy:1.03, hs:1.02, ears:"punta", head:"umano"}, tiefling:{sx:1, sy:1, hs:1, ears:"punta", head:"umano"},
+  tritone:{sx:.98, sy:1.03, hs:1, ears:"pinna", head:"umano", crest:true}, aarakocra:{sx:1, sy:1.02, hs:1.05, ears:"nessuna", head:"uccello"},
+  dragonide:{sx:1.1, sy:1.05, hs:1.08, ears:"nessuna", head:"drago"}, goliath:{sx:1.2, sy:1.1, hs:.95, ears:"tonde", head:"umano"},
+  aasimar:{sx:1, sy:1.01, hs:1, ears:"tonde", head:"umano"}, orco:{sx:1.14, sy:1.03, hs:1.02, ears:"punta", head:"umano"},
+  tiefling:{sx:1, sy:1, hs:1, ears:"punta", head:"umano"},
 };
 /* colori proposti per ogni specie (si cambiano dall'aspetto) */
 const SPECIES_LOOK = {
-  umano:{skin:"#d9b08c"}, hyliano:{skin:"#e8c6a0", hairColor:"#c9a05a"}, sheikah:{skin:"#e0c09c", hairColor:"#e8e6e0", hair:"corti", cloth:"#2f3c5a"},
-  gerudo:{skin:"#9a6440", hairColor:"#a8321f", hair:"coda", cloth:"#c9a65a"}, elfo:{skin:"#ecd2b4", hairColor:"#d9c27a", hair:"lunghi"},
-  drow:{skin:"#565a78", hairColor:"#eceaf2", hair:"lunghi"}, nano:{skin:"#d2a07c", hairColor:"#8a4a22"}, goron:{skin:"#9b7a5a", hair:"nessuno"},
-  halfling:{skin:"#e2b892", hairColor:"#6b4426"}, gnomo:{skin:"#e9c3a0", hairColor:"#d0d0d0"}, korok:{skin:"#8a6a3c", hair:"nessuno"},
-  tritone:{skin:"#6f9bb8", hair:"nessuno"}, zora:{skin:"#c8d8e4", hair:"nessuno", accent:"#a33a3a"}, aarakocra:{skin:"#8a5a3a", hair:"nessuno"},
-  rito:{skin:"#3f5f9a", hair:"nessuno"}, dragonide:{skin:"#7a8a4a", hair:"nessuno"}, goliath:{skin:"#a7a9a4", hair:"nessuno"},
-  aasimar:{skin:"#f0d9be", hairColor:"#efe2b0"}, orco:{skin:"#7c8f5c", hairColor:"#1f1a16"}, tiefling:{skin:"#a5483c", hairColor:"#1f1a2a"},
+  umano:{skin:"#d9b08c"}, elfo:{skin:"#ecd2b4", hairColor:"#d9c27a", hair:"lunghi"}, drow:{skin:"#565a78", hairColor:"#eceaf2", hair:"lunghi"},
+  nano:{skin:"#d2a07c", hairColor:"#8a4a22"}, halfling:{skin:"#e2b892", hairColor:"#6b4426"}, gnomo:{skin:"#e9c3a0", hairColor:"#d0d0d0"},
+  tritone:{skin:"#6f9bb8", hair:"nessuno"}, aarakocra:{skin:"#8a5a3a", hair:"nessuno"}, dragonide:{skin:"#7a8a4a", hair:"nessuno"},
+  goliath:{skin:"#a7a9a4", hair:"nessuno"}, aasimar:{skin:"#f0d9be", hairColor:"#efe2b0"}, orco:{skin:"#7c8f5c", hairColor:"#1f1a16"},
+  tiefling:{skin:"#a5483c", hairColor:"#1f1a2a"},
 };
+const speciesLook = (sp, txt) => { const b = {...(SPECIES_LOOK[sp] || {})};
+  if (sp === "dragonide"){ const t = String(txt||"").toLowerCase(); const m = DRAGON_COL.find(([re])=>re.test(t)); if (m) b.skin = m[1]; }
+  return b; };
 /* arto affusolato: punti [x, y, larghezza] -> contorno morbido */
 function taper(pts){
   const n = pts.length, Lp = [], Rp = [];
@@ -1385,7 +1385,7 @@ function PaperDoll({s, ro, upd, onPick, pick}){
   const at = {}; for (const x of items) if (x.slot && x.eq && SLOT_NAME[x.slot] && !at[x.slot]) at[x.slot] = x;
   const sp = (s.look?.species && s.look.species !== "auto") ? s.look.species : speciesOf(s.species);
   const SH = SPECIES_SHAPE[sp] || SPECIES_SHAPE.umano;
-  const L = {...LOOK_DEF, ...(SPECIES_LOOK[sp] || {}), ...Object.fromEntries(Object.entries(s.look || {}).filter(([k,v])=>v !== "" && v != null && k !== "species"))};
+  const L = {...LOOK_DEF, ...speciesLook(sp, s.species), ...Object.fromEntries(Object.entries(s.look || {}).filter(([k,v])=>v !== "" && v != null && k !== "species"))};
   const nm = x => String(x?.name||"").toLowerCase();
   const magic = x => !!x && (Number(x.magic) > 0 || (x.attune && x.attuned) || eqCat(x)==="magico");
   const arm = at.corpo; const armT = arm && eqCat(arm)==="armatura" ? (arm.armor||"leggera") : arm ? "veste" : "";
@@ -1456,7 +1456,7 @@ function PaperDoll({s, ro, upd, onPick, pick}){
   const face = isBird ? html`<circle cx="112" cy="64" r="2.4" fill="#f5e6a0" stroke=${INK} stroke-width=".8"/><circle cx="128" cy="64" r="2.4" fill="#f5e6a0" stroke=${INK} stroke-width=".8"/><circle cx="112" cy="64" r="1" fill=${INK}/><circle cx="128" cy="64" r="1" fill=${INK}/><path d="M114 70 L126 70 L120 88 Z" fill="#e0a13a" stroke="#6b4310" stroke-width="1"/><path d="M116 73 L124 73" stroke="#8a5a17" stroke-width=".8"/>`
     : isKorok ? html`<ellipse cx="114" cy="66" rx="3" ry="4" fill="#1d1712"/><ellipse cx="126" cy="66" rx="3" ry="4" fill="#1d1712"/><ellipse cx="120" cy="78" rx="3" ry="2.5" fill="#1d1712"/>`
     : html`<path d="M109 64 Q113 61 117 64" fill="none" stroke=${INK} stroke-width="1.2" opacity=".75"/><path d="M123 64 Q127 61 131 64" fill="none" stroke=${INK} stroke-width="1.2" opacity=".75"/>
-        <path d="M110 67.5 Q113 66 116 67.5 Q113 69 110 67.5 Z" fill=${sp==="sheikah" ? "#b3262f" : sp==="aasimar" ? "#f6e7a8" : sp==="drow" ? "#e8e8f0" : "#2b2016"}/><path d="M124 67.5 Q127 66 130 67.5 Q127 69 124 67.5 Z" fill=${sp==="sheikah" ? "#b3262f" : sp==="aasimar" ? "#f6e7a8" : sp==="drow" ? "#e8e8f0" : "#2b2016"}/>
+        <path d="M110 67.5 Q113 66 116 67.5 Q113 69 110 67.5 Z" fill=${sp==="aasimar" ? "#f6e7a8" : sp==="drow" ? "#e8e8f0" : "#2b2016"}/><path d="M124 67.5 Q127 66 130 67.5 Q127 69 124 67.5 Z" fill=${sp==="aasimar" ? "#f6e7a8" : sp==="drow" ? "#e8e8f0" : "#2b2016"}/>
         <path d="M120 68 L118 77 L121 78" fill="none" stroke=${skinD} stroke-width="1.2" stroke-linecap="round"/><path d="M115 83 Q120 84.5 125 83" fill="none" stroke=${shade(skin,-0.45)} stroke-width="1.1" stroke-linecap="round"/>
         ${sp==="orco" && html`<path d="M114 84 L113 79 L116 83 Z M126 84 L127 79 L124 83 Z" fill="#f2ecd8" stroke=${INK} stroke-width=".5"/>`}
         ${sp==="goliath" && html`<path d="M109 72 l4 3 M131 72 l-4 3 M118 54 l2 5 l2 -5" stroke=${shade(skin,-0.5)} stroke-width="1" fill="none"/>`}`;
@@ -1509,8 +1509,8 @@ function PaperDoll({s, ro, upd, onPick, pick}){
           <g className=${on("braccia")} ...${hit("braccia")}>
             <path d=${armL} fill=${skin} stroke=${INK} stroke-width="1"/><path d=${armR} fill=${skin} stroke=${INK} stroke-width="1"/><path d=${armL} fill="url(#pd-luce)"/><path d=${armR} fill="url(#pd-luce)"/>
             ${isBird && html`<path d=${armL} fill="url(#pd-piume)"/><path d=${armR} fill="url(#pd-piume)"/><path d="M84 120 L64 200 L76 196 L66 220 L80 210 Z M156 120 L176 200 L164 196 L174 220 L160 210 Z" fill=${skinD} stroke=${INK} stroke-width=".8"/>`}
-            ${(isDragon || isZora) && html`<path d=${armL} fill="url(#pd-squame)"/><path d=${armR} fill="url(#pd-squame)"/>`}
-            ${isZora && html`<path d="M82 160 L70 176 L80 178 Z M158 160 L170 176 L160 178 Z" fill=${acc} stroke=${INK} stroke-width=".8"/>`}
+            ${(isDragon || sp==="tritone") && html`<path d=${armL} fill="url(#pd-squame)"/><path d=${armR} fill="url(#pd-squame)"/>`}
+            ${sp==="tritone" && html`<path d="M82 160 L70 176 L80 178 Z M158 160 L170 176 L160 178 Z" fill=${shade(skin,-0.3)} stroke=${INK} stroke-width=".8"/>`}
             ${outfit !== "veste" && !isKorok && html`<path d=${upL} fill=${cloth} stroke=${INK} stroke-width="1"/><path d=${upR} fill=${cloth} stroke=${INK} stroke-width="1"/><path d=${upL} fill="url(#pd-luce)"/><path d=${upR} fill="url(#pd-luce)"/>`}
             ${outfit === "veste" && html`<path d=${sleeveL} fill=${robeCol} stroke=${INK} stroke-width="1"/><path d=${sleeveR} fill=${robeCol} stroke=${INK} stroke-width="1"/><path d=${sleeveL} fill="url(#pd-luce)"/><path d=${sleeveR} fill="url(#pd-luce)"/>`}
           </g>
@@ -1520,7 +1520,7 @@ function PaperDoll({s, ro, upd, onPick, pick}){
             : outfit === "veste" ? html`<path d=${ROBE} fill=${robeCol} stroke=${INK} stroke-width="1"/><path d=${ROBE} fill="url(#pd-luce)"/><path d="M106 214 L96 350 M134 214 L144 350 M120 214 L120 356" stroke=${shade(robeCol,-0.35)} stroke-width="1.2" opacity=".55"/><path d="M98 190 Q120 196 142 190 L142 200 Q120 206 98 200 Z" fill=${accD} stroke=${INK} stroke-width=".8"/><path d="M110 100 L120 124 L130 100" fill="none" stroke=${shade(robeCol,-0.45)} stroke-width="2"/>`
             : html`<path d=${TORSO} fill=${cloth} stroke=${INK} stroke-width="1"/><path d=${`M96 206 L144 206 L150 ${outfit==="viaggio" ? 236 : 252} L90 ${outfit==="viaggio" ? 236 : 252} Z`} fill=${cloth} stroke=${INK} stroke-width="1"/><path d=${TORSO} fill="url(#pd-luce)"/><path d="M110 100 L120 120 L130 100" fill="none" stroke=${clothD} stroke-width="2"/><path d="M104 212 L100 248 M136 212 L140 248" stroke=${clothD} stroke-width="1" opacity=".6"/>`}
             ${!isKorok && outfit === "viaggio" && !arm && html`<path d="M100 102 L120 126 L140 102 L141 190 L99 190 Z" fill="#5a3a20" stroke=${INK} stroke-width="1"/><path d="M100 102 L120 126 L140 102 L141 190 L99 190 Z" fill="url(#pd-luce)"/><path d="M108 140 h4 M108 156 h4 M128 140 h4 M128 156 h4" stroke="#c9a55a" stroke-width="1.6"/>`}
-            ${(isDragon || isZora) && !arm && outfit !== "veste" && html`<path d="M112 100 L128 100 L130 118 Q120 122 110 118 Z" fill=${skinL} opacity=".6"/>`}
+            ${isDragon && !arm && outfit !== "veste" && html`<path d="M112 100 L128 100 L130 118 Q120 122 110 118 Z" fill=${skinL} opacity=".6"/>`}
             ${isRock && html`<path d="M80 108 L92 96 L100 108 L92 118 Z M160 108 L148 96 L140 108 L148 118 Z M96 98 L104 90 L110 100 Z M144 98 L136 90 L130 100 Z" fill=${skinD} stroke=${INK} stroke-width=".8"/>`}
             ${armT === "leggera" && html`<path d="M98 104 Q120 98 142 104 L141 198 L99 198 Z" fill="url(#pd-cuoio)" stroke="#2a180b" stroke-width="1.2"/><path d="M98 104 Q120 98 142 104 L141 198 L99 198 Z" fill="url(#pd-luce)"/><path d="M101 108 Q120 103 139 108 L138 194 L102 194 Z" fill="none" stroke="#c9a55a" stroke-width=".8" stroke-dasharray="3 2"/><path d="M84 104 Q92 96 102 104 L98 118 Q88 116 84 110 Z M156 104 Q148 96 138 104 L142 118 Q152 116 156 110 Z" fill="#5a3a20" stroke="#2a180b"/><path d="M98 196 L142 196 L144 210 L96 210 Z" fill="#3e2512" stroke="#1a0f06"/><rect x="116" y="196" width="8" height="14" rx="1" fill="url(#pd-oro)"/>`}
             ${armT === "media" && html`<path d=${TORSO} fill="url(#pd-scaglie)" stroke="#23272b" stroke-width="1.2"/><path d="M94 206 L146 206 L152 244 L88 244 Z" fill="url(#pd-scaglie)" stroke="#23272b" stroke-width="1.2"/><path d=${TORSO} fill="url(#pd-luce)"/>
@@ -1542,6 +1542,7 @@ function PaperDoll({s, ro, upd, onPick, pick}){
             ${(SH.beard || L.beard) && !isBird && !isZora && !isKorok && html`<path d="M106 74 Q106 96 120 106 Q134 96 134 74 Q130 84 126 86 Q120 88 114 86 Q110 84 106 74 Z" fill=${L.hairColor} stroke=${INK} stroke-width=".8"/><path d="M114 86 Q120 90 126 86" stroke=${shade(L.hairColor,-0.3)} fill="none"/>`}
             ${!isBird && !isZora && !isRock && !isKorok && (L.hair === "corti" || L.hair === "lunghi" || L.hair === "coda") && !helmCovers && html`<path d="M105 64 Q103 44 120 43 Q137 44 135 64 Q131 52 120 52 Q109 52 105 64 Z" fill=${L.hairColor} stroke=${INK} stroke-width="1"/><path d="M110 50 Q120 47 130 50" fill="none" stroke=${shade(L.hairColor,0.25)} stroke-width="1.2" opacity=".6"/>`}
             ${L.hair === "coda" && !helmCovers && !isBird && !isZora && !isRock && !isKorok && html`<path d="M128 46 Q150 44 148 72 Q146 96 152 110 Q138 100 138 72 Q138 56 128 52 Z" fill=${L.hairColor} stroke=${INK} stroke-width="1"/><circle cx="133" cy="49" r="3" fill="url(#pd-oro)"/>`}
+            ${SH.crest && html`<path d="M114 52 Q120 30 126 52 Q120 46 114 52 Z" fill=${shade(skin,-0.3)} stroke=${INK} stroke-width=".8"/>`}
             ${sp==="tiefling" && html`<path d="M108 52 Q96 40 100 26 Q104 38 112 46 Z M132 52 Q144 40 140 26 Q136 38 128 46 Z" fill="#2a2024" stroke=${INK} stroke-width=".8"/>`}
             ${isDragon && html`<path d="M108 52 Q98 42 92 30 Q104 38 112 48 Z M132 52 Q142 42 148 30 Q136 38 128 48 Z" fill=${shade(skin,-0.45)} stroke=${INK} stroke-width=".8"/>`}
             ${at.testa && html`<g className=${on("testa")} filter=${glow(at.testa)}>${helm}</g>`}
@@ -1567,7 +1568,7 @@ function PaperDoll({s, ro, upd, onPick, pick}){
 /* scelte di aspetto: specie del disegno, vestito, capelli, barba, colori */
 function LookBar({s, set}){
   const sp = (s.look?.species && s.look.species !== "auto") ? s.look.species : speciesOf(s.species);
-  const L = {...LOOK_DEF, ...(SPECIES_LOOK[sp] || {}), ...Object.fromEntries(Object.entries(s.look || {}).filter(([k,v])=>v !== "" && v != null))};
+  const L = {...LOOK_DEF, ...speciesLook(sp, s.species), ...Object.fromEntries(Object.entries(s.look || {}).filter(([k,v])=>v !== "" && v != null))};
   const sw = (key, list, label) => html`<div className="pd-sw" role="group" aria-label=${label}><span>${label}</span>${list.map(c=>html`<button type="button" key=${c} className=${"pd-dot"+(L[key]===c ? " on" : "")} style=${{background:c}} aria-label=${label+" "+c} aria-pressed=${L[key]===c} onClick=${()=>set("look."+key, c)}></button>`)}</div>`;
   const auto = speciesOf(s.species);
   return html`<details className="pd-look"><summary>Aspetto del personaggio</summary>
@@ -1579,10 +1580,10 @@ function LookBar({s, set}){
       <label className="lab">Capelli<select className="field" id="lk-hair" value=${L.hair} onChange=${e=>set("look.hair", e.target.value)}>
         <option value="corti">Corti</option><option value="lunghi">Lunghi</option><option value="coda">Coda</option><option value="cappuccio">Cappuccio</option><option value="nessuno">Nessuno</option></select></label>
       <label className="row" style=${{gap:6,fontSize:".9rem",paddingBottom:8}}><input type="checkbox" checked=${!!(L.beard || (SPECIES_SHAPE[sp]||{}).beard)} disabled=${!!(SPECIES_SHAPE[sp]||{}).beard} onChange=${e=>set("look.beard", e.target.checked)}/>Barba</label>
-      ${sw("skin", [...new Set([...(SPECIES_LOOK[sp]?.skin ? [SPECIES_LOOK[sp].skin] : []), ...LOOK_SKIN])], sp==="rito"||sp==="aarakocra" ? "Piumaggio" : sp==="goron" ? "Roccia" : "Pelle")}
+      ${sw("skin", [...new Set([...(speciesLook(sp, s.species).skin ? [speciesLook(sp, s.species).skin] : []), ...LOOK_SKIN])], sp==="aarakocra" ? "Piumaggio" : sp==="dragonide" ? "Scaglie" : "Pelle")}
       ${sw("cloth", LOOK_CLOTH, "Abiti")}${sw("accent", LOOK_CLOTH, "Mantello e dettagli")}${sw("hairColor", LOOK_HAIR, "Capelli e barba")}
       <div className="row" style=${{gap:8,gridColumn:"1/-1"}}><button type="button" className="btn small" onClick=${()=>set("look", {species: s.look?.species || "auto"})} title="Torna ai colori proposti per la specie">Colori della specie</button>
-        <span className="muted" style=${{fontSize:".78rem"}}>La specie si legge dal campo Specie della scheda (anche i nomi di Hyrule: Goron, Zora, Rito, Korok, Sheikah, Gerudo, Hyliano). Il disegno segue anche i nomi degli oggetti: cappello da mago, corona, cappuccio, occhiali; arco, balestra, ascia, mazza, lancia, pugnale, bastone, bacchetta; scudo rotondo, libro, torcia.</span></div>
+        <span className="muted" style=${{fontSize:".78rem"}}>La specie si legge dal campo Specie della scheda (specie del Manuale del Giocatore 2024, anche in inglese; per il Dragonide anche il colore dell’ascendenza, es. “Dragonide (rosso)”). Il disegno segue anche i nomi degli oggetti: cappello da mago, corona, cappuccio, occhiali; arco, balestra, ascia, mazza, lancia, pugnale, bastone, bacchetta; scudo rotondo, libro, torcia.</span></div>
     </div></details>`;
 }
 
