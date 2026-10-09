@@ -2892,14 +2892,57 @@ function useCampaign(sb, active){
     pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs};
 }
 
+/* ---------- risparmio di spazio e traffico (piano gratuito di Supabase) ---------- */
+/* 1) le immagini caricate diventano WebP di qualità alta, con le stesse dimensioni in pixel (griglie e muri restano allineati) */
+const imgCompressOn = () => lsGet("imgCompress", true) !== false;
+async function compressImage(file){
+  try {
+    if (!file || !imgCompressOn()) return file;
+    if (!/^image\/(png|jpe?g|webp|bmp)$/i.test(file.type || "")) return file;
+    if (file.size < 400*1024) return file;   // già leggera
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+      const W = img.naturalWidth, H = img.naturalHeight; if (!W || !H || Math.max(W, H) > 16000) return file;
+      const c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d"); if (!ctx) return file;
+      ctx.drawImage(img, 0, 0);
+      let blob = await new Promise(r=>c.toBlob(r, "image/webp", 0.86));
+      if (!blob || blob.type !== "image/webp"){   // browser senza WebP: JPEG su fondo bianco
+        ctx.globalCompositeOperation = "destination-over"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+        blob = await new Promise(r=>c.toBlob(r, "image/jpeg", 0.88)); }
+      c.width = c.height = 1;
+      if (!blob || blob.size >= file.size*0.9) return file;   // nessun vero risparmio: tengo l'originale
+      const ext = blob.type === "image/webp" ? "webp" : "jpg";
+      return new File([blob], String(file.name || "immagine").replace(/\.[^.]+$/, "") + "." + ext, {type: blob.type});
+    } finally { URL.revokeObjectURL(url); }
+  } catch(e){ return file; }
+}
+/* 2) indirizzi firmati riusati per giorni: il browser tiene la copia e non riscarica la stessa immagine */
+const SIGN_TTL = 7*24*3600;
+let SIGN_CACHE = null;
+async function signedUrl(sb, bucket, path, opts){
+  if (!path) return null;
+  if (!SIGN_CACHE){ const v = lsGet("signCache", {}); SIGN_CACHE = v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
+  const k = bucket + "/" + path + (opts?.download ? "|" + opts.download : ""); const now = Date.now(); const c = SIGN_CACHE[k];
+  if (c && c.exp - now > 36*3600*1000 && typeof c.url === "string") return c.url;
+  const {data} = await sb.storage.from(bucket).createSignedUrl(path, SIGN_TTL, opts);
+  const url = data?.signedUrl; if (!url) return null;
+  if (/^https?:/.test(url)){ SIGN_CACHE[k] = {url, exp: now + SIGN_TTL*1000};
+    const keys = Object.keys(SIGN_CACHE); for (const kk of keys) if (!(SIGN_CACHE[kk]?.exp > now)) delete SIGN_CACHE[kk];
+    const left = Object.keys(SIGN_CACHE); if (left.length > 500) left.sort((a,b)=>SIGN_CACHE[a].exp - SIGN_CACHE[b].exp).slice(0, left.length - 500).forEach(kk=>delete SIGN_CACHE[kk]);
+    lsSet("signCache", SIGN_CACHE); }
+  return url;
+}
+const LONG_CACHE = "31536000";   // ogni file ha un nome unico: può restare in cache a lungo
+
 function useSignedUrls(sb, maps, bucket="mappe"){
   const [urls, setUrls] = useState({});
   const key = JSON.stringify(maps);
   useEffect(()=>{ let off = false;
     (async()=>{ const out = {};
       for (const [plane, path] of Object.entries(maps)){
-        const {data} = await sb.storage.from(bucket).createSignedUrl(path, 60*60*12);
-        if (data?.signedUrl) out[plane] = data.signedUrl;
+        const u = await signedUrl(sb, bucket, path);
+        if (u) out[plane] = u;
       }
       if (!off) setUrls(out); })();
     return ()=>{ off = true; };
@@ -3134,8 +3177,8 @@ function useHandoutUrls(sb, handouts){
   useEffect(()=>{ let off = false;
     (async()=>{ const out = {};
       for (const h of handouts.filter(h=>h.image_path)){
-        const {data} = await sb.storage.from("handouts").createSignedUrl(h.image_path, 60*60*12);
-        if (data?.signedUrl) out[h.id] = data.signedUrl;
+        const u = await signedUrl(sb, "handouts", h.image_path);
+        if (u) out[h.id] = u;
       }
       if (!off) setUrls(out); })();
     return ()=>{ off = true; };
@@ -3185,8 +3228,8 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
     try {
       let image_path = editing?.image_path || null;
       if (f.removeImage) image_path = null;
-      if (f.file){ const ext = (f.file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
-        const path = `h-${Date.now()}.${ext}`; const up = await sb.storage.from("handouts").upload(path, f.file, {contentType:f.file.type||"image/jpeg"});
+      if (f.file){ f = {...f, file: await compressImage(f.file)}; const ext = (f.file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+        const path = `h-${Date.now()}.${ext}`; const up = await sb.storage.from("handouts").upload(path, f.file, {contentType:f.file.type||"image/jpeg", cacheControl:LONG_CACHE});
         if (up.error) throw new Error("immagine: "+up.error.message); image_path = path; }
       const row = {title:f.title.trim(), body:f.body, audience:f.audience, image_path};
       const r = editing?.id ? await sb.from("handouts").update(row).eq("id", editing.id) : await sb.from("handouts").insert(row);
@@ -3732,9 +3775,9 @@ function MapViewer({sb, item, master, canEdit, by, folders, ops, onClose}){
   const [f, setF] = useState({title:item.title, note:item.note||"", folder:item.folder, visible:item.visible}); const [confirmDel, setConfirmDel] = useState(false); const [busy, setBusy] = useState(false);
   const box = useRef(null); const drag = useRef(null);
   useEffect(()=>{ let off = false; setUrl(""); setDl("");
-    (async()=>{ const a = await sb.storage.from("mappe").createSignedUrl(item.path, 60*60*6);
+    (async()=>{ const a = {data:{signedUrl: await signedUrl(sb, "mappe", item.path)}};
       const ext = (item.path.split(".").pop()||"png"); const name = slugKey(item.title || "mappa", new Set())+"."+ext;
-      const b = await sb.storage.from("mappe").createSignedUrl(item.path, 60*60*6, {download: name});
+      const b = {data:{signedUrl: await signedUrl(sb, "mappe", item.path, {download: name})}};
       if (off) return; if (a.data?.signedUrl) setUrl(a.data.signedUrl); else setErr("Immagine non disponibile."); if (b.data?.signedUrl) setDl(b.data.signedUrl); })();
     return ()=>{ off = true; }; },[item.path]);
   useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
@@ -3943,8 +3986,8 @@ function AudioControl({sb, me, sounds, audio, world}){
     document.addEventListener("pointerdown", h); return ()=>document.removeEventListener("pointerdown", h); },[open]);
   const getUrl = useCallback(async (s) => {
     const c = cache.current[s.id]; if (c && c.path===s.path && c.exp > Date.now()) return c.url;
-    const {data} = await sb.storage.from("suoni").createSignedUrl(s.path, 60*60*12);
-    if (!data?.signedUrl) return null; cache.current[s.id] = {url:data.signedUrl, path:s.path, exp:Date.now()+11*3600*1000}; return data.signedUrl;
+    const u = await signedUrl(sb, "suoni", s.path);
+    if (!u) return null; cache.current[s.id] = {url:u, path:s.path, exp:Date.now()+11*3600*1000}; return u;
   },[sb]);
   const playsHere = !!audio && (audio.mode==="online" || me.isMaster);
   const active = enabled && !muted && playsHere;
@@ -4022,7 +4065,7 @@ function SoundsPanel({sb, sounds, audio, reload}){
       if (file.size > 45*1024*1024) throw new Error("file troppo grande (massimo 45 MB)");
       const ext = (file.name.split(".").pop()||"mp3").toLowerCase().replace(/[^a-z0-9]/g,"");
       const path = `${kind}-${Date.now()}.${ext}`;
-      const up = await sb.storage.from("suoni").upload(path, file, {contentType: file.type || "audio/mpeg"});
+      const up = await sb.storage.from("suoni").upload(path, file, {contentType: file.type || "audio/mpeg", cacheControl:LONG_CACHE});
       if (up.error) throw new Error(up.error.message);
       const {error} = await sb.from("sounds").insert({name:(name.trim()||file.name.replace(/\.[^.]+$/,"")), kind, region: kind==="ambiente" && region ? region : null, path});
       if (error) throw new Error(error.message);
@@ -4453,6 +4496,38 @@ function SheetsHub({chars, names, camp, adjustHp, onOpen, onMini, sessionOps, sp
   return split ? html`<div className="hub2"><div className="col">${left}</div><div className="col">${right}</div></div>` : html`${left}${right}`;
 }
 
+/* spazio occupato nei contenitori di file + interruttore della compressione */
+function StoragePanel({sb}){
+  const [res, setRes] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [comp, setComp] = useState(imgCompressOn());
+  const BUCKETS = [["mappe","Mappe, archivio e versioni del master"],["ritratti","Ritratti"],["handouts","Handout"],["suoni","Suoni"]];
+  const scan = async () => { setBusy(true); setErr("");
+    try { const out = {};
+      for (const [b] of BUCKETS){ let n = 0, bytes = 0, big = []; const stack = [""]; let guard = 0;
+        while (stack.length && guard++ < 200){ const dir = stack.pop();
+          const {data, error} = await sb.storage.from(b).list(dir, {limit: 1000});
+          if (error){ if (!/not found|bucket/i.test(error.message)) throw new Error(b+": "+error.message); break; }
+          for (const o of data || []){ const full = dir ? dir+"/"+o.name : o.name;
+            if (!o.id && !o.metadata){ stack.push(full); continue; }
+            const sz = Number(o.metadata?.size)||0; n++; bytes += sz; big.push([full, sz]); } }
+        big.sort((a,b)=>b[1]-a[1]); out[b] = {n, bytes, big: big.slice(0,3)}; }
+      setRes(out); } catch(e){ setErr("Non riesco a leggere lo spazio: "+e.message); }
+    setBusy(false); };
+  useEffect(()=>{ scan(); },[]);
+  const mb = b => (b/1024/1024).toLocaleString("it", {maximumFractionDigits: b < 10*1024*1024 ? 1 : 0}) + " MB";
+  const tot = res ? Object.values(res).reduce((a,x)=>a+x.bytes, 0) : 0; const LIM = 1024*1024*1024;
+  return html`<section className="panel">
+    <div className="panel-h"><h3>Spazio usato</h3><span className="spacer"></span><button type="button" className="btn small" disabled=${busy} onClick=${scan}>${busy ? "Conto…" : "Aggiorna"}</button></div>
+    ${err && html`<p className="err" role="alert" style=${{margin:0}}>${err}</p>`}
+    ${res && html`<div style=${{display:"grid",gap:6}}>
+      <div className="row" style=${{gap:8}}><b className="mono">${mb(tot)}</b><span className="muted">su 1 GB del piano gratuito</span></div>
+      <div className="hpbar"><i style=${{width:clamp(tot/LIM*100, 0.5, 100)+"%", background: tot > LIM*0.8 ? "var(--heart)" : "var(--accent)"}}></i></div>
+      ${BUCKETS.map(([b,n])=>res[b] && html`<div key=${b} className="row" style=${{gap:8,fontSize:".88rem"}}><span>${n}</span><span className="spacer"></span><span className="muted">${res[b].n} file</span><b className="mono">${mb(res[b].bytes)}</b></div>`)}
+    </div>`}
+    <label className="row" style=${{gap:6,fontSize:".9rem"}}><input type="checkbox" checked=${comp} onChange=${e=>{ setComp(e.target.checked); lsSet("imgCompress", e.target.checked); }}/>Comprimi le immagini che carico (consigliato)</label>
+    <p className="muted" style=${{margin:0,fontSize:".8rem"}}>Mappe, versioni del master, archivio e handout vengono salvati in WebP di qualità alta, con le stesse dimensioni in pixel: di solito da 5 a 10 volte più leggeri. Togli la spunta solo per caricare un originale esatto (vale su questo dispositivo). Il traffico del mese si controlla nel pannello di Supabase → Usage.</p>
+  </section>`;
+}
+
 function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps, foeUrls={}, onMini, onOpen, sessionOps}){
   const {combat, fighters, secrets, rolls} = camp;
   const session = me.isMaster ? (CFG.session || []) : [];
@@ -4463,7 +4538,7 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps,
       <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act} groups=${groups} names=${names} foes=${camp.foes}/><${ClocksPanel} clocks=${camp.clocks} ops=${clockOps} err=${camp.clocksErr}/></div>
       <div className="col"><${SheetsHub} chars=${chars} names=${names} camp=${camp} adjustHp=${adjustHp} onOpen=${onOpen} onMini=${onMini} sessionOps=${sessionOps}/>
         <${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
-      <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
+      <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/><${StoragePanel} sb=${sb}/></div>
     </div></div>`;
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Al tavolo</div><h2>Tavolo</h2></div></div>
@@ -4536,7 +4611,7 @@ function Main({sb, me, onSignOut}){
     const th = await makeThumb(file, 1000);
     if (!th) return {error:"Non riesco a leggere l’immagine: usa un file JPG, PNG o WebP."};
     const path = `${charId}/${Date.now()}-${uid()}.jpg`;
-    const up = await sb.storage.from("ritratti").upload(path, th.blob, {contentType:"image/jpeg", upsert:false});
+    const up = await sb.storage.from("ritratti").upload(path, th.blob, {contentType:"image/jpeg", upsert:false, cacheControl:LONG_CACHE});
     if (up.error) return {error:"Caricamento non riuscito: "+up.error.message+(/bucket|not found|row-level|policy/i.test(up.error.message) ? " (esegui fase14.sql)" : "")};
     return {path}; };
   const onPortraitRemove = (path) => { if (path) sb.storage.from("ritratti").remove([path]); };
@@ -4759,17 +4834,18 @@ function Main({sb, me, onSignOut}){
   /* archivio delle mappe nelle Cronache (solo master) */
   const archiveFolder = CFG.archiveFolder || ("Sessione " + ((camp.journal||[]).reduce((m,j)=>Math.max(m, j.session_no||0), 0) + 1));
   const archiveOps = {
-    addFile: async (file, {folder, title, plane}) => {
+    addFile: async (file0, {folder, title, plane}) => {
       const maxMb = me.isMaster ? 45 : 20;
-      if (file.size > maxMb*1024*1024) return "Immagine troppo grande: resta sotto i "+maxMb+" MB.";
+      if (file0.size > maxMb*1024*1024) return "Immagine troppo grande: resta sotto i "+maxMb+" MB.";
+      const file = await compressImage(file0);
       const type = file.type || "image/png"; if (!/^image\/(png|jpe?g|webp)$/.test(type)) return "Nell’archivio vanno solo immagini PNG, JPG o WebP.";
       const ext = type === "image/jpeg" || type === "image/jpg" ? "jpg" : type.split("/")[1]; const stamp = Date.now()+"-"+uid();
       const dir = me.isMaster ? "archivio/" : `archivio/${me.id}/`;
       const path = `${dir}${stamp}.${ext}`;
-      const up = await sb.storage.from("mappe").upload(path, file, {contentType:type, upsert:false});
+      const up = await sb.storage.from("mappe").upload(path, file, {contentType:type, upsert:false, cacheControl:LONG_CACHE});
       if (up.error) return "Archivio: caricamento non riuscito: "+up.error.message;
       const th = await makeThumb(file); let thumb = null;
-      if (th){ const tp = `${dir}${stamp}-mini.jpg`; const u2 = await sb.storage.from("mappe").upload(tp, th.blob, {contentType:"image/jpeg", upsert:false}); if (!u2.error) thumb = tp; }
+      if (th){ const tp = `${dir}${stamp}-mini.jpg`; const u2 = await sb.storage.from("mappe").upload(tp, th.blob, {contentType:"image/jpeg", upsert:false, cacheControl:LONG_CACHE}); if (!u2.error) thumb = tp; }
       const {error:e} = await sb.from("map_archive").insert({folder: String(folder||archiveFolder).slice(0,60), title: String(title||"Mappa").slice(0,80), path, thumb, plane: plane||null, w: th?.w||null, h: th?.h||null, visible: true, created_by: me.id});
       if (e){ sb.storage.from("mappe").remove([path, ...(thumb?[thumb]:[])]); return "Archivio: "+e.message+(/created_by|schema cache|relation|row-level/i.test(e.message) ? " (esegui fase12.sql e fase13.sql)" : ""); }
       await camp.loadArchive(); return ""; },
@@ -4786,11 +4862,12 @@ function Main({sb, me, onSignOut}){
     setFolder: (name) => cfgOps ? cfgOps.setArchiveFolder(name) : "Solo il master",
   };
 
-  const onUpload = async (plane, file, opts={}) => {
-    if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+  const onUpload = async (plane, file0, opts={}) => {
+    if (file0.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+    const file = await compressImage(file0);
     const ext = (file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
     const path = `${plane}-${Date.now()}.${ext}`;
-    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false});
+    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false, cacheControl:LONG_CACHE});
     if (up.error) return "Caricamento non riuscito: "+up.error.message;
     const prev = maps[plane];
     const {error:e} = await sb.from("maps").upsert({plane, path, updated_at:new Date().toISOString()});
@@ -4803,11 +4880,12 @@ function Main({sb, me, onSignOut}){
     return "";
   };
 
-  const onUploadMaster = async (plane, file) => {
-    if (file.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+  const onUploadMaster = async (plane, file0) => {
+    if (file0.size > 45*1024*1024) return "Immagine troppo grande: resta sotto i 45 MB.";
+    const file = await compressImage(file0);
     const ext = (file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
     const path = `master/${plane}-${Date.now()}.${ext}`;
-    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false});
+    const up = await sb.storage.from("mappe").upload(path, file, {contentType: file.type || "image/jpeg", upsert:false, cacheControl:LONG_CACHE});
     if (up.error) return "Caricamento non riuscito: "+up.error.message;
     const prev = camp.mmaps[plane];
     const {error:e} = await sb.from("maps_master").upsert({plane, path, updated_at:new Date().toISOString()});
