@@ -454,6 +454,33 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .meet-card{width:240px;max-width:100%}
 .mb-x.known{color:#6a5313}
 .mb-note{font-size:.78em;border-top:1px solid rgb(0 0 0/.12);padding-top:.3em;white-space:pre-wrap}
+/* plancia: schede per categoria, sessione, tutti i personaggi */
+.sheet-pick{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.pk-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.pk-tab{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;font:inherit;font-size:.82rem;cursor:pointer}
+.pk-tab span{font-family:var(--f-mono);font-size:.75rem;opacity:.7}
+.pk-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pk-tab.on span{opacity:.9}
+.pk-list{display:grid;gap:2px;max-height:300px;overflow-y:auto}
+.pk-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:8px;align-items:center;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:.9rem}
+.pk-row:hover{background:var(--sunk)}
+.pk-row input{grid-row:1 / span 2}
+.pk-row .pk-n{grid-column:2;grid-row:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-row .pk-s{grid-column:2;grid-row:2;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-row .pk-v{grid-column:3;grid-row:1 / span 2;font-size:.78rem}
+.pk-row.all .pk-n{grid-row:1 / span 2}
+.pk-row.all{border-bottom:1px solid var(--line);border-radius:0}
+.pk-row.off{opacity:.55;cursor:default}
+.ses-tools{margin:-6px 0 2px}
+.all-sheets{display:grid;gap:10px}
+.as-list{display:grid;gap:2px;max-height:420px;overflow-y:auto}
+.as-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:6px}
+.as-row:hover{background:var(--sunk)}
+.as-n{flex:1 1 auto;min-width:0;display:grid;text-align:left;border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:2px 4px;border-radius:6px}
+.as-n b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-n span{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-n:hover b{text-decoration:underline}
+.as-v{font-size:.8rem;flex:none}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -736,6 +763,7 @@ function normCfg(raw){
   })).filter(x=>x.k && !rk.has(x.k) && rk.add(x.k)).map(x=>({...x, w: x.w.length ? x.w : [["Sereno",1,""]]}));
   out.flags = r.flags && typeof r.flags==="object" && !Array.isArray(r.flags) ? r.flags : {};
   out.archiveFolder = txt(r.archiveFolder, 60).trim();
+  out.session = (Array.isArray(r.session) ? r.session : []).filter(x=>typeof x==="string" && /^[\w-]{1,64}$/.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,80);
   out.counters = list(r.counters, DEFAULT_CFG.counters, x => ({k:txt(x.k,40), name:txt(x.name,40).trim()||"Contatore", hint:txt(x.hint,160),
     hpMax:!!x.hpMax, reset:!!x.reset, cond:txt(x.cond,80)}));
   return out;
@@ -887,7 +915,7 @@ function SaveState({status, ro}){
 }
 
 /* ---------- scheda personaggio ---------- */
-function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
   const [s, change, status] = useSheet(onSave, remote);
   const [tab, setTab] = useState(()=>lsGet("tab","comb"));
   const [mode, setMode] = useState("norm");
@@ -948,7 +976,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
 
   return html`<div>
     <div className="row" style=${{marginBottom:10}}>
-      <button className="btn small" onClick=${onBack}>← Il gruppo</button>
+      <button className="btn small" onClick=${onBack}>${backLabel || "← Il gruppo"}</button>
       <span className="spacer"></span>
       ${ownerName && html`<span className="who"><${Who} id=${remote.owner} name=${ownerName}/>${ownerName}</span>`}
       ${onSetHidden && !remote?.owner && html`<label className="row" style=${{gap:6,fontSize:".88rem"}} title="Le schede nascoste stanno tra le schede del master"><input id="pg-hidden" type="checkbox" checked=${!remote?.hidden} onChange=${e=>onSetHidden(remote.id, !e.target.checked)}/>Visibile ai giocatori</label>`}
@@ -3777,17 +3805,19 @@ function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable
   </div></div>`;
 }
 
-function Initiative({combat, fighters, secrets, chars, me, act}){
+function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}, foes=[]}){
   const M = me.isMaster;
   const ordered = orderFighters(fighters);
   const charOf = id => chars.find(c=>c.id===id);
   const [form, setForm] = useState({name:"", n:1, mod:0, hp:7, ac:12, hidden:false});
   const [evf, setEvf] = useState({name:"", init:20, note:"", hidden:false}); const [evOpen, setEvOpen] = useState(false);
-  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false); const [picking, setPicking] = useState(false);
   const [err, setErr] = useState("");
   const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); };
   const inIds = new Set(fighters.map(f=>f.char_id).filter(Boolean));
   const pcsOut = chars.filter(c=>!inIds.has(c.id) && (c.owner || M));
+  const sesOut = (groups?.find(g=>g.k==="sessione")?.list || []).filter(c=>!inIds.has(c.id));
+  const addIds = (ids) => run(async()=>{ const m = await act.addPCs(ids.map(id=>chars.find(c=>c.id===id)).filter(Boolean), foes); if (!m) setPicking(false); return m; });
   const monstersNoInit = fighters.filter(f=>!f.char_id && f.kind !== "evento" && f.init==null);
   const canRoll = f => f.kind !== "evento" && (M || (f.char_id && charOf(f.char_id)?.owner===me.id));
   const evForm = html`<form className="mform evform" onSubmit=${e=>{e.preventDefault(); if(!evf.name.trim()) return; run(async()=>{ const m = await act.addEvent(evf); if(!m){ setEvf({...evf, name:"", note:""}); setEvOpen(false); } return m; });}}>
@@ -3820,7 +3850,7 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
       return html`<li key=${f.id} className=${"ir"+(cur?" cur":"")+(f.hidden?" hid":"")+(c?" pc":"")}>
         <span className="ir-init mono">${M ? html`<${Num} id=${"init-"+f.id} value=${f.init??0} label="Iniziativa" onChange=${v=>act.setInit(f,v)}/>` : (f.init ?? "—")}</span>
         <div className="ir-main">
-          <div className="ir-name">${cur && html`<span aria-label="turno attuale">▶ </span>`}${(s && s.name) || f.name}${f.hidden && html`<span className="chip" style=${{marginLeft:6}}>nascosto</span>`}</div>
+          <div className="ir-name">${cur && html`<span aria-label="turno attuale">▶ </span>`}${(s && s.name) || f.name}${f.hidden && html`<span className="chip" style=${{marginLeft:6}}>nascosto</span>`}${M && s && c.hidden && !f.hidden && f.name !== s.name && html`<span className="chip gold" style=${{marginLeft:6}} title="Il nome che vedono i giocatori">come “${f.name}”</span>`}</div>
           ${s ? html`<div className="ir-hp"><div className="hpbar"><i style=${{width:clamp(s.hp.cur/Dd.effMax*100,0,100)+"%"}}></i></div><span className="mono">${s.hp.cur}/${Dd.effMax}</span><span className="muted">CA ${s.ac}</span></div>`
             : M && sec ? html`<div className="ir-hp"><span className="muted">PF</span><${Num} id=${"mhp-"+f.id} value=${sec.hp??0} label="PF avversario" onChange=${v=>act.setMonsterHp(f,v)}/><span className="muted mono">/ ${sec.max_hp??"?"}</span>${sec.ac!=null && html`<span className="muted">CA ${sec.ac}</span>`}<span className="chip">${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`
             : html`<div className="ir-hp"><span className=${"chip"+(f.hp_state!=="illeso"?" bad":"")}>${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`}
@@ -3835,7 +3865,10 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
       </li>`;})}</ol>`}
 
     ${M && !combat.active && html`<div className="setup">
-      ${pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.addPCs(pcsOut))}>Aggiungi ${pcsOut.length===1?"1 personaggio":pcsOut.length+" personaggi"}</button>`}
+      ${groups ? (picking ? html`<${SheetPicker} groups=${groups} inIds=${inIds} names=${names} foes=${foes} onAdd=${addIds} onClose=${()=>setPicking(false)}/>`
+          : html`<div className="row">${sesOut.length>0 && html`<button type="button" className="btn" onClick=${()=>addIds(sesOut.map(c=>c.id))} title=${sesOut.map(c=>norm(c).name).join(", ")}>Aggiungi la sessione (${sesOut.length})</button>`}
+              ${pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>setPicking(true)}>+ Scegli dalle schede…</button>`}</div>`)
+        : pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.addPCs(pcsOut))}>Aggiungi ${pcsOut.length===1?"1 personaggio":pcsOut.length+" personaggi"}</button>`}
       <form className="mform" onSubmit=${e=>{e.preventDefault(); if(!form.name.trim()) return; run(async()=>{ const m = await act.addMonsters(form); if(!m) setForm({...form, name:""}); return m; });}}>
         <label className="lab nm">Avversario<input id="m-name" className="field" placeholder="es. Goblin" value=${form.name} onChange=${e=>setForm({...form,name:e.target.value})}/></label>
         <label className="lab">Quanti<${Num} id="m-n" value=${form.n} min=${1} max=${20} onChange=${v=>setForm(x=>({...x,n:v}))}/></label>
@@ -3866,17 +3899,86 @@ function Initiative({combat, fighters, secrets, chars, me, act}){
   </section>`;
 }
 
-function PartyStatus({chars, names, adjustHp}){
-  const pcs = [...chars].sort((a,b)=>(!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
+/* ---------- categorie di schede (le stesse de "Il gruppo") per la plancia ---------- */
+const nameOfC = c => String(norm(c).name || "");
+const byNameC = (a,b) => nameOfC(a).localeCompare(nameOfC(b));
+function sheetGroups(chars, foes=[], npcs=[], session=[]){
+  const byId = new Map(chars.map(c=>[c.id, c]));
+  const pick = ids => [...new Set(ids)].map(id=>byId.get(id)).filter(Boolean);
+  return [
+    {k:"sessione", name:"Sessione", list: pick(session)},
+    {k:"compagnia", name:"Compagnia", list: chars.filter(c=>!c.hidden).sort((a,b)=>(!a.owner - !b.owner) || byNameC(a,b))},
+    {k:"avversari", name:"Avversari in scena", list: pick(foes.map(f=>f.id)).sort(byNameC)},
+    {k:"conosciuti", name:"Personaggi conosciuti", list: pick(npcs.map(n=>n.id)).sort(byNameC)},
+    {k:"segrete", name:"Schede del master", list: chars.filter(c=>c.hidden).sort(byNameC)},
+  ];
+}
+const sheetSub = (c, names) => c.owner ? (names[c.owner] || "Giocatore") : c.hidden ? "PNG · segreta" : "PNG nel gruppo";
+function SheetPicker({groups, inIds, names, foes=[], onAdd, onClose}){
+  const avail = groups.filter(g=>g.list.length);
+  const def = avail.find(g=>g.k==="sessione") || avail.find(g=>g.k==="compagnia") || avail[0];
+  const [tab, setTab] = useState(def?.k);
+  const [sel, setSel] = useState(()=>new Set(def && def.k !== "segrete" ? def.list.filter(c=>!inIds.has(c.id)).map(c=>c.id) : []));
+  const tog = id => setSel(s=>{ const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const g = avail.find(x=>x.k===tab) || avail[0];
+  if (!g) return html`<div className="sheet-pick"><p className="muted" style=${{margin:0}}>Nessuna scheda.</p><div className="row"><span className="spacer"></span><button type="button" className="btn small" onClick=${onClose}>Chiudi</button></div></div>`;
+  const free = g.list.filter(c=>!inIds.has(c.id));
+  const allOn = free.length > 0 && free.every(c=>sel.has(c.id));
+  const note = c => { if (inIds.has(c.id)) return "già in iniziativa"; const fo = c.hidden && foes.find(f=>f.id===c.id && f.visible);
+    return fo ? `in scena: i giocatori vedono “${fo.name}”` : c.hidden ? "entra nascosta" : sheetSub(c, names); };
+  return html`<div className="sheet-pick">
+    <div className="pk-tabs" role="tablist" aria-label="Categorie di schede">${avail.map(x=>{ const n = x.list.filter(c=>sel.has(c.id)).length;
+      return html`<button type="button" role="tab" key=${x.k} aria-selected=${x.k===g.k} className=${"pk-tab"+(x.k===g.k?" on":"")} onClick=${()=>setTab(x.k)}>${x.name} <span>${n ? n+"/" : ""}${x.list.length}</span></button>`; })}</div>
+    <div className="pk-list">
+      ${free.length > 1 && html`<label className="pk-row all"><input type="checkbox" checked=${allOn} onChange=${()=>setSel(s=>{ const n = new Set(s); free.forEach(c=> allOn ? n.delete(c.id) : n.add(c.id)); return n; })}/><span className="pk-n">Tutti (${free.length})</span></label>`}
+      ${g.list.map(c=>{ const s = norm(c), D = derived(s); const isIn = inIds.has(c.id);
+        return html`<label key=${c.id} className=${"pk-row"+(isIn?" off":"")}><input type="checkbox" disabled=${isIn} checked=${isIn || sel.has(c.id)} onChange=${()=>tog(c.id)}/>
+          <span className="pk-n">${s.name || "Senza nome"}</span><span className="pk-s muted">${note(c)}</span><span className="pk-v mono muted">CA ${s.ac} · ${s.hp.cur}/${D.effMax}</span></label>`; })}
+    </div>
+    <div className="row"><span className="muted" style=${{fontSize:".85rem"}}>${sel.size} selezionat${sel.size===1 ? "a" : "e"}</span><span className="spacer"></span>
+      <button type="button" className="btn small" onClick=${onClose}>Annulla</button>
+      <button type="button" className="btn small primary" disabled=${!sel.size} onClick=${()=>onAdd([...sel])}>Aggiungi${sel.size ? " "+sel.size : ""}</button></div>
+  </div>`;
+}
+function AllSheetsPanel({chars, groups, names, session=[], onOpen, onMini, onPin}){
+  const tabs = [{k:"tutte", name:"Tutte", list:[...chars].sort(byNameC)}, ...groups.filter(g=>g.k!=="sessione")];
+  const [tab, setTab] = useState(()=>{ const v = lsGet("allSheetsTab", "tutte"); return tabs.some(x=>x.k===v) ? v : "tutte"; });
+  const [q, setQ] = useState(""); const [open, setOpen] = useState(()=>lsGet("allSheetsOpen", true));
+  useEffect(()=>{ lsSet("allSheetsTab", tab); },[tab]); useEffect(()=>{ lsSet("allSheetsOpen", open); },[open]);
+  const g = tabs.find(x=>x.k===tab) || tabs[0];
+  const qq = q.trim().toLowerCase();
+  const list = g.list.filter(c=>!qq || nameOfC(c).toLowerCase().includes(qq) || String(names[c.owner]||"").toLowerCase().includes(qq));
+  const inSes = new Set(session);
+  return html`<section className="panel all-sheets">
+    <div className="panel-h"><h3>Tutti i personaggi</h3><span className="muted" style=${{fontSize:".82rem"}}>${chars.length} schede</span><span className="spacer"></span>
+      <button type="button" className="btn small" aria-expanded=${open} onClick=${()=>setOpen(!open)}>${open ? "Chiudi" : "Apri"}</button></div>
+    ${open && html`
+      <div className="pk-tabs" role="tablist" aria-label="Categorie di schede">${tabs.filter(x=>x.k==="tutte" || x.list.length).map(x=>html`<button type="button" role="tab" key=${x.k} aria-selected=${x.k===g.k} className=${"pk-tab"+(x.k===g.k?" on":"")} onClick=${()=>setTab(x.k)}>${x.name} <span>${x.list.length}</span></button>`)}</div>
+      <input className="field" type="search" placeholder="Cerca per nome o giocatore…" aria-label="Cerca un personaggio" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <div className="as-list">${list.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda.</p>` : list.map(c=>{ const s = norm(c), D = derived(s); const pinned = inSes.has(c.id);
+        return html`<div key=${c.id} className=${"as-row"+(c.hidden ? " sec" : "")}>
+          <button type="button" className="as-n" onClick=${()=>onOpen(c.id)} title="Apri la scheda"><b>${s.name || "Senza nome"}</b><span className="muted">${sheetSub(c, names)}${s.level ? " · liv. "+s.level : ""}</span></button>
+          <span className="mono muted as-v">${s.hp.cur}/${D.effMax}</span>
+          ${onMini && html`<button type="button" className="iconbtn" title="Miniatura" aria-label=${"Miniatura di "+(s.name||"personaggio")} onClick=${()=>onMini(c.id)}>🧍</button>`}
+          <button type="button" className=${"btn small"+(pinned ? " primary" : "")} aria-pressed=${pinned} title=${pinned ? "Togli dalle schede della sessione" : "Tienila nelle schede della sessione"} onClick=${()=>onPin(c.id)}>${pinned ? "✓ Sessione" : "📌 Sessione"}</button>
+        </div>`; })}</div>`}
+  </section>`;
+}
+
+function PartyStatus({chars, names, adjustHp, title="Il gruppo", sorted=false, onOpen, onMini, onUnpin, empty}){
+  const pcs = sorted ? chars : [...chars].sort((a,b)=>(!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
   const [amt, setAmt] = useState({}); const [err, setErr] = useState("");
   const go = async (c, kind) => { const n = parseInt(amt[c.id],10); if (isNaN(n)||n<=0) return; setErr("");
     const m = await adjustHp(c.id, kind, n); if (m) setErr(m); else setAmt(x=>({...x,[c.id]:""})); };
   return html`<section className="panel">
-    <div className="panel-h"><h3>Il gruppo</h3><span className="muted" style=${{fontSize:".82rem"}}>Danni e cure vanno subito sulla scheda</span></div>
-    ${pcs.length===0 && html`<p className="muted" style=${{margin:0}}>Nessuna scheda ancora.</p>`}
+    <div className="panel-h"><h3>${title}</h3><span className="muted" style=${{fontSize:".82rem"}}>Danni e cure vanno subito sulla scheda</span></div>
+    ${pcs.length===0 && (empty || html`<p className="muted" style=${{margin:0}}>Nessuna scheda ancora.</p>`)}
     <div className="ps-list">${pcs.map(c=>{ const s=norm(c), D=derived(s); return html`<div key=${c.id} className="ps">
       <div className="ps-top"><b>${s.name||"Senza nome"}</b><span className="muted">${c.owner ? (names[c.owner]||"") : c.hidden ? "PNG · segreto" : "PNG"}</span><span className="spacer"></span>
-        <span className="mono">${s.hp.cur}/${D.effMax}${s.hp.temp?` +${s.hp.temp}`:""}</span></div>
+        <span className="mono">${s.hp.cur}/${D.effMax}${s.hp.temp?` +${s.hp.temp}`:""}</span>
+        ${onOpen && html`<button type="button" className="btn small" onClick=${()=>onOpen(c.id)} title="Apri la scheda completa">Apri</button>`}
+        ${onMini && html`<button type="button" className="iconbtn" title="Miniatura" aria-label=${"Miniatura di "+(s.name||"personaggio")} onClick=${()=>onMini(c.id)}>🧍</button>`}
+        ${onUnpin && html`<button type="button" className="iconbtn" title="Togli dalle schede della sessione" aria-label=${"Togli "+(s.name||"personaggio")+" dalla sessione"} onClick=${()=>onUnpin(c.id)}>×</button>`}</div>
       <div className="hpbar"><i style=${{width:clamp(s.hp.cur/D.effMax*100,0,100)+"%"}}></i></div>
       <div className="ps-bot">
         <span className="muted">CA <b className="mono">${s.ac}</b> · Perc. <b className="mono">${D.passPerc}</b>${D.dc!=null?html` · CD <b className="mono">${D.dc}</b>`:null}</span>
@@ -3919,13 +4021,22 @@ function DiscordPanel({sb}){
   </section>`;
 }
 
-function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps, foeUrls={}, onMini}){
+function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps, foeUrls={}, onMini, onOpen, sessionOps}){
   const {combat, fighters, secrets, rolls} = camp;
+  const session = me.isMaster ? (CFG.session || []) : [];
+  const groups = useMemo(()=> me.isMaster ? sheetGroups(chars, camp.foes, camp.npcs, session) : null, [me.isMaster, chars, camp.foes, camp.npcs, session.join()]);
+  const sesList = groups ? groups[0].list : [];
+  const vis = me.isMaster ? chars.filter(c=>!c.hidden && c.owner).filter(c=>!session.includes(c.id)) : [];
   if (me.isMaster) return html`<div>
     <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
     <div className="table3">
-      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/><${ClocksPanel} clocks=${camp.clocks} ops=${clockOps} err=${camp.clocksErr}/></div>
-      <div className="col"><${PartyStatus} chars=${chars} names=${names} adjustHp=${adjustHp}/><${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
+      <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act} groups=${groups} names=${names} foes=${camp.foes}/><${ClocksPanel} clocks=${camp.clocks} ops=${clockOps} err=${camp.clocksErr}/></div>
+      <div className="col"><${PartyStatus} chars=${sesList} sorted=${true} names=${names} adjustHp=${adjustHp} title="Schede della sessione" onOpen=${onOpen} onMini=${onMini} onUnpin=${id=>sessionOps.toggle(id)}
+          empty=${html`<div className="muted" style=${{fontSize:".9rem",display:"grid",gap:8}}><span>Tieni qui le schede che ti servono stasera: compagnia, PNG, avversari. Restano anche dopo aver chiuso l’app. Si aggiungono con “📌 Sessione” in “Tutti i personaggi”.</span>
+            ${vis.length>0 && html`<div><button type="button" className="btn small primary" onClick=${()=>sessionOps.add(vis.map(c=>c.id))}>📌 Aggiungi la compagnia (${vis.length})</button></div>`}</div>`}/>
+        ${sesList.length>0 && html`<div className="row ses-tools">${vis.length>0 && html`<button type="button" className="btn small" onClick=${()=>sessionOps.add(vis.map(c=>c.id))} title=${vis.map(c=>norm(c).name).join(", ")}>📌 Aggiungi la compagnia (${vis.length})</button>`}<span className="spacer"></span><button type="button" className="btn small" onClick=${()=>sessionOps.clear()} title="Svuota l’elenco della sessione (le schede restano)">Svuota la sessione</button></div>`}
+        <${AllSheetsPanel} chars=${chars} groups=${groups} names=${names} session=${session} onOpen=${onOpen} onMini=${onMini} onPin=${id=>sessionOps.toggle(id)}/>
+        <${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
       <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
     </div></div>`;
   return html`<div>
@@ -4108,6 +4219,20 @@ function Main({sb, me, onSignOut}){
   const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
   const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
   const meetNpc = me.isMaster ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
+  /* schede della sessione (plancia del master): salvate nelle impostazioni della campagna */
+  const [backView, setBackView] = useState("gruppo");
+  const sessionOps = {
+    toggle: async (id) => { const r = await saveCfg(c=>{ c.session = (c.session||[]).includes(id) ? c.session.filter(x=>x!==id) : [...(c.session||[]), id]; }); if (r.error) setMsg(r.error); },
+    add: async (ids) => { const r = await saveCfg(c=>{ c.session = [...new Set([...(c.session||[]), ...ids])]; }); if (r.error) setMsg(r.error); },
+    clear: async () => { const r = await saveCfg(c=>{ c.session = []; }); if (r.error) setMsg(r.error); },
+  };
+  /* una scheda segreta in iniziativa come avversario visibile: stato vago e condizioni seguono la scheda */
+  const fSync = useRef(0);
+  useEffect(()=>{ if (!me.isMaster) return; clearTimeout(fSync.current);
+    fSync.current = setTimeout(async ()=>{ for (const f of camp.fighters){ if (!f.char_id || f.hidden) continue; const c = chars.find(x=>x.id===f.char_id); if (!c || !c.hidden) continue;
+      const s = norm(c); const st = hpState(s.hp.cur, derived(s).effMax); const cd = s.cond || [];
+      if (st !== f.hp_state || JSON.stringify(cd) !== JSON.stringify(f.conds || [])) await sb.from("combatants").update({hp_state: st, conds: cd}).eq("id", f.id); } }, 900);
+    return ()=>clearTimeout(fSync.current); },[chars, camp.fighters, me.isMaster]);
   const setCharHidden = async (id, hidden) => {
     camp.setChars(x=>x.map(c=>c.id===id ? {...c, hidden} : c));
     const {data, error:e} = await sb.from("characters").update({hidden}).eq("id", id).select("id");
@@ -4126,7 +4251,8 @@ function Main({sb, me, onSignOut}){
   const errText = (e) => e ? (e.message || "Operazione non riuscita") : "";
   const hpTimers = useRef({});
   const act = {
-    addPCs: async (list) => { const rows = list.map(c=>{ const D = derived(norm(c)); return {char_id:c.id, name:c.name||"PG", init_mod:D.init, dex:D.init, hidden:!!c.hidden}; });
+    addPCs: async (list, foes=[]) => { const rows = list.map(c=>{ const s = norm(c); const D = derived(s); const fo = c.hidden && foes.find(f=>f.id===c.id && f.visible);
+        return {char_id:c.id, name: fo ? fo.name : (c.name||s.name||"PG"), init_mod:D.init, dex:D.init, hidden: !!c.hidden && !fo, ...(fo ? {hp_state: hpState(s.hp.cur, D.effMax), conds: s.cond||[]} : {})}; });
       const {error:e} = await sb.from("combatants").insert(rows); await camp.loadFighters(); return errText(e); },
     addMonsters: async (f) => { const n = clamp(f.n,1,20);
       const rows = Array.from({length:n},(_,i)=>({name: n>1 ? `${f.name.trim()} ${i+1}` : f.name.trim(), init_mod:f.mod, dex:f.mod, hidden:!!f.hidden}));
@@ -4267,7 +4393,8 @@ function Main({sb, me, onSignOut}){
 
   const openChar = chars.find(c=>c.id===openId);
   const mine = chars.find(c=>c.owner===me.id);
-  const goMine = () => { if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
+  const goMine = () => { setBackView("gruppo"); if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
+  const openFromTable = (id) => { setBackView("tavolo"); setOpenId(id); setView("scheda"); window.scrollTo(0,0); };
   const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa", PLANES.length>1?"Mappe":"Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
@@ -4290,13 +4417,13 @@ function Main({sb, me, onSignOut}){
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
       ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini} foes=${camp.foes} foeUrls=${portraits} foeOps=${foeOps}
           npcs=${camp.npcs} npcSaves=${camp.npcSaves} npcOps=${npcOps} players=${players}
-          onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
+          onOpen=${id=>{setBackView("gruppo"); setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
-      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini}/>`}
+      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini} onOpen=${openFromTable} sessionOps=${sessionOps}/>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
-              onBack=${()=>{setView("gruppo"); setOpenId(null);}}
+              onBack=${()=>{setView(backView); setOpenId(null);}} backLabel=${backView==="tavolo" ? "← Plancia" : "← Il gruppo"}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
               portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}/>`
