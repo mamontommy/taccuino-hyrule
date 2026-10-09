@@ -513,6 +513,35 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .hub2>.col{display:grid;gap:16px;align-content:start}
 .hub2 .as-list{max-height:none}
 @media (max-width:860px){.hub2{grid-template-columns:minmax(0,1fr)}}
+/* effetti temporanei */
+.fx-panel{display:grid;gap:10px}
+.fx-list{display:grid;gap:6px}
+.fxi{border:1px solid var(--line);border-radius:8px;background:var(--bg);opacity:.72}
+.fxi.on{opacity:1;border-color:color-mix(in srgb,var(--gold,#c9a227) 60%,var(--line));background:color-mix(in srgb,var(--gold,#c9a227) 7%,var(--surface))}
+.fxi.editing{opacity:1;border-color:var(--accent)}
+.fx-h{display:flex;align-items:center;gap:8px;padding:6px 8px}
+.fx-t{flex:1 1 auto;min-width:0;display:grid;font-size:.92rem}
+.fx-n{display:flex;align-items:center;gap:6px;min-width:0}
+.fx-n b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-c{flex:none;font-size:.68rem;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:0 6px;line-height:1.5;color:var(--muted)}
+.fx-t .muted{font-size:.8rem;overflow:hidden;text-overflow:ellipsis}
+.fx-sw{position:relative;flex:none;width:36px;height:20px;cursor:pointer}
+.fx-sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;z-index:1;width:100%;height:100%}
+.fx-sw span{position:absolute;inset:0;pointer-events:none;border-radius:999px;background:var(--line);transition:background .15s}
+.fx-sw span::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.3);transition:transform .15s}
+.fx-sw input:checked+span{background:var(--accent)}
+.fx-sw input:checked+span::after{transform:translateX(16px)}
+.fx-sw input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.fx-form{display:grid;gap:10px;padding:4px 10px 10px;border-top:1px solid var(--line)}
+.fx-ab{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;align-items:end}
+.fx-ab>.eyebrow,.fx-ab>.muted{grid-column:1/-1}
+.fx-abr{display:grid;grid-template-columns:34px 1fr 1fr;gap:4px;align-items:end}
+.fx-abr b{font-family:var(--f-mono);font-size:.8rem;padding-bottom:9px}
+.fx-abr .lab{font-size:.72rem}
+.fx-nums{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px 10px}
+.fx-add{gap:8px}
+.fx-eff{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:700;white-space:nowrap}
+.chip.fxc{background:color-mix(in srgb,var(--gold,#c9a227) 22%,transparent);border-color:color-mix(in srgb,var(--gold,#c9a227) 60%,transparent)}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -831,7 +860,7 @@ function blankSheet(){
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
     spells:[], res:[], items:[], coins:{mr:0,ma:0,me:0,mo:0,mp:0},
-    hy:{meal:"", mealUntil:null, mealProtect:null, gear:{caldo:false, freddo:false}}, ctr:{}, langs:"", profs:"", feats:"", traits:[], story:"", notes:""};
+    hy:{meal:"", mealUntil:null, mealProtect:null, gear:{caldo:false, freddo:false}}, ctr:{}, langs:"", profs:"", feats:"", traits:[], fx:[], story:"", notes:""};
 }
 function merge(base, src){
   if (Array.isArray(base)) return Array.isArray(src) ? JSON.parse(JSON.stringify(src)) : base;
@@ -852,15 +881,26 @@ const setIn = (o, path, v) => {
   c[k] = rest.length ? setIn(o?.[k] ?? {}, rest, v) : v; return c;
 };
 const ctrHp = (s) => COUNTERS.filter(c=>c.hpMax).reduce((a,c)=>a + Math.max(0, Number(s.ctr?.[c.k])||0), 0);
+/* effetti temporanei attivi (incantesimi, pozioni, oggetti): somma dei bonus */
+const FX_NUM = [["ac","CA"],["speed","Velocità (m)"],["init","Iniziativa"],["atk","Tiri per colpire"],["save","Tiri salvezza"],["check","Prove"],["hpMax","PF massimi"]];
+const fxTotals = (s) => { const T = {ab:{}, set:{}, ac:0, speed:0, init:0, atk:0, save:0, check:0, hpMax:0, dice:{atk:[], save:[], check:[]}, names:[]};
+  for (const f of (s.fx||[])){ if (!f || !f.on) continue; T.names.push(f.name || "Effetto");
+    for (const [k] of ABIL){ T.ab[k] = (T.ab[k]||0) + (Number(f.abil?.[k])||0); const v = Number(f.set?.[k])||0; if (v > (T.set[k]||0)) T.set[k] = v; }
+    for (const [k] of FX_NUM) T[k] += Number(f[k])||0;
+    const dc = String(f.dice||"").trim(); if (dc) for (const k of ["atk","save","check"]) if (f.diceTo?.[k]) T.dice[k].push({f: dc, name: f.name || "Effetto"}); }
+  return T; };
 const derived = (s) => {
-  const pb = prof(s.level);
-  const m = Object.fromEntries(ABIL.map(([k])=>[k,mod(s.abil[k])]));
-  const skill = (k,ab) => m[ab] + (s.skills[k]===2 ? 2*pb : s.skills[k]===1 ? pb : 0);
-  const effMax = Math.max(1,(s.hp.max||0) - ctrHp(s));
+  const pb = prof(s.level); const T = fxTotals(s);
+  const sc = Object.fromEntries(ABIL.map(([k])=>[k, clamp(Math.max((Number(s.abil[k])||0) + (T.ab[k]||0), T.set[k]||0), 1, 30)]));
+  const m = Object.fromEntries(ABIL.map(([k])=>[k,mod(sc[k])]));
+  const skill = (k,ab) => m[ab] + (s.skills[k]===2 ? 2*pb : s.skills[k]===1 ? pb : 0) + T.check;
+  const save = (k) => m[k] + (s.saves?.[k] ? pb : 0) + T.save;
+  const effMax = Math.max(1,(s.hp.max||0) + T.hpMax - ctrHp(s));
   const sa = s.spell.abil;
-  return {pb, m, skill, effMax, init: m.des + (Number(s.initBonus)||0),
+  return {pb, m, sc, skill, save, effMax, fx:T, ac:(Number(s.ac)||0) + T.ac, speed:Math.max(0,(Number(s.speed)||0) + T.speed),
+    init: m.des + (Number(s.initBonus)||0) + T.init,
     passPerc: 10 + skill("perc","sag"),
-    dc: sa ? 8 + pb + m[sa] : null, satk: sa ? pb + m[sa] : null};
+    dc: sa ? 8 + pb + m[sa] : null, satk: sa ? pb + m[sa] + T.atk : null};
 };
 
 function rollFormula(f){
@@ -1050,6 +1090,68 @@ function TraitsTab({s, ro, upd, set}){
   </div>`;
 }
 
+/* ---------- effetti temporanei sulla scheda ---------- */
+const FX_PRESETS = [
+  ["Benedizione", {dice:"1d4", diceTo:{atk:true, save:true}, conc:true, note:"Fino a 1 minuto"}],
+  ["Anatema", {dice:"-1d4", diceTo:{atk:true, save:true}, conc:true, note:"Fino a 1 minuto"}],
+  ["Scudo della Fede", {ac:2, conc:true, note:"Fino a 10 minuti"}],
+  ["Velocità", {ac:2, conc:true, note:"Velocità raddoppiata, vantaggio ai TS di Destrezza, un’azione in più per turno. Fino a 1 minuto"}],
+  ["Aiuto", {hpMax:5, note:"Anche i PF attuali aumentano di 5. 8 ore"}],
+  ["Passo Veloce", {speed:3, note:"1 ora"}],
+  ["Guida", {dice:"1d4", diceTo:{check:true}, conc:true, note:"Una sola abilità scelta. Fino a 1 minuto"}],
+  ["Potenziare Caratteristica", {conc:true, note:"Vantaggio alle prove della caratteristica scelta. Fino a 1 ora"}],
+  ["Pozione della forza del gigante", {set:{for:21}, note:"Gigante delle colline: Forza 21 per 1 ora"}],
+];
+const fxBlank = (name="", o={}) => ({id:uid(), name, on:true, abil:{}, set:{}, ac:0, speed:0, init:0, atk:0, save:0, check:0, hpMax:0, dice:"", diceTo:{atk:false, save:false, check:false}, conc:false, note:"", ...JSON.parse(JSON.stringify(o))});
+const fxSummary = (f) => { const out = [];
+  for (const [k,,ab] of ABIL){ const b = Number(f.abil?.[k])||0, v = Number(f.set?.[k])||0; if (b) out.push(`${ab} ${sg(b)}`); if (v) out.push(`${ab} diventa ${v}`); }
+  const lab = {ac:"CA", speed:"Vel.", init:"Iniz.", atk:"Colpire", save:"TS", check:"Prove", hpMax:"PF max"};
+  for (const [k] of FX_NUM){ const v = Number(f[k])||0; if (v) out.push(`${lab[k]} ${sg(v)}${k==="speed" ? " m" : ""}`); }
+  const d = String(f.dice||"").trim(); const to = ["atk","save","check"].filter(k=>f.diceTo?.[k]).map(k=>({atk:"colpire", save:"TS", check:"prove"})[k]);
+  if (d && to.length) out.push(`${/^[-−]/.test(d) ? d.replace("-","−") : "+"+d} a ${to.join(", ")}`);
+  return out.join(" · "); };
+function FxPanel({s, upd, ro}){
+  const list = s.fx || [];
+  const [edit, setEdit] = useState(null); const [preset, setPreset] = useState("");
+  const patch = (id, fn) => upd(p=>{ const f = (p.fx||[]).find(x=>x.id===id); if (f) fn(f); return p; });
+  const add = (name) => { const pr = FX_PRESETS.find(x=>x[0]===name); const f = fxBlank(pr ? pr[0] : "", pr ? pr[1] : {});
+    upd(p=>{ p.fx = [...(p.fx||[]), f]; return p; }); if (!pr) setEdit(f.id); setPreset(""); };
+  const on = list.filter(f=>f.on).length;
+  return html`<section className="panel fx-panel">
+    <div className="panel-h"><h3>Effetti temporanei</h3><span className="muted" style=${{fontSize:".82rem"}}>${on ? `${on} attiv${on===1?"o":"i"}: già sommati ai valori della scheda` : "Incantesimi, pozioni, oggetti: si sommano da soli"}</span><span className="spacer"></span>
+      ${!ro && on > 0 && html`<button type="button" className="btn small" onClick=${()=>upd(p=>{ (p.fx||[]).forEach(f=>f.on=false); return p; })} title="Spegne tutti gli effetti (restano nell’elenco)">Spegni tutti</button>`}</div>
+    ${list.length === 0 && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>Nessun effetto. Scegli un modello (Benedizione, Scudo della Fede, Aiuto…) o creane uno: bonus o valore fisso alle caratteristiche, CA, velocità, iniziativa, tiri per colpire, TS, prove, PF massimi e dadi extra (es. +1d4) tirati insieme al d20.</p>`}
+    <div className="fx-list">${list.map(f=>{ const sum = fxSummary(f); const ed = edit===f.id && !ro;
+      return html`<div key=${f.id} className=${"fxi"+(f.on?" on":"")+(ed?" editing":"")}>
+        <div className="fx-h">
+          <label className="fx-sw" title=${f.on ? "Attivo: tocca per spegnerlo" : "Spento: tocca per attivarlo"}><input type="checkbox" checked=${!!f.on} aria-label=${"Attivo: "+(f.name||"effetto")} onChange=${e=>patch(f.id, x=>{ x.on = e.target.checked; })}/><span></span></label>
+          <div className="fx-t"><span className="fx-n"><b>${f.name || "Senza nome"}</b>${f.conc && html`<span className="fx-c" title="Concentrazione">C</span>`}</span>
+            <span className="muted">${sum || "nessun modificatore"}${f.note ? " — "+f.note : ""}</span></div>
+          ${!ro && html`<button type="button" className="iconbtn" aria-label=${"Modifica "+(f.name||"effetto")} title="Modifica" onClick=${()=>setEdit(ed ? null : f.id)}>✎</button>
+            <button type="button" className="iconbtn" aria-label=${"Elimina "+(f.name||"effetto")} title="Elimina" onClick=${()=>{ upd(p=>{ p.fx = (p.fx||[]).filter(x=>x.id!==f.id); return p; }); if (ed) setEdit(null); }}>×</button>`}
+        </div>
+        ${ed && html`<div className="fx-form">
+          <div className="tr-row"><label className="lab grow">Nome<input className="field" id=${"fx-n-"+f.id} maxLength="60" value=${f.name} placeholder="es. Benedizione di Impa" onChange=${e=>patch(f.id, x=>{ x.name = e.target.value; })}/></label>
+            <label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!f.conc} onChange=${e=>patch(f.id, x=>{ x.conc = e.target.checked; })}/>Concentrazione</label></div>
+          <div className="fx-ab"><span className="eyebrow">Caratteristiche</span>
+            ${ABIL.map(([k,name,ab])=>html`<div key=${k} className="fx-abr"><b title=${name}>${ab}</b>
+              <label className="lab">bonus<${Num} id=${"fx-ab-"+f.id+k} value=${Number(f.abil?.[k])||0} min=${-10} max=${10} label=${"Bonus a "+name} onChange=${v=>patch(f.id, x=>{ x.abil = {...(x.abil||{}), [k]:v}; })}/></label>
+              <label className="lab">diventa<${Num} id=${"fx-set-"+f.id+k} value=${Number(f.set?.[k])||0} min=${0} max=${30} label=${name+" diventa (0 = no)"} onChange=${v=>patch(f.id, x=>{ x.set = {...(x.set||{}), [k]:v}; })}/></label></div>`)}
+            <span className="muted" style=${{fontSize:".78rem"}}>“diventa” = punteggio fisso (es. 21 con una pozione): vale solo se è più alto del tuo; 0 = non usato.</span></div>
+          <div className="fx-nums">${FX_NUM.map(([k,n])=>html`<label key=${k} className="lab">${n}<${Num} id=${"fx-"+k+"-"+f.id} value=${Number(f[k])||0} min=${-30} max=${30} label=${n} onChange=${v=>patch(f.id, x=>{ x[k] = v; })}/></label>`)}</div>
+          <div className="tr-row"><label className="lab" style=${{width:110}}>Dado extra<input className="field" id=${"fx-d-"+f.id} maxLength="12" placeholder="es. 1d4" value=${f.dice||""} onChange=${e=>patch(f.id, x=>{ x.dice = e.target.value.replace(/[^0-9dD+\-−]/g,"").replace("−","-").toLowerCase(); })}/></label>
+            ${[["atk","ai tiri per colpire"],["save","ai TS"],["check","alle prove"]].map(([k,n])=>html`<label key=${k} className="row" style=${{gap:5,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!f.diceTo?.[k]} onChange=${e=>patch(f.id, x=>{ x.diceTo = {...(x.diceTo||{}), [k]:e.target.checked}; })}/>${n}</label>`)}</div>
+          <label className="lab">Nota (durata, condizioni)<input className="field" id=${"fx-x-"+f.id} maxLength="200" value=${f.note||""} placeholder="es. 1 minuto, concentrazione di Lyra" onChange=${e=>patch(f.id, x=>{ x.note = e.target.value; })}/></label>
+          <div className="row"><span className="spacer"></span><button type="button" className="btn small primary" onClick=${()=>setEdit(null)}>Fatto</button></div>
+        </div>`}
+      </div>`; })}</div>
+    ${!ro && html`<div className="row fx-add">
+      <select className="field" aria-label="Modello di effetto" value=${preset} onChange=${e=>setPreset(e.target.value)} style=${{width:"auto",maxWidth:260}}>
+        <option value="">Nuovo effetto vuoto</option>${FX_PRESETS.map(([n])=>html`<option key=${n} value=${n}>${n}</option>`)}</select>
+      <button type="button" className="btn small primary" onClick=${()=>add(preset)}>+ Effetto</button></div>`}
+  </section>`;
+}
+
 /* ---------- scheda personaggio ---------- */
 function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
   const [s, change, status] = useSheet(onSave, remote);
@@ -1066,7 +1168,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
   useEffect(()=>lsSet("tab",tab),[tab]);
 
   const charId = remote?.id;
-  const r20 = (label, m) => { if (ro) return; onRoll({type:"d20", label, mod:m, mode, pen:(s.exh||0)*2, charId}); setMode("norm"); };
+  const r20 = (label, m, kind) => { if (ro) return; const extra = kind ? (D.fx.dice[kind] || []) : [];
+    Promise.resolve(onRoll({type:"d20", label, mod:m, mode, pen:(s.exh||0)*2, charId})).then(async ()=>{ for (const x of extra){ if (rollFormula(x.f)) await onRoll({type:"formula", label:`${label}: ${x.name}`, formula:x.f, charId}); } });
+    setMode("norm"); };
   const rDmg = (label, f) => { if (ro) return; if (!rollFormula(f)) return; onRoll({type:"formula", label, formula:f, charId}); };
 
   const applyHp = (kind) => {
@@ -1164,19 +1268,19 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
           </div>
           <div className="hpsub">
             <label className="lab">PF attuali<${Num} id="hp-cur" value=${s.hp.cur} min=${0} onChange=${v=>set("hp.cur",v)}/></label>
-            <label className="lab">PF massimi<${Num} id="hp-max" value=${s.hp.max} min=${1} onChange=${v=>set("hp.max",v)}/></label>
+            <label className="lab">PF massimi${D.fx.hpMax ? html` <b className="fx-eff">→ ${(s.hp.max||0)+D.fx.hpMax}</b>` : ""}<${Num} id="hp-max" value=${s.hp.max} min=${1} onChange=${v=>set("hp.max",v)}/></label>
             <label className="lab">Temporanei<${Num} id="hp-tmp" value=${s.hp.temp} min=${0} onChange=${v=>set("hp.temp",v)}/></label>
           </div>
           ${s.hp.cur===0 && html`<div className="row"><span className="eyebrow">Tiri contro la morte</span>
             <span className="muted">Successi</span><${Pips} n=${3} used=${s.death.s} label="Successo" onSet=${v=>set("death.s",v)}/>
             <span className="muted">Fallimenti</span><${Pips} n=${3} used=${s.death.f} kind="bad" label="Fallimento" onSet=${v=>set("death.f",v)}/>
-            <button type="button" className="btn small" onClick=${()=>r20("TS contro morte",0)}>Tira</button></div>`}
+            <button type="button" className="btn small" onClick=${()=>r20("TS contro morte",D.fx.save,"save")}>Tira</button></div>`}
         </section>
 
         <div className="vitals">
-          <div className="vital"><span className="k">CA</span><${Num} id="ac" value=${s.ac} min=${0} label="Classe Armatura" onChange=${v=>set("ac",v)}/></div>
-          <button type="button" className="vital" onClick=${()=>r20("Iniziativa",D.init)}><span className="k">Iniziativa</span><span className="v">${sg(D.init)}</span></button>
-          <div className="vital"><span className="k">Velocità m</span><${Num} id="spd" value=${s.speed} min=${0} label="Velocità in metri" onChange=${v=>set("speed",v)}/></div>
+          <div className="vital"><span className="k">CA${D.fx.ac ? html` <b className="fx-eff">→ ${D.ac}</b>` : ""}</span><${Num} id="ac" value=${s.ac} min=${0} label="Classe Armatura" onChange=${v=>set("ac",v)}/></div>
+          <button type="button" className="vital" onClick=${()=>r20("Iniziativa",D.init,"check")}><span className="k">Iniziativa</span><span className="v">${sg(D.init)}</span></button>
+          <div className="vital"><span className="k">Velocità m${D.fx.speed ? html` <b className="fx-eff">→ ${String(D.speed).replace(".",",")}</b>` : ""}</span><${Num} id="spd" value=${s.speed} min=${0} label="Velocità in metri" onChange=${v=>set("speed",v)}/></div>
           <div className="vital"><span className="k">Competenza</span><span className="v">${sg(D.pb)}</span></div>
           <div className="vital"><span className="k">Perc. passiva</span><span className="v">${D.passPerc}</span></div>
           <button type="button" className="vital insp" data-on=${s.insp} aria-pressed=${s.insp} onClick=${()=>set("insp",!s.insp)}><span className="k">Ispirazione</span><span className="v">${s.insp?"★":"☆"}</span></button>
@@ -1186,12 +1290,15 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
           <div className="panel-h"><h3>Caratteristiche</h3><span className="muted" style=${{fontSize:".82rem"}}>Tocca un valore per tirare</span></div>
           <div className="abil">${ABIL.map(([k,name,ab])=>html`<div className="ab" key=${k}>
             <span className="k" title=${name}>${ab}</span>
-            <button type="button" className="roll mod" aria-label=${"Prova di "+name} onClick=${()=>r20("Prova di "+name,D.m[k])}>${sg(D.m[k])}</button>
+            <button type="button" className="roll mod" aria-label=${"Prova di "+name} onClick=${()=>r20("Prova di "+name,D.m[k]+D.fx.check,"check")}>${sg(D.m[k]+D.fx.check)}</button>
             <${Num} id=${"ab-"+k} value=${s.abil[k]} min=${1} max=${30} label=${name} onChange=${v=>set("abil."+k,v)}/>
+            ${D.sc[k] !== Number(s.abil[k]) && html`<span className="fx-eff" title="Con gli effetti attivi">→ ${D.sc[k]}</span>`}
             <span className="save"><button type="button" className="pip" aria-pressed=${!!s.saves[k]} aria-label=${"Competenza TS "+name} onClick=${()=>set("saves."+k,!s.saves[k])}></button>
-              TS <button type="button" className="roll" onClick=${()=>r20("TS "+name, D.m[k]+(s.saves[k]?D.pb:0))}>${sg(D.m[k]+(s.saves[k]?D.pb:0))}</button></span>
+              TS <button type="button" className="roll" onClick=${()=>r20("TS "+name, D.save(k), "save")}>${sg(D.save(k))}</button></span>
           </div>`)}</div>
         </section>
+
+        <${FxPanel} s=${s} upd=${upd} ro=${ro}/>
 
         <section className="panel">
           <div className="panel-h"><h3>Condizioni</h3>
@@ -1214,7 +1321,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
             <${Txt} id=${"atk-n-"+a.id} value=${a.name} placeholder="Arma" label="Nome attacco" onChange=${v=>atk.set(i,"name",v)}/>
             <${Txt} id=${"atk-b-"+a.id} value=${a.bonus} placeholder="+5" label="Bonus per colpire" className="mono" onChange=${v=>atk.set(i,"bonus",v)}/>
             <${Txt} id=${"atk-d-"+a.id} value=${a.dmg} placeholder="1d8+3 taglienti" label="Danni" className="mono dmg" onChange=${v=>atk.set(i,"dmg",v)}/>
-            <button type="button" className="btn small" onClick=${()=>r20(a.name||"Attacco", parseInt(String(a.bonus).replace("−","-"),10)||0)}>Colpire</button>
+            <button type="button" className="btn small" onClick=${()=>r20(a.name||"Attacco", (parseInt(String(a.bonus).replace("−","-"),10)||0) + D.fx.atk, "atk")} title=${D.fx.atk ? "Con gli effetti attivi: "+sg(D.fx.atk) : undefined}>Colpire${D.fx.atk ? " "+sg(D.fx.atk) : ""}</button>
             <button type="button" className="btn small" onClick=${()=>rDmg((a.name||"Attacco")+" · danni", a.dmg)}>Danni</button>
             <button type="button" className="iconbtn" aria-label="Elimina attacco" onClick=${()=>atk.del(i)}>×</button>
           </div>`)}</div>
@@ -1276,7 +1383,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
             <button type="button" className=${"pip "+(lvl===2?"exp":"")} aria-pressed=${lvl>0} aria-label=${name+": "+["nessuna competenza","competenza","maestria"][lvl]}
               onClick=${()=>set("skills."+k,(lvl+1)%3)}>${lvl===2?html`<span style=${{fontSize:10,color:"var(--surface)"}}>★</span>`:null}</button>
             <span>${name}</span><span className="ab3">${AB3[ab]}</span>
-            <button type="button" className="roll" onClick=${()=>r20(name,b)}>${sg(b)}</button></div>`;})}</div>
+            <button type="button" className="roll" onClick=${()=>r20(name,b,"check")}>${sg(b)}</button></div>`;})}</div>
       </section>
       <div className="grid2">
         <section className="panel"><h3>Competenze</h3><${Txt} area id="profs" value=${s.profs} placeholder="Armature, armi, strumenti (es. utensili da cuoco)" onChange=${v=>set("profs",v)}/></section>
@@ -1291,7 +1398,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
             <select id="sp-ab" className="field" value=${s.spell.abil} onChange=${e=>set("spell.abil",e.target.value)}>
               <option value="">Nessuna</option>${ABIL.slice(3).map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
           ${D.dc!=null && html`<div className="vital" style=${{minWidth:100}}><span className="k">CD incantesimi</span><span className="v">${D.dc}</span></div>
-            <button type="button" className="vital" style=${{minWidth:100}} onClick=${()=>r20("Attacco con incantesimo",D.satk)}><span className="k">Attacco</span><span className="v">${sg(D.satk)}</span></button>`}
+            <button type="button" className="vital" style=${{minWidth:100}} onClick=${()=>r20("Attacco con incantesimo",D.satk,"atk")}><span className="k">Attacco</span><span className="v">${sg(D.satk)}</span></button>`}
         </div>
         <div className="eyebrow">Slot incantesimo</div>
         <div className="slots">${s.spell.slots.map((x,i)=>html`<div className="slot" key=${i}>
@@ -1402,9 +1509,10 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
       : html`<span className="tc-ph" aria-hidden="true">${initialsOf(s.name)}</span>`}</div>
     <div className="tc-type"><span>${typeLine}</span><span className="tc-sym" aria-hidden="true">✦</span></div>
     <div className="tc-text">
-    <div className="tc-stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
+    <div className="tc-stats"><span>CA <b>${D.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
     <div className="hpbar" title=${`PF ${s.hp.cur} su ${D.effMax}`}><i style=${{width:hpPct+"%"}}></i></div>
-    ${(s.cond.length>0 || s.insp || s.exh>0 || ctrs.length>0 || cold || meal) && html`<div className="chips">
+    ${(s.cond.length>0 || s.insp || s.exh>0 || ctrs.length>0 || cold || meal || D.fx.names.length>0) && html`<div className="chips">
+      ${D.fx.names.map((n,i)=>html`<span key=${"fx"+i} className="chip fxc">✦ ${n}</span>`)}
       ${cold && html`<span className="chip bad">Non protetto dal ${haz.kind}</span>`}
       ${meal && html`<span className="chip gold">Pasto: ${meal}</span>`}
       ${s.insp && html`<span className="chip gold">★ Ispirazione</span>`}
@@ -1543,17 +1651,17 @@ function NpcMeetModal({n, url, onSave, onLater, onMini}){
 /* ---------- miniatura 3D in cartoncino (finestrella flottante) ---------- */
 const MINI_SEG = 28;   // spicchi del bordo della basetta
 function MiniBack({s, D, npc}){
-  const saves = ABIL.filter(([k])=>s.saves?.[k]).map(([k,,ab])=>ab+" "+sg(D.m[k]+D.pb));
+  const saves = ABIL.filter(([k])=>s.saves?.[k]).map(([k,,ab])=>ab+" "+sg(D.save(k)));
   const slots = (s.spell?.slots||[]).map((x,i)=>x.max>0 ? `${i+1}°: ${Math.max(0,x.max-x.used)}/${x.max}` : null).filter(Boolean);
   const res = [...(s.res||[]), ...(s.traits||[]).filter(x=>x.max>0)].filter(r=>r.name).slice(0,4).map(r=>`${r.name} ${Math.max(0,(r.max||0)-(r.used||0))}/${r.max||0}`);
   const ctrs = COUNTERS.filter(x=>(Number(s.ctr?.[x.k])||0)>0).map(x=>`${x.name} ${s.ctr[x.k]}`);
-  const state = [...(s.cond||[]), ...(s.exh>0 ? ["Esaurimento "+s.exh] : []), ...(s.insp ? ["★ Ispirazione"] : []), ...ctrs];
+  const state = [...D.fx.names.map(n=>"✦ "+n), ...(s.cond||[]), ...(s.exh>0 ? ["Esaurimento "+s.exh] : []), ...(s.insp ? ["★ Ispirazione"] : []), ...ctrs];
   return html`<div className="mb">
     <div className="mb-h"><b>${s.name || "Senza nome"}</b><span>liv. ${s.level}</span></div>
     <div className="mb-t">${[s.species, [s.cls, s.subclass].filter(Boolean).join(" · ")].filter(Boolean).join(" — ") || (npc ? "PNG" : "Avventuriero")}${s.align ? " · "+s.align : ""}</div>
     <div className="mb-v">
-      <span><i>CA</i><b>${s.ac}</b></span><span><i>PF</i><b>${s.hp.cur}/${D.effMax}${s.hp.temp ? "+"+s.hp.temp : ""}</b></span>
-      <span><i>Iniz.</i><b>${sg(D.init)}</b></span><span><i>Vel.</i><b>${String(s.speed).replace(".",",")} m</b></span>
+      <span><i>CA</i><b>${D.ac}</b></span><span><i>PF</i><b>${s.hp.cur}/${D.effMax}${s.hp.temp ? "+"+s.hp.temp : ""}</b></span>
+      <span><i>Iniz.</i><b>${sg(D.init)}</b></span><span><i>Vel.</i><b>${String(D.speed).replace(".",",")} m</b></span>
       <span><i>Perc.</i><b>${D.passPerc}</b></span><span><i>Comp.</i><b>${sg(D.pb)}</b></span>
       ${D.dc != null && html`<span><i>CD</i><b>${D.dc}</b></span><span><i>Att. inc.</i><b>${sg(D.satk)}</b></span>`}
     </div>
@@ -1629,7 +1737,7 @@ function MiniWindow({c, foe, url, idx, onClose, onFocus}){
         </div>
       </div>
     </div>
-    <div className="mini-foot">${foe ? (showingBack ? "Retro" : "Trascina per ruotare")+" · "+(foe.known ? "Personaggio conosciuto" : (HP_WORDS[foe.hp_state] || "Illeso")) : html`${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}`}</div>
+    <div className="mini-foot">${foe ? (showingBack ? "Retro" : "Trascina per ruotare")+" · "+(foe.known ? "Personaggio conosciuto" : (HP_WORDS[foe.hp_state] || "Illeso")) : html`${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${D.ac}`}</div>
   </div>`;
 }
 
@@ -4002,7 +4110,7 @@ function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}
         <span className="ir-init mono">${M ? html`<${Num} id=${"init-"+f.id} value=${f.init??0} label="Iniziativa" onChange=${v=>act.setInit(f,v)}/>` : (f.init ?? "—")}</span>
         <div className="ir-main">
           <div className="ir-name">${cur && html`<span aria-label="turno attuale">▶ </span>`}${(s && s.name) || f.name}${f.hidden && html`<span className="chip" style=${{marginLeft:6}}>nascosto</span>`}${M && s && c.hidden && !f.hidden && f.name !== s.name && html`<span className="chip gold" style=${{marginLeft:6}} title="Il nome che vedono i giocatori">come “${f.name}”</span>`}</div>
-          ${s ? html`<div className="ir-hp"><div className="hpbar"><i style=${{width:clamp(s.hp.cur/Dd.effMax*100,0,100)+"%"}}></i></div><span className="mono">${s.hp.cur}/${Dd.effMax}</span><span className="muted">CA ${s.ac}</span></div>`
+          ${s ? html`<div className="ir-hp"><div className="hpbar"><i style=${{width:clamp(s.hp.cur/Dd.effMax*100,0,100)+"%"}}></i></div><span className="mono">${s.hp.cur}/${Dd.effMax}</span><span className="muted">CA ${Dd.ac}</span></div>`
             : M && sec ? html`<div className="ir-hp"><span className="muted">PF</span><${Num} id=${"mhp-"+f.id} value=${sec.hp??0} label="PF avversario" onChange=${v=>act.setMonsterHp(f,v)}/><span className="muted mono">/ ${sec.max_hp??"?"}</span>${sec.ac!=null && html`<span className="muted">CA ${sec.ac}</span>`}<span className="chip">${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`
             : html`<div className="ir-hp"><span className=${"chip"+(f.hp_state!=="illeso"?" bad":"")}>${HP_STATE_LABEL[f.hp_state]||f.hp_state}</span></div>`}
           ${conds.length>0 && html`<div className="chips">${conds.map(x=>html`<span key=${x} className="chip bad">${x}${M && !s ? html` <button type="button" className="xbtn" aria-label=${"Togli "+x} onClick=${()=>act.toggleCond(f,x)}>×</button>`:null}</span>`)}</div>`}
@@ -4084,7 +4192,7 @@ function SheetPicker({groups, inIds, names, foes=[], onAdd, onClose}){
       ${free.length > 1 && html`<label className="pk-row all"><input type="checkbox" checked=${allOn} onChange=${()=>setSel(s=>{ const n = new Set(s); free.forEach(c=> allOn ? n.delete(c.id) : n.add(c.id)); return n; })}/><span className="pk-n">Tutti (${free.length})</span></label>`}
       ${g.list.map(c=>{ const s = norm(c), D = derived(s); const isIn = inIds.has(c.id);
         return html`<label key=${c.id} className=${"pk-row"+(isIn?" off":"")}><input type="checkbox" disabled=${isIn} checked=${isIn || sel.has(c.id)} onChange=${()=>tog(c.id)}/>
-          <span className="pk-n">${s.name || "Senza nome"}</span><span className="pk-s muted">${note(c)}</span><span className="pk-v mono muted">CA ${s.ac} · ${s.hp.cur}/${D.effMax}</span></label>`; })}
+          <span className="pk-n">${s.name || "Senza nome"}</span><span className="pk-s muted">${note(c)}</span><span className="pk-v mono muted">CA ${D.ac} · ${s.hp.cur}/${D.effMax}</span></label>`; })}
     </div>
     <div className="row"><span className="muted" style=${{fontSize:".85rem"}}>${sel.size} selezionat${sel.size===1 ? "a" : "e"}</span><span className="spacer"></span>
       <button type="button" className="btn small" onClick=${onClose}>Annulla</button>
@@ -4132,7 +4240,7 @@ function PartyStatus({chars, names, adjustHp, title="Il gruppo", sorted=false, o
         ${onUnpin && html`<button type="button" className="iconbtn" title="Togli dalle schede della sessione" aria-label=${"Togli "+(s.name||"personaggio")+" dalla sessione"} onClick=${()=>onUnpin(c.id)}>×</button>`}</div>
       <div className="hpbar"><i style=${{width:clamp(s.hp.cur/D.effMax*100,0,100)+"%"}}></i></div>
       <div className="ps-bot">
-        <span className="muted">CA <b className="mono">${s.ac}</b> · Perc. <b className="mono">${D.passPerc}</b>${D.dc!=null?html` · CD <b className="mono">${D.dc}</b>`:null}</span>
+        <span className="muted">CA <b className="mono">${D.ac}</b> · Perc. <b className="mono">${D.passPerc}</b>${D.dc!=null?html` · CD <b className="mono">${D.dc}</b>`:null}</span>
         <span className="spacer"></span>
         <input className="num ps-amt" id=${"ps-"+c.id} inputMode="numeric" placeholder="n" aria-label=${"Quantità per "+(s.name||"personaggio")} value=${amt[c.id]||""} onChange=${e=>setAmt(x=>({...x,[c.id]:e.target.value}))}/>
         <button type="button" className="btn small danger" onClick=${()=>go(c,"dmg")}>Danno</button>
