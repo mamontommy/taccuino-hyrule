@@ -416,6 +416,26 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .mb-atk b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mb-atk span{font-family:var(--f-mono)}
 .mb-st{color:#8a2c1f;font-weight:600}
 @media (prefers-reduced-motion: reduce){.mini-win{scroll-behavior:auto}}
+/* avversari in scena */
+.foes-sec{margin-top:28px}
+.tcard.foe .tc-lv{font-family:var(--f-ui,system-ui)}
+.tc-pt.hp-illeso{font-family:var(--f-ui,system-ui);font-size:.75rem}
+.tc-pt.hp-ferito{background:linear-gradient(180deg,#f3d27a,#d6a93a);font-family:var(--f-ui,system-ui);font-size:.75rem}
+.tc-pt.hp-malconcio{background:linear-gradient(180deg,#f0a35c,#c9702b);font-family:var(--f-ui,system-ui);font-size:.75rem}
+.tc-pt.hp-allo-stremo{background:linear-gradient(180deg,#e2735f,#a8392a);color:#fff;font-family:var(--f-ui,system-ui);font-size:.75rem}
+.tc-pt.hp-a-terra{background:linear-gradient(180deg,#666,#333);color:#fff;font-family:var(--f-ui,system-ui);font-size:.75rem}
+.foe-chips{display:flex;flex-wrap:wrap;gap:8px}
+.foe-chip{display:grid;grid-template-columns:36px minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;border:1px solid rgb(0 0 0/.35);border-radius:10px;padding:5px 10px 5px 5px;background:linear-gradient(180deg,var(--fr),var(--fr2));color:var(--ft);cursor:pointer;min-width:0;max-width:220px;font:inherit}
+.foe-chip:hover{filter:brightness(1.08)}
+.foe-chip>img,.foe-chip>span{grid-row:1 / span 2;width:36px;height:36px;border-radius:8px;object-fit:cover;display:grid;place-items:center;background:var(--fr2);font-family:var(--f-display)}
+.foe-chip b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foe-chip i{font-style:normal;font-size:.75rem;opacity:.85}
+.f-arcobaleno.foe-chip{background:linear-gradient(90deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa);color:#fff;text-shadow:0 1px 2px rgb(0 0 0/.7)}
+.mb-foe{justify-content:center;text-align:center;gap:.6em;font-size:1.15em}
+.mb-foe .mb-h{justify-content:center}.mb-foe .mb-h b{white-space:normal}
+.mb-x{font-size:.75em;letter-spacing:.08em;text-transform:uppercase;color:#7a2a1f}
+.mb-hp{align-self:center;padding:.15em .8em;border-radius:999px;border:1px solid rgb(0 0 0/.35);font-weight:700;font-size:.85em;background:#e9e2cf}
+.mb-hp.hp-ferito{background:#f3d27a}.mb-hp.hp-malconcio{background:#f0a35c}.mb-hp.hp-allo-stremo{background:#c9503c;color:#fff}.mb-hp.hp-a-terra{background:#444;color:#fff}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -1157,6 +1177,13 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
             <span className="muted" style=${{fontSize:".82rem"}}>Puoi anche trascinare l’immagine nell’anteprima.</span></div>
         </div>`}
         ${pMsg && html`<p className="muted" role="status" style=${{margin:0}}>${pMsg}</p>`}
+        ${onSetHidden && !remote?.owner && html`<div className="frame-ctl" style=${{maxWidth:420}}>
+          <div className="eyebrow">Quando è mostrato come avversario</div>
+          <label className="lab">Nome mostrato ai giocatori<input id="foe-alias" className="field" maxLength="60" placeholder=${s.name || "es. Figura incappucciata"} value=${s.card?.alias || ""} onChange=${e=>set("card.alias", e.target.value)}/></label>
+          <label className="lab">Tipo mostrato<input id="foe-type" className="field" maxLength="80" placeholder=${s.species || "es. Bokoblin, Costrutto Zonai"} value=${s.card?.foeType ?? ""} onChange=${e=>set("card.foeType", e.target.value)}/></label>
+          <label className="lab">Descrizione per i giocatori<textarea id="foe-blurb" className="field" maxLength="300" style=${{minHeight:60}} placeholder="Quello che vedono: aspetto, atteggiamento, un dettaglio inquietante…" value=${s.card?.blurb || ""} onChange=${e=>set("card.blurb", e.target.value)}></textarea></label>
+          <p className="muted" style=${{margin:0,fontSize:".8rem"}}>I giocatori non vedono mai statistiche e PF: solo uno stato vago (illeso, ferito, malconcio, allo stremo, a terra) che segue i PF della scheda.</p>
+        </div>`}
       </section>
     </div>`}
     </fieldset>
@@ -1203,6 +1230,38 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
   <//>`;
 }
 
+/* ---------- avversari in scena: solo ciò che i giocatori possono vedere ---------- */
+const HP_WORDS = {"illeso":"Illeso","ferito":"Ferito","malconcio":"Malconcio","allo stremo":"Allo stremo","a terra":"A terra"};
+const foeOf = (c) => { const s = norm(c); const D = derived(s); const f = artFrame(s);
+  return {name: String(s.card?.alias || s.name || "Avversario").slice(0,60), kind: String(s.card?.foeType ?? s.species ?? "").slice(0,80),
+    blurb: String(s.card?.blurb || "").slice(0,300), portrait: s.portrait || null, frame: frameOf(s, true),
+    framing: {x:f.x, y:f.y, z:f.z}, hp_state: hpState(s.hp.cur, D.effMax)}; };
+/* la "scheda" finta con cui disegnare carta e miniatura di un avversario */
+const foeSheet = (f) => ({name: f.name, species: f.kind, cls: "", level: "", card:{frame: f.frame, px: f.framing?.x ?? 50, pos: f.framing?.y ?? 50, zoom: f.framing?.z ?? 1}, portrait: f.portrait});
+function FoeCard({f, url, onMini, master, onHide}){
+  const s = norm(foeSheet(f));
+  return html`<div className="tcard-wrap"><div className=${"tcard foe f-"+(f.frame||"grigio")}>
+   <div className="tc-in">
+    <div className="tc-title"><span className="tc-name">${f.name || "Avversario"}</span><span className="tc-lv" title="Avversario">⚔</span></div>
+    <div className="tc-art">${url ? html`<img src=${url} alt="" loading="lazy" draggable="false" style=${artFrame(s).style}/>` : html`<span className="tc-ph" aria-hidden="true">${initialsOf(f.name)}</span>`}</div>
+    <div className="tc-type"><span>${f.kind || "Avversario"}</span><span className="tc-sym" aria-hidden="true">✦</span></div>
+    <div className="tc-text">${f.blurb ? html`<i className="tc-flavor" style=${{marginTop:0,borderTop:0,paddingTop:0}}>${f.blurb}</i>` : html`<span className="muted" style=${{fontSize:".75rem",color:"#5a4f40"}}>Nessuna informazione.</span>`}</div>
+    <div className="tc-foot"><span className="tc-who">${master && !f.visible ? "Nascosto ai giocatori" : "Avversario"}</span><span className=${"tc-pt hp-"+String(f.hp_state||"illeso").replace(/\s+/g,"-")} title="Condizione apparente">${HP_WORDS[f.hp_state] || "Illeso"}</span></div>
+   </div></div>
+   ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("foe:"+f.id)}>🧍 Miniatura</button>`}
+   ${master && onHide && html`<button type="button" className="btn small" onClick=${()=>onHide(f.id)} title="Toglie l’avversario dalla vista dei giocatori">Togli dalla scena</button>`}
+  </div>`;
+}
+function FoesSection({foes, urls, onMini, master, onHide, onHideAll}){
+  const list = foes.filter(f => master || f.visible).sort((a,b)=>(a.sort-b.sort) || String(a.created_at).localeCompare(String(b.created_at)));
+  if (!list.length) return null;
+  return html`<section className="foes-sec">
+    <div className="party-head"><div><div className="eyebrow">${master ? "Visibili ai giocatori" : "In scena"}</div><h2>Avversari</h2></div><span className="spacer"></span>
+      ${master && onHideAll && html`<button type="button" className="btn small" onClick=${onHideAll}>Togli tutti dalla scena</button>`}</div>
+    <div className="cards tcards">${list.map(f=>html`<${FoeCard} key=${f.id} f=${f} url=${urls[f.id]} onMini=${onMini} master=${master} onHide=${onHide}/>`)}</div>
+  </section>`;
+}
+
 /* ---------- miniatura 3D in cartoncino (finestrella flottante) ---------- */
 const MINI_SEG = 28;   // spicchi del bordo della basetta
 function MiniBack({s, D, npc}){
@@ -1228,9 +1287,9 @@ function MiniBack({s, D, npc}){
     ${state.length>0 && html`<div className="mb-r mb-st">${state.join(" · ")}</div>`}
   </div>`;
 }
-function MiniWindow({c, url, idx, onClose, onFocus}){
-  const s = norm(c); const D = derived(s); const fr = frameOf(s, !c.owner); const af = artFrame(s);
-  const key = "mini:"+c.id;
+function MiniWindow({c, foe, url, idx, onClose, onFocus}){
+  const s = norm(foe ? foeSheet(foe) : c); const D = derived(s); const fr = foe ? (foe.frame || "grigio") : frameOf(s, !c.owner); const af = artFrame(s);
+  const key = "mini:"+(foe ? "foe:"+foe.id : c.id);
   const [box, setBox] = useState(()=>{ const v = lsGet(key, null); const W = window.innerWidth, H = window.innerHeight;
     const def = {x: Math.max(8, W - 300 - 24 - idx*28), y: Math.max(70, 110 + idx*28), w: 280, h: 400, min:false};
     const b = v && typeof v === "object" ? {...def, ...v} : def;
@@ -1276,7 +1335,13 @@ function MiniWindow({c, url, idx, onClose, onFocus}){
             ${url ? html`<img src=${url} alt="" draggable="false" style=${af.style}/>` : html`<span className="tc-ph">${initialsOf(s.name)}</span>`}
             <span className="mini-gloss" style=${{opacity: 0.08 + 0.25*light}}></span>
           </div>
-          <div className="mini-face mini-back"><${MiniBack} s=${s} D=${D} npc=${!c.owner}/></div>
+          <div className="mini-face mini-back">${foe ? html`<div className="mb mb-foe">
+            <div className="mb-h"><b>${foe.name || "Avversario"}</b></div>
+            <div className="mb-x">⚔ Avversario</div>
+            ${foe.kind && html`<div className="mb-t">${foe.kind}</div>`}
+            <div className=${"mb-hp hp-"+String(foe.hp_state||"illeso").replace(/\s+/g,"-")}>${HP_WORDS[foe.hp_state] || "Illeso"}</div>
+            ${foe.blurb && html`<div className="mb-r" style=${{fontStyle:"italic"}}>${foe.blurb}</div>`}
+          </div>` : html`<${MiniBack} s=${s} D=${D} npc=${!c.owner}/>`}</div>
         </div>
         <div className="mini-base">
           <div className="mini-top"></div>
@@ -1285,11 +1350,11 @@ function MiniWindow({c, url, idx, onClose, onFocus}){
         </div>
       </div>
     </div>
-    <div className="mini-foot">${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}</div>
+    <div className="mini-foot">${foe ? (showingBack ? "Retro" : "Trascina per ruotare")+" · "+(HP_WORDS[foe.hp_state] || "Illeso") : html`${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}`}</div>
   </div>`;
 }
 
-function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini}){
+function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini, foes=[], foeUrls={}, foeOps}){
   const haz = climate(world); const M = me.isMaster;
   const chars = allChars.filter(c=>!c.hidden);
   const secret = M ? allChars.filter(c=>c.hidden).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))) : [];
@@ -1315,13 +1380,16 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
       : html`<div className="cards tcards">${sorted.map(c=>html`<div key=${c.id} className="tcard-wrap"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>
           ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)} title="Apri la miniatura 3D in una finestrella che puoi spostare">🧍 Miniatura</button>`}
           ${M && !c.owner && onSetHidden && html`<button type="button" className="btn small" disabled=${busyId===c.id} onClick=${()=>move(c, true)} title="Torna tra le schede del master: i giocatori non la vedono più">Nascondi ai giocatori</button>`}</div>`)}</div>`}
+    <${FoesSection} foes=${foes} urls=${foeUrls} onMini=${onMini} master=${M} onHide=${foeOps?.hide} onHideAll=${foeOps?.hideAll}/>
     ${M && html`<section className="secret-sheets">
       <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede del master</h2></div><span className="spacer"></span>
         <button type="button" className="btn" onClick=${onCreateNpc}>+ Nuova scheda segreta</button></div>
-      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. I tiri fatti da una scheda segreta sono nascosti.</p>
+      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. Con “⚔ Mostra come avversario” i giocatori vedono solo carta e miniatura (nome, tipo, descrizione, immagine e uno stato vago), mai statistiche o PF. I tiri fatti da una scheda segreta sono nascosti.</p>
       ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda segreta.</p>`
         : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className="tcard-wrap tc-secret"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
             ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)}>🧍 Miniatura</button>`}
+            ${foeOps && (foes.some(f=>f.id===c.id) ? html`<button type="button" className="btn small" onClick=${()=>foeOps.hide(c.id)}>Togli dalla scena</button>`
+              : html`<button type="button" className="btn small" onClick=${async()=>{ const m = await foeOps.show(c); if (m) setErr(m); }} title="I giocatori vedono carta e miniatura, senza statistiche né PF">⚔ Mostra come avversario</button>`)}
             ${onSetHidden && html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`}</div>`)}</div>`}
     </section>`}
     ${err && html`<p className="notice err" role="alert">${err}</p>`}
@@ -1458,7 +1526,7 @@ function areaCells(gm, cols, rows){ let xa, xb, ya, yb;
   return out; }
 const areaLabel = (a) => `${AREA_NAMES[a.shape]||"Area"} ${fmtM(a.size)}${a.shape === "linea" ? " × "+fmtM(a.width||CELL_M) : ""}`;
 
-function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr, areas=[], areaSpec, names={}, portraits={}}){
+function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr, areas=[], areaSpec, names={}, portraits={}, foes=[]}){
   const D = sceneDims(scene.grid, W, H);
   const fogC = useRef(null);
   const [drag, setDrag] = useState(null);       // {id, x, y, sx, sy}
@@ -1475,8 +1543,8 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
   const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
   const V = M && !peek;
-  const frameByChar = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, frameOf(norm(c), !c.owner)])), [chars]);
-  const portraitPos = useMemo(()=>Object.fromEntries(chars.map(c=>{ const f = artFrame(norm(c)); return [c.id, `${f.x}% ${f.y}%`]; })), [chars]);   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
+  const frameByChar = useMemo(()=>({...Object.fromEntries(foes.map(f=>[f.id, f.frame||"grigio"])), ...Object.fromEntries(chars.map(c=>[c.id, frameOf(norm(c), !c.owner)]))}), [chars, foes]);
+  const portraitPos = useMemo(()=>({...Object.fromEntries(foes.map(f=>[f.id, `${f.framing?.x ?? 50}% ${f.framing?.y ?? 50}%`])), ...Object.fromEntries(chars.map(c=>{ const f = artFrame(norm(c)); return [c.id, `${f.x}% ${f.y}%`]; }))}), [chars, foes]);   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
   const pos = tk => drag && drag.id === tk.id ? [drag.x, drag.y] : [tk.x, tk.y];
 
   /* muri attivi (le porte aperte non bloccano) e luci */
@@ -1646,7 +1714,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
 
 function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, setTool, brushR, setBrushR, showWalls, setShowWalls, selTok, setSelTok, ops, onImport, busy, W, H, areas=[], areaSpec, setAreaSpec}){
   const [open, setOpen] = useState("");     // "" | "grid" | "token"
-  const [nt, setNt] = useState({name:"", size:1, hidden:false, vision:0});
+  const [nt, setNt] = useState({name:"", size:1, hidden:false, vision:0, char:""});
   const D = sceneDims(scene.grid, W||1, H||1);
   const charOwner = Object.fromEntries(chars.map(c=>[c.id, c.owner]));
   const tk = tokens.find(x => x.id === selTok);
@@ -1698,7 +1766,9 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
       <button type="button" className="btn small" disabled=${busy} onClick=${onImport} title="File .dd2vtt di Dungeondraft (o .uvtt / .df2vtt): immagine, griglia, muri, porte e luci">${busy ? "Importazione…" : "Importa da Dungeondraft"}</button>
     </div>
     ${open==="token" && html`<form className="row bt-form" onSubmit=${async e=>{ e.preventDefault(); if (!nt.name.trim()) return;
-        await ops.addTokens([{name:nt.name.trim(), size:nt.size, hidden:nt.hidden, vision:nt.vision||null, x:center[0], y:center[1]}]); setNt({...nt, name:""}); }}>
+        await ops.addTokens([{name:nt.name.trim(), size:nt.size, hidden:nt.hidden, vision:nt.vision||null, x:center[0], y:center[1], ...(nt.char ? {char_id:nt.char} : {})}]); setNt({...nt, name:"", char:""}); }}>
+      ${M && chars.some(c=>!c.owner) && html`<select className="field" style=${{width:"auto",maxWidth:200}} aria-label="Collega a una scheda PNG" value=${nt.char} onChange=${e=>{ const c = chars.find(x=>x.id===e.target.value); setNt({...nt, char:e.target.value, name: c ? (norm(c).name || nt.name) : nt.name}); }}>
+        <option value="">Nessuna scheda</option>${chars.filter(c=>!c.owner).map(c=>html`<option key=${c.id} value=${c.id}>${norm(c).name || "PNG"}${c.hidden ? " (segreta)" : ""}</option>`)}</select>`}
       <input id="nt-name" className="field" style=${{flex:"1 1 160px"}} placeholder="Nome (es. Goblin 1)" value=${nt.name} onChange=${e=>setNt({...nt, name:e.target.value})}/>
       <select className="field" style=${{width:"auto"}} aria-label="Taglia" value=${nt.size} onChange=${e=>setNt({...nt, size:Number(e.target.value)})}>${TOKEN_SIZES.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select>
       <label className="row" style=${{gap:6}}><input type="checkbox" checked=${nt.hidden} onChange=${e=>setNt({...nt, hidden:e.target.checked})}/>nascosta</label>
@@ -1738,7 +1808,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, portraits={}, masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
   const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
@@ -1936,7 +2006,7 @@ function MapView({me, party, mapUrls, portraits={}, masterUrls={}, onUploadMaste
           ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
           ${battle && dims && loaded && html`<${BattleLayer} scene=${scene} st=${sst} tokens=${planeTokens} W=${dims[0]} H=${dims[1]} M=${M} me=${me} chars=${chars} fighters=${fighters} combat=${combat}
             peek=${peek} tool=${tool} brushR=${brushR} showWalls=${showWalls} imgRef=${img} ctlRef=${ctl} selTok=${selTok} setSelTok=${setSelTok} ops=${bOps} onErr=${setErr}
-            areas=${planeAreas} areaSpec=${areaSpec} names=${names} portraits=${portraits}/>`}
+            areas=${planeAreas} areaSpec=${areaSpec} names=${names} portraits=${portraits} foes=${foes}/>`}
           ${here && !pending && !battle && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
             <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
           ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
@@ -2171,6 +2241,8 @@ function useCampaign(sb, active){
   },[sb]);
   const loadArchive = useCallback(async()=>{ const {data, error} = await sb.from("map_archive").select("*");
     if (error){ setArchiveErr(error.message); return; } setArchiveErr(""); setArchive(data); },[sb]);
+  const [foes, setFoes] = useState([]);
+  const loadFoes = useCallback(async()=>{ const {data, error} = await sb.from("foes").select("*"); if (!error) setFoes(data); },[sb]);
   const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
   const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
@@ -2199,9 +2271,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -2239,20 +2311,21 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"clocks"}, ()=>loadClocks())
       .on("postgres_changes",{event:"*",schema:"public",table:"maps_master"}, ()=>loadMmaps())
       .on("postgres_changes",{event:"*",schema:"public",table:"map_archive"}, ()=>loadArchive())
+      .on("postgres_changes",{event:"*",schema:"public",table:"foes"}, ()=>loadFoes())
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
     /* un orologio o una scheda nascosti dal master non arrivano in tempo reale ai giocatori: ricontrollo ogni tanto */
-    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks();
+    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks(); loadFoes();
       sb.from("characters").select("id").then(({data, error})=>{ if (error || !data) return; const ids = new Set(data.map(r=>r.id)); setChars(x=> x.every(c=>ids.has(c.id)) ? x : x.filter(c=>ids.has(c.id))); }); }, 30000);
     return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); clearInterval(clkT); };
   },[sb, active, loadAll]);
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes};
 }
 
 function useSignedUrls(sb, maps, bucket="mappe"){
@@ -2415,11 +2488,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes] = await Promise.all([
         q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -2462,6 +2535,7 @@ function BackupPanel({sb, camp}){
     await up("clocks", b.clocks, "orologi di scena");
     await up("maps_master", b.maps_master, "versioni del master delle mappe");
     await up("map_archive", b.map_archive, "archivio delle mappe", r=>({...r, created_by:null}));
+    await up("foes", b.foes, "avversari in scena");
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -3725,7 +3799,7 @@ function DiscordPanel({sb}){
   </section>`;
 }
 
-function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps}){
+function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps, foeUrls={}, onMini}){
   const {combat, fighters, secrets, rolls} = camp;
   if (me.isMaster) return html`<div>
     <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
@@ -3738,7 +3812,10 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps}
     <div className="party-head"><div><div className="eyebrow">Al tavolo</div><h2>Tavolo</h2></div></div>
     <div className="table2">
       <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act}/><${DiceTray} onFree=${onFree} master=${false}/></div>
-      <div className="col"><${Feed} rolls=${rolls}/></div>
+      <div className="col">${camp.foes.some(f=>f.visible) && html`<section className="panel"><div className="panel-h"><h3>Avversari in scena</h3></div>
+        <div className="foe-chips">${camp.foes.filter(f=>f.visible).map(f=>html`<button type="button" key=${f.id} className=${"foe-chip f-"+(f.frame||"grigio")} onClick=${()=>onMini("foe:"+f.id)} title="Apri la miniatura">
+          ${foeUrls[f.id] ? html`<img src=${foeUrls[f.id]} alt=""/>` : html`<span>${initialsOf(f.name)}</span>`}<b>${f.name}</b><i>${HP_WORDS[f.hp_state] || "Illeso"}</i></button>`)}</div></section>`}
+        <${Feed} rolls=${rolls}/></div>
     </div></div>`;
 }
 
@@ -3794,7 +3871,7 @@ function Main({sb, me, onSignOut}){
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
   const masterUrls = useSignedUrls(sb, me.isMaster ? camp.mmaps : {});
-  const portraitPaths = useMemo(()=>Object.fromEntries(chars.filter(c=>c.portrait).map(c=>[c.id, c.portrait])), [chars]);
+  const portraitPaths = useMemo(()=>({...Object.fromEntries(camp.foes.filter(f=>f.portrait).map(f=>[f.id, f.portrait])), ...Object.fromEntries(chars.filter(c=>c.portrait).map(c=>[c.id, c.portrait]))}), [chars, camp.foes]);
   const portraits = useSignedUrls(sb, portraitPaths, "ritratti");
   const onPortrait = async (charId, file) => {
     if (!charId) return {error:"Salva prima la scheda."};
@@ -3865,6 +3942,21 @@ function Main({sb, me, onSignOut}){
     camp.setChars(x=>x.map(c=>c.id===id ? {...data, id, owner:c.owner, hidden:c.hidden} : c));
     return "ok";
   },[sb]);
+  /* avversari in scena (solo master): copia pubblica della scheda, tenuta allineata */
+  const foeOps = me.isMaster ? {
+    show: async (c) => { const row = {id:c.id, ...foeOf(c), visible:true, sort: camp.foes.reduce((m,f)=>Math.max(m, f.sort||0), 0) + 1, updated_at:new Date().toISOString()};
+      camp.setFoes(x=> x.some(f=>f.id===c.id) ? x.map(f=>f.id===c.id ? {...f, ...row} : f) : [...x, row]);
+      const {error:e} = await sb.from("foes").upsert(row); if (e){ camp.loadFoes(); return "Non mostrato: "+e.message+(/foes|schema cache|relation/i.test(e.message) ? " (esegui fase16.sql)" : ""); } return ""; },
+    hide: async (id) => { camp.setFoes(x=>x.filter(f=>f.id!==id)); const {error:e} = await sb.from("foes").delete().eq("id", id); if (e) camp.loadFoes(); },
+    hideAll: async () => { const ids = camp.foes.map(f=>f.id); camp.setFoes([]); for (const id of ids) await sb.from("foes").delete().eq("id", id); },
+  } : null;
+  const foeSync = useRef(0);
+  useEffect(()=>{ if (!me.isMaster || !camp.foes.length) return; clearTimeout(foeSync.current);
+    foeSync.current = setTimeout(async ()=>{ for (const f of camp.foes){ const c = chars.find(x=>x.id===f.id); if (!c) continue; const pub = foeOf(c);
+      if (Object.keys(pub).some(k => JSON.stringify(pub[k]) !== JSON.stringify(f[k] ?? (k==="portrait" ? null : f[k])))){
+        camp.setFoes(x=>x.map(y=>y.id===f.id ? {...y, ...pub} : y));
+        await sb.from("foes").update({...pub, updated_at:new Date().toISOString()}).eq("id", f.id); } } }, 900);
+    return ()=>clearTimeout(foeSync.current); },[chars, camp.foes, me.isMaster]);
   const setCharHidden = async (id, hidden) => {
     camp.setChars(x=>x.map(c=>c.id===id ? {...c, hidden} : c));
     const {data, error:e} = await sb.from("characters").update({hidden}).eq("id", id).select("id");
@@ -4045,11 +4137,11 @@ function Main({sb, me, onSignOut}){
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
-      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini} foes=${camp.foes} foeUrls=${portraits} foeOps=${foeOps}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
-      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps}/>`}
+      ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini}/>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
@@ -4057,12 +4149,14 @@ function Main({sb, me, onSignOut}){
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
               portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
-      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} masterUrls=${masterUrls}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} foes=${camp.foes} masterUrls=${masterUrls}
           onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
-    ${minis.map((id,i)=>{ const c = chars.find(x=>x.id===id); return c ? html`<${MiniWindow} key=${id} c=${c} url=${portraits[id]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
+    ${minis.map((id,i)=>{ const isFoe = id.startsWith("foe:"); const fid = isFoe ? id.slice(4) : id;
+      const foe = isFoe ? camp.foes.find(f=>f.id===fid && (f.visible || me.isMaster)) : null; const c = isFoe ? null : chars.find(x=>x.id===id);
+      return (foe || c) ? html`<${MiniWindow} key=${id} c=${c} foe=${foe} url=${portraits[fid]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
   </div><//>`;
 }
