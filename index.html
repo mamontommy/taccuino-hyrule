@@ -1767,7 +1767,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
     </div>
     ${open==="token" && html`<form className="row bt-form" onSubmit=${async e=>{ e.preventDefault(); if (!nt.name.trim()) return;
         await ops.addTokens([{name:nt.name.trim(), size:nt.size, hidden:nt.hidden, vision:nt.vision||null, x:center[0], y:center[1], ...(nt.char ? {char_id:nt.char} : {})}]); setNt({...nt, name:"", char:""}); }}>
-      ${M && chars.some(c=>!c.owner) && html`<select className="field" style=${{width:"auto",maxWidth:200}} aria-label="Collega a una scheda PNG" value=${nt.char} onChange=${e=>{ const c = chars.find(x=>x.id===e.target.value); setNt({...nt, char:e.target.value, name: c ? (norm(c).name || nt.name) : nt.name}); }}>
+      ${M && chars.some(c=>!c.owner) && html`<select className="field" style=${{width:"auto",maxWidth:200}} aria-label="Collega a una scheda PNG" value=${nt.char} onChange=${e=>{ const c = chars.find(x=>x.id===e.target.value); setNt({...nt, char:e.target.value, name: c ? ((c.hidden && norm(c).card?.alias) || norm(c).name || nt.name) : nt.name}); }}>
         <option value="">Nessuna scheda</option>${chars.filter(c=>!c.owner).map(c=>html`<option key=${c.id} value=${c.id}>${norm(c).name || "PNG"}${c.hidden ? " (segreta)" : ""}</option>`)}</select>`}
       <input id="nt-name" className="field" style=${{flex:"1 1 160px"}} placeholder="Nome (es. Goblin 1)" value=${nt.name} onChange=${e=>setNt({...nt, name:e.target.value})}/>
       <select className="field" style=${{width:"auto"}} aria-label="Taglia" value=${nt.size} onChange=${e=>setNt({...nt, size:Number(e.target.value)})}>${TOKEN_SIZES.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select>
