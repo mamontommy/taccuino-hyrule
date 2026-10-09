@@ -558,6 +558,33 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .eq-sw[aria-checked="true"] span{background:var(--accent)}
 .eq-sw[aria-checked="true"] span::after{transform:translateX(16px)}
 .eq-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:999px}
+/* manichino dell'equipaggiamento */
+.pd-panel{display:grid;gap:10px}
+.pd{--pd-skin:#e3c3a0;--pd-skin2:#c9a27c;--pd-robe:#4b3a78;display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px) minmax(0,1fr);gap:12px;align-items:center}
+.pd-col{display:grid;gap:6px}
+.pd-fig{width:100%;height:auto;max-height:420px;filter:drop-shadow(0 6px 10px rgb(0 0 0/.18))}
+.pd-part{fill:url(#pd-pelle);stroke:color-mix(in srgb,var(--ink) 35%,transparent);stroke-width:1.5}
+.pd-body .pd-part:hover,.pd-fig [role=button]:hover{filter:brightness(1.1)}
+.pd-cape{fill:#7d2d22;stroke:rgb(0 0 0/.4);stroke-width:1.5}
+.pd-helm{fill:#9aa3ad;stroke:#4f5760;stroke-width:1.5}
+.pd-sel,.pd-fig .pd-sel *{stroke:var(--accent)!important;stroke-width:3!important}
+.pd-slot{display:flex;align-items:center;gap:8px;text-align:left;border:1px dashed var(--line);border-radius:10px;padding:5px 8px;background:var(--bg);color:var(--ink);font:inherit;cursor:pointer;min-width:0}
+.pd-slot.full{border-style:solid;background:color-mix(in srgb,var(--gold,#c9a227) 9%,var(--surface));border-color:color-mix(in srgb,var(--gold,#c9a227) 55%,var(--line))}
+.pd-slot.sel{outline:2px solid var(--accent);outline-offset:1px}
+.pd-slot:disabled{cursor:default}
+.pd-ic{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);font-size:.9rem}
+.pd-t{display:grid;min-width:0}
+.pd-t i{font-style:normal;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.pd-t b{font-weight:600;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-slot:not(.full) .pd-t b{color:var(--muted);font-weight:400}
+.pd-pick{display:grid;gap:8px;border:1px solid var(--accent);border-radius:10px;padding:10px;background:var(--surface)}
+.pd-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px}
+.pd-opt{display:grid;text-align:left;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.pd-opt:hover{border-color:var(--accent)}
+.pd-opt.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.pd-opt .muted{font-size:.78rem}
+.pd-more summary{cursor:pointer;font-size:.85rem;color:var(--muted);margin-bottom:6px}
+@media (max-width:640px){.pd{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.pd-fig{grid-column:1/-1;grid-row:1;max-height:300px}}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -1208,9 +1235,10 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     ${c==="scudo" && html`<span className="chip">CA +${(Number(x.acBonus)||2)+(Number(x.magic)||0)}</span>`}
     ${c==="arma" && x.dmg && html`<span className="chip">${x.dmg}${Number(x.magic) ? " +"+x.magic : ""}</span>`}
     ${c!=="armatura" && c!=="scudo" && Number(x.acBonus) ? html`<span className="chip">CA ${sg(Number(x.acBonus))}</span>` : null}
-    ${x.where==="altrove" && html`<span className="chip" title="Non conta nel peso trasportato">altrove</span>`}`;
+    ${x.where==="altrove" && html`<span className="chip" title="Non conta nel peso trasportato">altrove</span>`}
+    ${x.eq && SLOT_NAME[x.slot] && html`<span className="chip gold" title="Dove lo indossa">${SLOT_NAME[x.slot]}</span>`}`;
   const head = html`<summary className="tr-sum eq-sum">
-      ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); patch({eq:!x.eq}); }}><span></span></button>` : null}
+      ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); patch(x.eq ? {eq:false, slot:""} : {eq:true}); }}><span></span></button>` : null}
       <span className="tr-n">${x.name || "Senza nome"}</span>${chips}
       ${Number(x.chg) > 0 && html`<span className="tr-uses" onClick=${e=>e.preventDefault()}><${Pips} n=${Math.min(20, Number(x.chg))} used=${Math.max(0, Number(x.chg) - (Number(x.used)||0))} label=${(x.name||"Oggetto")+" cariche"} onSet=${v=>patch({used: Number(x.chg) - v})}/></span>`}
       ${c==="consumabile" && !ro && Number(x.qty) > 0 && html`<button type="button" className="btn small" onClick=${e=>{ e.preventDefault(); patch({qty: Math.max(0, (Number(x.qty)||0) - 1)}); }} title="Usane uno">Usa 1</button>`}
@@ -1227,7 +1255,7 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
         <label className="lab tr-lv">Quantità<${Num} id=${"eq-q-"+x.id} value=${Number(x.qty)||0} min=${0} label="Quantità" onChange=${v=>patch({qty:v})}/></label>
         <label className="lab tr-lv">Peso (kg)<input className="field" id=${"eq-w-"+x.id} inputMode="decimal" value=${x.wt ? numIt(x.wt) : ""} placeholder="0" onChange=${e=>{ const v = parseFloat(e.target.value.replace(",",".")); patch({wt: isNaN(v) ? 0 : Math.max(0, v)}); }}/></label>
         <label className="lab">Dove<select className="field" id=${"eq-p-"+x.id} value=${x.where||"zaino"} onChange=${e=>patch({where:e.target.value})}>${EQ_WHERE.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
-        ${wear && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.eq} onChange=${e=>patch({eq:e.target.checked})}/>Equipaggiato</label>`}
+        ${wear && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.eq} onChange=${e=>patch(e.target.checked ? {eq:true} : {eq:false, slot:""})}/>Equipaggiato</label>`}
       </div>
       ${c==="armatura" && html`<div className="tr-row">
         <label className="lab">Tipo<select className="field" id=${"eq-at-"+x.id} value=${x.armor||"leggera"} onChange=${e=>patch({armor:e.target.value})}>${ARMOR_T.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
@@ -1273,16 +1301,118 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     </div>
   </details>`;
 }
+/* ---------- manichino dell'equipaggiamento: un posto per ogni parte del corpo ---------- */
+const SLOTS = [
+  ["testa","Testa","⛑",["magico","attrezzatura","altro"],"elmo, cappello, corona, occhiali"],
+  ["collo","Collo","📿",["magico","tesoro","altro"],"amuleto, collana"],
+  ["spalle","Spalle","🧥",["magico","attrezzatura","altro"],"mantello"],
+  ["corpo","Corpo","🛡",["armatura","magico"],"armatura o veste"],
+  ["cintura","Cintura","🎗",["magico","attrezzatura","altro"],"cintura, borsa"],
+  ["piedi","Piedi","🥾",["magico","attrezzatura","altro"],"stivali"],
+  ["manoP","Mano principale","⚔",["arma","magico"],"arma, bastone, bacchetta"],
+  ["manoS","Mano secondaria","🛡",["scudo","arma","magico"],"scudo, seconda arma, focus"],
+  ["braccia","Braccia","🔰",["magico","altro"],"bracciali"],
+  ["mani","Mani","🧤",["magico","attrezzatura","altro"],"guanti"],
+  ["anello1","Anello","💍",["magico","tesoro"],"anello"],
+  ["anello2","Anello","💍",["magico","tesoro"],"anello"],
+];
+const SLOT_NAME = Object.fromEntries(SLOTS.map(([k,n])=>[k, n]));
+const slotGuess = (c) => c==="armatura" ? "corpo" : c==="scudo" ? "manoS" : c==="arma" ? "manoP" : "";
+const ARMOR_FILL = {leggera:"url(#pd-cuoio)", media:"url(#pd-scaglie)", pesante:"url(#pd-piastre)"};
+function PaperDoll({s, ro, upd, onPick, pick}){
+  const items = s.items || [];
+  const at = {}; for (const x of items) if (x.slot && x.eq && SLOT_NAME[x.slot] && !at[x.slot]) at[x.slot] = x;
+  const arm = at.corpo; const armT = arm && eqCat(arm)==="armatura" ? (arm.armor||"leggera") : arm ? "veste" : "";
+  const w2 = at.manoS; const shield = w2 && eqCat(w2)==="scudo";
+  const nm = x => String(x?.name||"").toLowerCase();
+  const bow = /arco|balestra/.test(nm(at.manoP)); const staff = /bastone|bacchetta|verga|asta|lancia/.test(nm(at.manoP));
+  const hit = (k) => ro ? {} : {onClick: ()=>onPick(k), style:{cursor:"pointer"}, role:"button", "aria-label":"Scegli: "+SLOT_NAME[k]};
+  const on = (k) => pick===k ? " pd-sel" : "";
+  const slotBtn = ([k,n,ic,,hint]) => { const x = at[k];
+    return html`<button type="button" key=${k} className=${"pd-slot"+(x ? " full" : "")+(pick===k ? " sel" : "")} disabled=${ro} onClick=${()=>onPick(k)} title=${x ? x.name : "Vuoto: "+hint}>
+      <span className="pd-ic" aria-hidden="true">${ic}</span><span className="pd-t"><i>${n}</i><b>${x ? (x.name||"Senza nome") : "—"}</b></span></button>`; };
+  return html`<div className="pd">
+    <div className="pd-col">${SLOTS.slice(0,6).map(slotBtn)}</div>
+    <svg className="pd-fig" viewBox="0 0 200 360" role="img" aria-label="Manichino con l’equipaggiamento indossato">
+      <defs>
+        <pattern id="pd-cuoio" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#8a5a33"/><path d="M0 4h8" stroke="#6b4426" stroke-width="1" stroke-dasharray="2 2"/></pattern>
+        <pattern id="pd-scaglie" width="10" height="8" patternUnits="userSpaceOnUse"><rect width="10" height="8" fill="#8e98a3"/><path d="M0 8 Q5 0 10 8" fill="#aab3bd" stroke="#5d6670" stroke-width="1"/></pattern>
+        <pattern id="pd-piastre" width="40" height="16" patternUnits="userSpaceOnUse"><rect width="40" height="16" fill="#c6ccd3"/><path d="M0 15.5h40" stroke="#7b848e" stroke-width="1.5"/><path d="M20 0v16" stroke="#e8ecf0" stroke-width="1"/></pattern>
+        <linearGradient id="pd-pelle" x1="0" x2="1"><stop offset="0" stop-color="var(--pd-skin2)"/><stop offset="1" stop-color="var(--pd-skin)"/></linearGradient>
+      </defs>
+      ${at.spalle && html`<path className=${"pd-cape"+on("spalle")} d="M62 84 L138 84 L162 300 Q100 318 38 300 Z" ...${hit("spalle")}/>`}
+      <g className="pd-body">
+        <path d="M58 92 Q46 140 36 200 L48 204 Q58 150 70 104 Z" className=${"pd-part"+on("braccia")} ...${hit("braccia")}/>
+        <path d="M142 92 Q154 140 164 200 L152 204 Q142 150 130 104 Z" className=${"pd-part"+on("braccia")} ...${hit("braccia")}/>
+        <path d="M78 186 L98 186 L96 318 L80 318 Z" className=${"pd-part"+on("piedi")} ...${hit("piedi")}/>
+        <path d="M102 186 L122 186 L120 318 L104 318 Z" className=${"pd-part"+on("piedi")} ...${hit("piedi")}/>
+        <path d="M62 84 Q100 74 138 84 L128 190 L72 190 Z" className=${"pd-part"+on("corpo")} ...${hit("corpo")}/>
+        <rect x="92" y="62" width="16" height="16" rx="4" className="pd-part"/>
+        <circle cx="100" cy="44" r="23" className=${"pd-part"+on("testa")} ...${hit("testa")}/>
+        <circle cx="42" cy="210" r="9" className=${"pd-part"+on("mani")} ...${hit("mani")}/>
+        <circle cx="158" cy="210" r="9" className=${"pd-part"+on("mani")} ...${hit("mani")}/>
+      </g>
+      ${arm && html`<g className=${"pd-armor"+on("corpo")} ...${hit("corpo")}>
+        <path d="M62 84 Q100 74 138 84 L128 190 L72 190 Z" fill=${armT==="veste" ? "var(--pd-robe)" : ARMOR_FILL[armT]} stroke="rgb(0 0 0/.45)" stroke-width="1.5"/>
+        ${armT==="pesante" && html`<path d="M58 86 Q50 94 54 108 L70 104 Z M142 86 Q150 94 146 108 L130 104 Z" fill="#c6ccd3" stroke="#6b737c"/>`}
+        ${armT==="veste" && html`<path d="M72 190 L60 300 L140 300 L128 190 Z" fill="var(--pd-robe)" stroke="rgb(0 0 0/.35)"/>`}
+      </g>`}
+      ${at.cintura && html`<g className=${on("cintura")} ...${hit("cintura")}><rect x="70" y="180" width="60" height="10" rx="2" fill="#5b3a1e" stroke="#2e1d0e"/><rect x="95" y="179" width="10" height="12" rx="1.5" fill="#d8b04a" stroke="#7a5a17"/></g>`}
+      ${at.collo && html`<g className=${on("collo")} ...${hit("collo")}><path d="M88 78 Q100 98 112 78" fill="none" stroke="#d8b04a" stroke-width="2"/><circle cx="100" cy="96" r="5" fill="#5bbad5" stroke="#d8b04a" stroke-width="2"/></g>`}
+      ${at.testa && html`<path className=${"pd-helm"+on("testa")} d="M76 44 Q76 18 100 18 Q124 18 124 44 L124 50 L116 50 L116 38 L84 38 L84 50 L76 50 Z" ...${hit("testa")}/>`}
+      ${at.braccia && html`<g className=${on("braccia")} ...${hit("braccia")}><path d="M40 170 L52 172 L48 196 L37 194 Z M160 170 L148 172 L152 196 L163 194 Z" fill="#b08a3e" stroke="#5c4413"/></g>`}
+      ${at.mani && html`<g className=${on("mani")} ...${hit("mani")}><circle cx="42" cy="210" r="10" fill="#6b4a2b" stroke="#2e1d0e"/><circle cx="158" cy="210" r="10" fill="#6b4a2b" stroke="#2e1d0e"/></g>`}
+      ${(at.anello1 || at.anello2) && html`<g>${at.anello1 && html`<circle cx="150" cy="214" r="3" fill="#f1c84b" stroke="#7a5a17" ...${hit("anello1")}/>`}${at.anello2 && html`<circle cx="50" cy="214" r="3" fill="#f1c84b" stroke="#7a5a17" ...${hit("anello2")}/>`}</g>`}
+      ${at.piedi && html`<g className=${on("piedi")} ...${hit("piedi")}><path d="M78 284 L97 284 L97 322 Q100 330 76 330 Q70 330 72 322 Z M103 284 L122 284 L128 322 Q130 330 106 330 Q103 330 103 322 Z" fill="#5b3a1e" stroke="#2e1d0e"/></g>`}
+      ${at.manoP && html`<g className=${"pd-wpn"+on("manoP")} ...${hit("manoP")}>
+        ${bow ? html`<path d="M170 140 Q196 210 170 280" fill="none" stroke="#7a4b22" stroke-width="5"/><path d="M170 140 L170 280" stroke="#ddd" stroke-width="1"/>`
+          : staff ? html`<path d="M162 120 L156 330" stroke="#7a4b22" stroke-width="6" stroke-linecap="round"/><circle cx="162" cy="116" r="7" fill="#7fd1e8" stroke="#2c6f82"/>`
+          : html`<path d="M160 202 L176 100" stroke="#cfd6dd" stroke-width="6" stroke-linecap="round"/><path d="M176 100 L179 88" stroke="#eef2f5" stroke-width="3" stroke-linecap="round"/><path d="M150 202 L172 208" stroke="#7a5a17" stroke-width="5" stroke-linecap="round"/>`}
+      </g>`}
+      ${w2 && html`<g className=${on("manoS")} ...${hit("manoS")}>
+        ${shield ? html`<path d="M22 180 L62 180 L62 214 Q62 246 42 258 Q22 246 22 214 Z" fill="#7d2d22" stroke="#d8b04a" stroke-width="3"/><path d="M42 188 L42 250 M28 208 L56 208" stroke="#d8b04a" stroke-width="2"/>`
+          : html`<path d="M40 202 L26 130" stroke="#cfd6dd" stroke-width="5" stroke-linecap="round"/><path d="M30 204 L52 200" stroke="#7a5a17" stroke-width="4" stroke-linecap="round"/>`}
+      </g>`}
+    </svg>
+    <div className="pd-col">${SLOTS.slice(6).map(slotBtn)}</div>
+  </div>`;
+}
+function SlotPicker({slot, s, ro, upd, onClose, onNew}){
+  const items = s.items || []; const def = SLOTS.find(x=>x[0]===slot); if (!def) return null;
+  const [k, n, ic, cats, hint] = def; const cur = items.find(x=>x.slot===k && x.eq);
+  const ok = x => cats.includes(eqCat(x)) || x.slot===k; const sug = items.filter(ok); const other = items.filter(x=>!ok(x));
+  const put = (id) => upd(p=>{ for (const y of (p.items||[])){ if (y.slot===k && y.id!==id){ y.slot = ""; y.eq = false; } }
+    const x = (p.items||[]).find(y=>y.id===id); if (x){ x.slot = k; x.eq = true; }
+    /* armatura e scudo: uno solo indossato alla volta */
+    if (x && (eqCat(x)==="armatura" || eqCat(x)==="scudo")) for (const y of p.items) if (y.id!==x.id && eqCat(y)===eqCat(x) && y.eq){ y.eq = false; if (y.slot) y.slot = ""; }
+    return p; });
+  const off = () => upd(p=>{ for (const y of (p.items||[])) if (y.slot===k){ y.slot = ""; y.eq = false; } return p; });
+  const row = (x) => html`<button type="button" key=${x.id} className=${"pd-opt"+(x.slot===k && x.eq ? " on" : "")} onClick=${()=>{ put(x.id); onClose(); }}>
+    <b>${x.name || "Senza nome"}</b><span className="muted">${EQ_ONE[eqCat(x)]}${x.slot && x.slot!==k && x.eq ? " · ora in "+SLOT_NAME[x.slot] : ""}</span></button>`;
+  return html`<div className="pd-pick" role="dialog" aria-label=${"Scegli per "+n}>
+    <div className="row" style=${{gap:8}}><b>${ic} ${n}</b><span className="muted" style=${{fontSize:".82rem"}}>${hint}</span><span className="spacer"></span><button type="button" className="iconbtn" aria-label="Chiudi" onClick=${onClose}>×</button></div>
+    ${ro ? html`<p className="muted" style=${{margin:0}}>${cur ? cur.name : "Vuoto"}</p>` : html`
+      ${sug.length === 0 && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>Nello zaino non c’è niente di adatto.</p>`}
+      <div className="pd-opts">${sug.map(row)}</div>
+      ${other.length > 0 && html`<details className="pd-more"><summary>Altri oggetti (${other.length})</summary><div className="pd-opts">${other.map(row)}</div></details>`}
+      <div className="row" style=${{gap:8}}>${cur && html`<button type="button" className="btn small" onClick=${()=>{ off(); onClose(); }}>Togli ${cur.name ? "“"+cur.name+"”" : ""}</button>`}<span className="spacer"></span>
+        <button type="button" className="btn small primary" onClick=${()=>onNew(k)}>+ Nuovo oggetto qui</button></div>`}
+  </div>`;
+}
+
 function EquipTab({s, D, ro, upd, set}){
   const items = s.items || [];
   const [filter, setFilter] = useState(()=>lsGet("eqFilter","tutti"));
   const [editId, setEditId] = useState(null); const [lastId, setLastId] = useState(null); const [openV, setOpenV] = useState(0); const [newCat, setNewCat] = useState("arma");
-  useEffect(()=>{ lsSet("eqFilter", filter); },[filter]);
+  const [pick, setPick] = useState(null); const [doll, setDoll] = useState(()=>lsGet("eqDoll", true));
+  useEffect(()=>{ lsSet("eqFilter", filter); },[filter]); useEffect(()=>{ lsSet("eqDoll", doll); },[doll]);
   const patch = (id, o) => upd(p=>{ const x = (p.items||[]).find(y=>y.id===id); if (x) Object.assign(x, o); return p; });
   const del = (id) => { upd(p=>{ p.items = (p.items||[]).filter(y=>y.id!==id); return p; }); if (editId===id) setEditId(null); };
-  const add = (cat) => { const id = uid(); const base = {id, name:"", qty:1, notes:"", cat, wt:0, where: eqWearable(cat) ? "addosso" : "zaino", eq: eqWearable(cat)};
+  const add = (cat, slot) => { const id = uid(); const base = {id, name:"", qty:1, notes:"", cat, wt:0, where: eqWearable(cat) || slot ? "addosso" : "zaino", eq: eqWearable(cat) || !!slot, slot: slot || slotGuess(cat) || ""};
+    if (base.slot) upd(p=>{ for (const y of (p.items||[])) if (y.slot===base.slot && y.eq){ y.eq = false; y.slot = ""; } return p; });
     if (cat==="armatura") Object.assign(base, {armor:"leggera", base:11}); if (cat==="scudo") Object.assign(base, {acBonus:2, wt:3}); if (cat==="arma") Object.assign(base, {dmg:"1d6", ability:"for"});
     upd(p=>{ p.items = [...(p.items||[]), base]; return p; }); setEditId(id); if (filter!=="tutti" && filter!=="eq" && filter!==cat) setFilter(cat); };
+  const newForSlot = (k) => { const c = SLOTS.find(x=>x[0]===k)?.[3]?.[0] || "magico"; setPick(null); setFilter("tutti"); add(c, k); };
   const ac = eqArmorClass(s, D);
   const carried = items.filter(x=>(x.where||"zaino")!=="altrove").reduce((a,x)=>a + (Number(x.wt)||0)*(Number(x.qty)||0), 0);
   const coins = Object.values(s.coins||{}).reduce((a,v)=>a+(Number(v)||0), 0); const coinKg = coins/100;
@@ -1303,6 +1433,13 @@ function EquipTab({s, D, ro, upd, set}){
         <div className="eq-stat"><span className="k">Sintonia</span><b className=${"v"+(att > 3 ? " err" : "")}>${att} <small>/ 3</small></b>
           <span className=${att > 3 ? "err" : "muted"} style=${{fontSize:".78rem"}}>${att > 3 ? "Massimo 3 oggetti sintonizzati" : items.filter(x=>x.attune && x.attuned).map(x=>x.name).join(", ") || "Nessun oggetto sintonizzato"}</span></div>
       </div>
+    </section>
+    <section className="panel pd-panel">
+      <div className="panel-h"><h3>Indossato</h3><span className="muted" style=${{fontSize:".82rem"}}>${ro ? "" : "Tocca un posto o una parte del corpo per scegliere l’oggetto"}</span><span className="spacer"></span>
+        <button type="button" className="btn small" aria-expanded=${doll} onClick=${()=>setDoll(!doll)}>${doll ? "Chiudi" : "Apri"}</button></div>
+      ${doll && html`<${PaperDoll} s=${s} ro=${ro} upd=${upd} pick=${pick} onPick=${k=>setPick(pick===k ? null : k)}/>`}
+      ${doll && pick && html`<${SlotPicker} slot=${pick} s=${s} ro=${ro} upd=${upd} onClose=${()=>setPick(null)} onNew=${newForSlot}/>`}
+      ${doll && (()=>{ const loose = items.filter(x=>x.eq && eqWearable(eqCat(x)) && !SLOT_NAME[x.slot]); return loose.length > 0 && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Equipaggiati senza un posto: ${loose.map(x=>x.name||"senza nome").join(", ")}. Tocca un posto per sistemarli.</p>`; })()}
     </section>
     <section className="panel">
       <div className="panel-h"><h3>Oggetti</h3><span className="spacer"></span>
