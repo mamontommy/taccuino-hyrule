@@ -1633,10 +1633,13 @@ function MiniWindow({c, foe, url, idx, onClose, onFocus}){
   </div>`;
 }
 
-function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini, foes=[], foeUrls={}, foeOps, npcs=[], npcSaves=[], npcOps, players=[]}){
+function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini, foes=[], foeUrls={}, foeOps, npcs=[], npcSaves=[], npcOps, players=[], session=[], sessionOps, goSheets}){
   const haz = climate(world); const M = me.isMaster;
-  const chars = allChars.filter(c=>!c.hidden);
-  const secret = M ? allChars.filter(c=>c.hidden).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))) : [];
+  /* il master qui vede solo i personaggi dei giocatori e le schede della sessione; tutte le altre stanno in "Schede" */
+  const chars = allChars.filter(c=>!c.hidden && (!M || c.owner));
+  const byIdP = new Map(allChars.map(c=>[c.id, c]));
+  const secret = M ? session.map(id=>byIdP.get(id)).filter(c=>c && !(c.owner && !c.hidden)) : [];
+  const outside = M ? allChars.filter(c=>!c.hidden && !c.owner && !session.includes(c.id)).length : 0;
   const [busyId, setBusyId] = useState(null); const [err, setErr] = useState(""); const [pickId, setPickId] = useState(null);
   const move = async (c, hidden) => { setBusyId(c.id); setErr(""); const m = await onSetHidden(c.id, hidden); setBusyId(null); if (m) setErr(m); };
   const mine = chars.find(c=>c.owner===me.id);
@@ -1646,7 +1649,7 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
       <div><div className="eyebrow">La compagnia</div><h2>Il gruppo</h2></div>
       <span className="spacer"></span>
       ${ready && !mine && html`<button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button>`}
-      ${M && html`<button type="button" className="btn" onClick=${onCreateNpc} title="Nasce tra le schede del master, invisibile ai giocatori">+ Scheda segreta</button>`}
+      ${M && html`<button type="button" className="btn" onClick=${onCreateNpc} title="Nasce segreta, invisibile ai giocatori, ed entra nelle schede della sessione">+ Scheda segreta</button>`}
     </div>
     ${party && typeof party.x==="number" && html`<div className="where"><${Mark} size=${26}/><div><div className="eyebrow">${PLANE_NAME[party.plane]||"Posizione"}</div><b>${party.label || "Posizione segnata sulla mappa"}</b></div>
       <span className="spacer"></span><span className="muted" style=${{fontSize:".85rem"}}>${ago(party.at)}</span>
@@ -1662,19 +1665,24 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
     <${FoesSection} foes=${foes} urls=${foeUrls} onMini=${onMini} master=${M} onHide=${foeOps?.hide} onHideAll=${foeOps?.hideAll}/>
     ${npcOps && html`<${KnownSection} me=${me} players=${players} names=${names} npcs=${npcs} saves=${npcSaves} urls=${foeUrls} onMini=${onMini} ops=${npcOps}/>`}
     ${M && html`<section className="secret-sheets">
-      <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede del master</h2></div><span className="spacer"></span>
+      <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede della sessione</h2></div><span className="spacer"></span>
+        ${goSheets && html`<button type="button" className="btn" onClick=${goSheets} title="Tutte le schede, divise per categoria, con 📌 per aggiungerle alla sessione">Tutte le schede →</button>`}
         <button type="button" className="btn" onClick=${onCreateNpc}>+ Nuova scheda segreta</button></div>
-      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. Con “⚔ Mostra come avversario” i giocatori vedono solo carta e miniatura (nome, tipo, descrizione, immagine e uno stato vago), mai statistiche o PF. Con “👁 Fai conoscere” scegli quali giocatori lo conoscono: solo loro vedono la sua carta pubblica e possono salvarla tra i “Personaggi conosciuti”. I tiri fatti da una scheda segreta sono nascosti.</p>
-      ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda segreta.</p>`
-        : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className="tcard-wrap tc-secret"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
+      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>Qui vedi solo le schede della sessione (le stesse della Plancia): quelle che crei da questa pagina ci entrano da sole, le altre le aggiungi da “Schede” con 📌 e le togli con “Togli dalla sessione” (la scheda resta, la ritrovi in “Schede”). I giocatori vedono solo quelle portate nel gruppo. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. Con “⚔ Mostra come avversario” i giocatori vedono solo carta e miniatura (nome, tipo, descrizione, immagine e uno stato vago), mai statistiche o PF. Con “👁 Fai conoscere” scegli quali giocatori lo conoscono: solo loro vedono la sua carta pubblica e possono salvarla tra i “Personaggi conosciuti”. I tiri fatti da una scheda segreta sono nascosti.</p>
+      ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda nella sessione oltre ai personaggi dei giocatori. Creane una con “+ Nuova scheda segreta” o aggiungile da “Schede” con 📌.</p>`
+        : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className=${"tcard-wrap"+(c.hidden ? " tc-secret" : "")}><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
+            ${!c.hidden && html`<span className="chip gold" title="La vedono anche i giocatori, nella compagnia">visibile ai giocatori</span>`}
             ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)}>🧍 Miniatura</button>`}
-            ${foeOps && (foes.some(f=>f.id===c.id) ? html`<button type="button" className="btn small" onClick=${()=>foeOps.hide(c.id)}>Togli dalla scena</button>`
+            ${c.hidden && foeOps && (foes.some(f=>f.id===c.id) ? html`<button type="button" className="btn small" onClick=${()=>foeOps.hide(c.id)}>Togli dalla scena</button>`
               : html`<button type="button" className="btn small" onClick=${async()=>{ const m = await foeOps.show(c); if (m) setErr(m); }} title="I giocatori vedono carta e miniatura, senza statistiche né PF">⚔ Mostra come avversario</button>`)}
-            ${npcOps && (()=>{ const n = npcs.find(x=>x.id===c.id); const k = (n?.audience || []).length;
+            ${c.hidden && npcOps && (()=>{ const n = npcs.find(x=>x.id===c.id); const k = (n?.audience || []).length;
               return pickId===c.id ? html`<${AudiencePicker} initial=${n?.audience || []} players=${players} names=${names} onCancel=${()=>setPickId(null)}
                   onSave=${async a=>{ setPickId(null); setErr(""); const m = n ? await npcOps.setAudience(c.id, a) : await npcOps.share(c, a); if (m) setErr(m); }}/>`
                 : html`<button type="button" className="btn small" onClick=${()=>setPickId(c.id)} title="Scegli quali giocatori conoscono questo personaggio: vedranno solo la sua carta pubblica">👁 ${n ? `Chi lo conosce (${k})` : "Fai conoscere…"}</button>`; })()}
-            ${onSetHidden && html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`}</div>`)}</div>`}
+            ${onSetHidden && !c.owner && (c.hidden ? html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`
+              : html`<button type="button" className="btn small" disabled=${busyId===c.id} onClick=${()=>move(c, true)} title="I giocatori non la vedono più">Nascondi ai giocatori</button>`)}
+            ${sessionOps && html`<button type="button" className="btn small" onClick=${()=>sessionOps.toggle(c.id)} title="La togli solo da questa pagina e dalla Plancia: la scheda resta in “Schede”">Togli dalla sessione</button>`}</div>`)}</div>`}
+      ${outside > 0 && html`<p className="muted" style=${{margin:"10px 0 0",fontSize:".85rem"}}>${outside === 1 ? "C’è anche 1 PNG visibile ai giocatori che non è nella sessione" : `Ci sono anche ${outside} PNG visibili ai giocatori che non sono nella sessione`}: ${goSheets ? html`<button type="button" className="btn small" onClick=${goSheets}>${outside === 1 ? "lo trovi in Schede" : "li trovi in Schede"}</button>` : ""}.</p>`}
     </section>`}
     ${err && html`<p className="notice err" role="alert">${err}</p>`}
   </div>`;
@@ -4306,7 +4314,7 @@ function Main({sb, me, onSignOut}){
   },[sb, showToast, chars]);
   const onFree = (x) => onRoll({type:"formula", label:x.label, formula:x.formula, hidden:x.hidden});
 
-  const create = async (npc) => { setMsg("");
+  const create = async (npc, from="gruppo") => { setMsg("");
     const data = {...blankSheet(), name: npc ? "Nuovo PNG" : ""};
     let {data:row, error:e} = await sb.from("characters").insert({owner: npc ? null : me.id, data, ...(npc ? {hidden:true} : {})}).select("*").single();
     if (e && npc && /hidden/.test(e.message)){ setMsg("Esegui fase15.sql per le schede segrete: questa scheda è visibile ai giocatori.");
@@ -4314,7 +4322,8 @@ function Main({sb, me, onSignOut}){
     if (e){ setMsg("Non sono riuscito a creare la scheda: "+e.message); return; }
     if (npc && row && row.hidden === undefined) row.hidden = true;
     camp.setChars(x=> x.some(c=>c.id===row.id) ? x : [...x, rowToChar(row)]);
-    setOpenId(row.id); setView("scheda"); };
+    if (me.isMaster) sessionOps.add([row.id]);
+    setBackView(from); setOpenId(row.id); setView("scheda"); };
 
   const saveSheet = useCallback(async (id, sheet) => {
     const {id:_i, owner:_o, hidden:_h, ...data} = sheet;
@@ -4569,13 +4578,14 @@ function Main({sb, me, onSignOut}){
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
       ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini} foes=${camp.foes} foeUrls=${portraits} foeOps=${foeOps}
           npcs=${camp.npcs} npcSaves=${camp.npcSaves} npcOps=${npcOps} players=${players}
+          session=${me.isMaster ? (CFG.session || []) : []} sessionOps=${me.isMaster ? sessionOps : null} goSheets=${me.isMaster ? ()=>{ setView("schede"); setOpenId(null); } : null}
           onOpen=${id=>{setBackView("gruppo"); setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini} onOpen=${openFromTable} sessionOps=${sessionOps}/>`}
       ${view==="schede" && me.isMaster && html`<div>
         <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Schede</h2></div><span className="spacer"></span>
-          <button type="button" className="btn" onClick=${()=>create(true)} title="Nasce tra le schede del master, invisibile ai giocatori">+ Scheda segreta</button></div>
+          <button type="button" className="btn" onClick=${()=>create(true, "schede")} title="Nasce segreta, invisibile ai giocatori, ed entra nella sessione">+ Scheda segreta</button></div>
         <${SheetsHub} split=${true} chars=${chars} names=${names} camp=${camp} adjustHp=${adjustHp} onOpen=${openFromSheets} onMini=${openMini} sessionOps=${sessionOps}/></div>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
