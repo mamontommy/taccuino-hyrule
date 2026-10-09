@@ -436,6 +436,24 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .mb-x{font-size:.75em;letter-spacing:.08em;text-transform:uppercase;color:#7a2a1f}
 .mb-hp{align-self:center;padding:.15em .8em;border-radius:999px;border:1px solid rgb(0 0 0/.35);font-weight:700;font-size:.85em;background:#e9e2cf}
 .mb-hp.hp-ferito{background:#f3d27a}.mb-hp.hp-malconcio{background:#f0a35c}.mb-hp.hp-allo-stremo{background:#c9503c;color:#fff}.mb-hp.hp-a-terra{background:#444;color:#fff}
+/* personaggi conosciuti */
+.known-sec{margin-top:28px}
+.known-new{margin-bottom:18px;padding:12px;border:1px dashed var(--gold,#c9a227);border-radius:12px;background:color-mix(in srgb,var(--gold,#c9a227) 8%,transparent)}
+.known-new>.eyebrow{margin-bottom:8px}
+.known-ign{margin-top:14px;display:grid;gap:10px;justify-items:start}
+.aud-pick{display:grid;gap:4px;width:100%;max-width:240px;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left}
+.aud-h{font-weight:600;font-size:.85rem}
+.aud-row{display:flex;gap:6px;align-items:center;font-size:.88rem;cursor:pointer}
+.aud-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.note-box{display:grid;gap:4px;width:100%;max-width:240px}
+.note-box textarea{min-height:70px;font-size:.88rem}
+.tc-note{margin-top:6px;padding-top:5px;border-top:1px solid rgb(0 0 0/.12);font-size:.74rem;color:#3b3226;white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.modal.meet{max-width:420px;justify-items:center;text-align:center}
+.modal.meet h2{font-size:1.5rem;margin:0}
+.modal.meet .row{width:100%;flex-wrap:wrap;gap:8px;justify-content:center}.modal.meet .row .spacer{display:none}
+.meet-card{width:240px;max-width:100%}
+.mb-x.known{color:#6a5313}
+.mb-note{font-size:.78em;border-top:1px solid rgb(0 0 0/.12);padding-top:.3em;white-space:pre-wrap}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -1178,11 +1196,11 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
         </div>`}
         ${pMsg && html`<p className="muted" role="status" style=${{margin:0}}>${pMsg}</p>`}
         ${onSetHidden && !remote?.owner && html`<div className="frame-ctl" style=${{maxWidth:420}}>
-          <div className="eyebrow">Quando è mostrato come avversario</div>
+          <div className="eyebrow">Quello che vedono i giocatori (avversario o personaggio conosciuto)</div>
           <label className="lab">Nome mostrato ai giocatori<input id="foe-alias" className="field" maxLength="60" placeholder=${s.name || "es. Figura incappucciata"} value=${s.card?.alias || ""} onChange=${e=>set("card.alias", e.target.value)}/></label>
           <label className="lab">Tipo mostrato<input id="foe-type" className="field" maxLength="80" placeholder=${s.species || "es. Bokoblin, Costrutto Zonai"} value=${s.card?.foeType ?? ""} onChange=${e=>set("card.foeType", e.target.value)}/></label>
           <label className="lab">Descrizione per i giocatori<textarea id="foe-blurb" className="field" maxLength="300" style=${{minHeight:60}} placeholder="Quello che vedono: aspetto, atteggiamento, un dettaglio inquietante…" value=${s.card?.blurb || ""} onChange=${e=>set("card.blurb", e.target.value)}></textarea></label>
-          <p className="muted" style=${{margin:0,fontSize:".8rem"}}>I giocatori non vedono mai statistiche e PF: solo uno stato vago (illeso, ferito, malconcio, allo stremo, a terra) che segue i PF della scheda.</p>
+          <p className="muted" style=${{margin:0,fontSize:".8rem"}}>I giocatori non vedono mai statistiche e PF. Come avversario vedono anche uno stato vago (illeso, ferito, malconcio, allo stremo, a terra) che segue i PF della scheda; come personaggio conosciuto solo nome, tipo, descrizione e ritratto.</p>
         </div>`}
       </section>
     </div>`}
@@ -1262,6 +1280,95 @@ function FoesSection({foes, urls, onMini, master, onHide, onHideAll}){
   </section>`;
 }
 
+/* ---------- personaggi conosciuti: carta pubblica di un PNG, visibile solo a chi lo conosce ---------- */
+const npcOf = (c) => { const {hp_state, ...pub} = foeOf(c); return pub; };
+function PubCard({f, url, badge, who, pt, ptCls, extra}){
+  const s = norm(foeSheet(f));
+  return html`<div className=${"tcard foe f-"+(f.frame||"grigio")}>
+   <div className="tc-in">
+    <div className="tc-title"><span className="tc-name">${f.name || "Sconosciuto"}</span><span className="tc-lv">${badge}</span></div>
+    <div className="tc-art">${url ? html`<img src=${url} alt="" loading="lazy" draggable="false" style=${artFrame(s).style}/>` : html`<span className="tc-ph" aria-hidden="true">${initialsOf(f.name)}</span>`}</div>
+    <div className="tc-type"><span>${f.kind || "Personaggio"}</span><span className="tc-sym" aria-hidden="true">✦</span></div>
+    <div className="tc-text">${f.blurb ? html`<i className="tc-flavor" style=${{marginTop:0,borderTop:0,paddingTop:0}}>${f.blurb}</i>` : html`<span className="muted" style=${{fontSize:".75rem",color:"#5a4f40"}}>Nessuna descrizione.</span>`}${extra}</div>
+    <div className="tc-foot"><span className="tc-who" title=${who}>${who}</span>${pt && html`<span className=${"tc-pt "+(ptCls||"")}>${pt}</span>`}</div>
+   </div></div>`;
+}
+function AudiencePicker({initial, players, names, onSave, onCancel}){
+  const [sel, setSel] = useState(()=>new Set(initial || []));
+  const all = players.length > 0 && players.every(p=>sel.has(p.user_id));
+  const tog = id => setSel(s=>{ const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const gone = [...sel].filter(id=>!players.some(p=>p.user_id===id));
+  return html`<div className="aud-pick" role="group" aria-label="Chi conosce questo personaggio">
+    <div className="aud-h">Chi lo conosce?</div>
+    ${players.length === 0 ? html`<p className="muted" style=${{margin:0,fontSize:".85rem"}}>Nessun giocatore nel gruppo.</p>` : html`
+      <label className="aud-row"><input type="checkbox" checked=${all} onChange=${()=>setSel(all ? new Set(gone) : new Set([...gone, ...players.map(p=>p.user_id)]))}/> <b>Tutti</b></label>
+      ${players.map(p=>html`<label key=${p.user_id} className="aud-row"><input type="checkbox" checked=${sel.has(p.user_id)} onChange=${()=>tog(p.user_id)}/> ${p.name || names[p.user_id] || "Giocatore"}</label>`)}`}
+    <div className="aud-btns"><button type="button" className="btn small primary" onClick=${()=>onSave([...sel])}>Salva</button><button type="button" className="btn small" onClick=${onCancel}>Annulla</button></div>
+  </div>`;
+}
+function NoteBox({value, onSave}){
+  const [v, setV] = useState(value || ""); const [open, setOpen] = useState(false);
+  useEffect(()=>{ setV(value || ""); },[value]);
+  if (!open) return html`<button type="button" className="btn small" onClick=${()=>setOpen(true)} title="Una nota solo tua su questo personaggio">📝 ${value ? "La mia nota" : "Aggiungi una nota"}</button>`;
+  return html`<div className="note-box"><textarea className="field" maxLength="500" autoFocus aria-label="La mia nota" placeholder="Solo per te: cosa sai, cosa ti deve, di cosa diffidare…" value=${v} onChange=${e=>setV(e.target.value)}></textarea>
+    <div className="aud-btns"><button type="button" className="btn small primary" onClick=${()=>{ onSave(v.trim()); setOpen(false); }}>Salva nota</button><button type="button" className="btn small" onClick=${()=>{ setV(value || ""); setOpen(false); }}>Annulla</button></div></div>`;
+}
+const byNameN = (a,b) => String(a.name||"").localeCompare(String(b.name||""));
+function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
+  const M = me.isMaster;
+  const [pick, setPick] = useState(null); const [showIgn, setShowIgn] = useState(false); const [err, setErr] = useState("");
+  const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); };
+  if (M){
+    if (!npcs.length) return null;
+    return html`<section className="known-sec">
+      <div className="party-head"><div><div className="eyebrow">Condivisi con chi li conosce</div><h2>Personaggi conosciuti</h2></div></div>
+      <div className="cards tcards">${[...npcs].sort(byNameN).map(n=>{ const aud = n.audience || [];
+        const who = aud.length ? aud.map(u=>(names[u] || "?")+(saves.some(s=>s.card_id===n.id && s.user_id===u && s.saved) ? " ★" : "")).join(", ") : "Nessuno";
+        return html`<div key=${n.id} className=${"tcard-wrap"+(aud.length ? "" : " tc-secret")}><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who=${"Lo conoscono: "+who}/>
+          ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
+          ${pick===n.id ? html`<${AudiencePicker} initial=${aud} players=${players} names=${names} onCancel=${()=>setPick(null)} onSave=${a=>{ setPick(null); run(()=>ops.setAudience(n.id, a)); }}/>`
+            : html`<button type="button" className="btn small" onClick=${()=>setPick(n.id)}>👁 Chi lo conosce</button>`}
+          ${!aud.length && html`<button type="button" className="btn small" onClick=${()=>run(()=>ops.remove(n.id))} title="Nessuno lo conosce: la carta pubblica si può eliminare (la scheda resta)">Elimina la carta</button>`}
+        </div>`; })}</div>
+      <p className="muted" style=${{fontSize:".85rem",margin:"8px 0 0"}}>★ = l'ha salvato nella sua raccolta. Nome, tipo, descrizione e ritratto seguono la scheda (Scheda → Carta).</p>
+      ${err && html`<p className="notice err" role="alert">${err}</p>`}
+    </section>`;
+  }
+  const mine = npcs.filter(n=>(n.audience || []).includes(me.id)).sort(byNameN);
+  const sv = Object.fromEntries(saves.filter(s=>s.user_id===me.id).map(s=>[s.card_id, s]));
+  const fresh = mine.filter(n=>!sv[n.id]), saved = mine.filter(n=>sv[n.id]?.saved), ign = mine.filter(n=>sv[n.id] && !sv[n.id].saved);
+  const note = (n) => sv[n.id]?.note ? html`<div className="tc-note">📝 ${sv[n.id].note}</div>` : null;
+  return html`<section className="known-sec">
+    <div className="party-head"><div><div className="eyebrow">La tua raccolta</div><h2>Personaggi conosciuti</h2></div></div>
+    ${fresh.length > 0 && html`<div className="known-new"><div className="eyebrow">Nuovi incontri</div>
+      <div className="cards tcards">${fresh.map(n=>html`<div key=${n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Nuovo incontro"/>
+        <button type="button" className="btn small primary" onClick=${()=>run(()=>ops.save(n.id, true))}>★ Salva tra i conosciuti</button>
+        ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
+        <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, false))}>Ignora</button></div>`)}</div></div>`}
+    ${saved.length === 0 ? html`<p className="muted" style=${{margin:"0 0 8px"}}>${mine.length ? "Non hai ancora salvato nessun personaggio." : "Quando il master ti farà conoscere qualcuno, la sua carta comparirà qui e potrai salvarla nella tua raccolta."}</p>`
+      : html`<div className="cards tcards">${saved.map(n=>html`<div key=${n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="★" who="Conosciuto" extra=${note(n)}/>
+          ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
+          <${NoteBox} value=${sv[n.id]?.note} onSave=${v=>run(()=>ops.note(n.id, v))}/>
+          <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, false))} title="Lo togli dalla raccolta: lo ritrovi tra gli ignorati">Togli dalla raccolta</button></div>`)}</div>`}
+    ${ign.length > 0 && html`<div className="known-ign"><button type="button" className="btn small" aria-expanded=${showIgn} onClick=${()=>setShowIgn(!showIgn)}>${showIgn ? "Nascondi" : "Mostra"} gli ignorati (${ign.length})</button>
+      ${showIgn && html`<div className="cards tcards">${ign.map(n=>html`<div key=${n.id} className="tcard-wrap tc-secret"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Ignorato"/>
+        <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, true))}>★ Salva tra i conosciuti</button></div>`)}</div>`}</div>`}
+    ${err && html`<p className="notice err" role="alert">${err}</p>`}
+  </section>`;
+}
+function NpcMeetModal({n, url, onSave, onLater, onMini}){
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onLater(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  return html`<div className="modal-back" role="dialog" aria-modal="true" aria-label=${"Nuovo incontro: "+(n.name||"")} onClick=${e=>{ if (e.target===e.currentTarget) onLater(); }}>
+    <div className="modal meet">
+      <div className="eyebrow">Nuovo incontro</div>
+      <h2>Hai conosciuto ${n.name || "qualcuno"}</h2>
+      <div className="meet-card"><${PubCard} f=${n} url=${url} badge="✦" who="Nuovo incontro"/></div>
+      <div className="row"><button type="button" className="btn" onClick=${onMini}>🧍 Miniatura</button><span className="spacer"></span>
+        <button type="button" className="btn" onClick=${onLater}>Più tardi</button><button type="button" className="btn primary" onClick=${onSave} autoFocus>★ Salva tra i conosciuti</button></div>
+    </div>
+  </div>`;
+}
+
 /* ---------- miniatura 3D in cartoncino (finestrella flottante) ---------- */
 const MINI_SEG = 28;   // spicchi del bordo della basetta
 function MiniBack({s, D, npc}){
@@ -1289,7 +1396,7 @@ function MiniBack({s, D, npc}){
 }
 function MiniWindow({c, foe, url, idx, onClose, onFocus}){
   const s = norm(foe ? foeSheet(foe) : c); const D = derived(s); const fr = foe ? (foe.frame || "grigio") : frameOf(s, !c.owner); const af = artFrame(s);
-  const key = "mini:"+(foe ? "foe:"+foe.id : c.id);
+  const key = "mini:"+(foe ? (foe.known ? "npc:" : "foe:")+foe.id : c.id);
   const [box, setBox] = useState(()=>{ const v = lsGet(key, null); const W = window.innerWidth, H = window.innerHeight;
     const def = {x: Math.max(8, W - 300 - 24 - idx*28), y: Math.max(70, 110 + idx*28), w: 280, h: 400, min:false};
     const b = v && typeof v === "object" ? {...def, ...v} : def;
@@ -1336,11 +1443,12 @@ function MiniWindow({c, foe, url, idx, onClose, onFocus}){
             <span className="mini-gloss" style=${{opacity: 0.08 + 0.25*light}}></span>
           </div>
           <div className="mini-face mini-back">${foe ? html`<div className="mb mb-foe">
-            <div className="mb-h"><b>${foe.name || "Avversario"}</b></div>
-            <div className="mb-x">⚔ Avversario</div>
+            <div className="mb-h"><b>${foe.name || (foe.known ? "Sconosciuto" : "Avversario")}</b></div>
+            <div className=${"mb-x"+(foe.known ? " known" : "")}>${foe.known ? "✦ Personaggio conosciuto" : "⚔ Avversario"}</div>
             ${foe.kind && html`<div className="mb-t">${foe.kind}</div>`}
-            <div className=${"mb-hp hp-"+String(foe.hp_state||"illeso").replace(/\s+/g,"-")}>${HP_WORDS[foe.hp_state] || "Illeso"}</div>
+            ${!foe.known && html`<div className=${"mb-hp hp-"+String(foe.hp_state||"illeso").replace(/\s+/g,"-")}>${HP_WORDS[foe.hp_state] || "Illeso"}</div>`}
             ${foe.blurb && html`<div className="mb-r" style=${{fontStyle:"italic"}}>${foe.blurb}</div>`}
+            ${foe.note && html`<div className="mb-r mb-note">📝 ${foe.note}</div>`}
           </div>` : html`<${MiniBack} s=${s} D=${D} npc=${!c.owner}/>`}</div>
         </div>
         <div className="mini-base">
@@ -1350,15 +1458,15 @@ function MiniWindow({c, foe, url, idx, onClose, onFocus}){
         </div>
       </div>
     </div>
-    <div className="mini-foot">${foe ? (showingBack ? "Retro" : "Trascina per ruotare")+" · "+(HP_WORDS[foe.hp_state] || "Illeso") : html`${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}`}</div>
+    <div className="mini-foot">${foe ? (showingBack ? "Retro" : "Trascina per ruotare")+" · "+(foe.known ? "Personaggio conosciuto" : (HP_WORDS[foe.hp_state] || "Illeso")) : html`${showingBack ? "Retro: statistiche" : "Trascina per ruotare"} · PF ${s.hp.cur}/${D.effMax}${s.hp.temp ? " +"+s.hp.temp : ""} · CA ${s.ac}`}</div>
   </div>`;
 }
 
-function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini, foes=[], foeUrls={}, foeOps}){
+function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden, onMini, foes=[], foeUrls={}, foeOps, npcs=[], npcSaves=[], npcOps, players=[]}){
   const haz = climate(world); const M = me.isMaster;
   const chars = allChars.filter(c=>!c.hidden);
   const secret = M ? allChars.filter(c=>c.hidden).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))) : [];
-  const [busyId, setBusyId] = useState(null); const [err, setErr] = useState("");
+  const [busyId, setBusyId] = useState(null); const [err, setErr] = useState(""); const [pickId, setPickId] = useState(null);
   const move = async (c, hidden) => { setBusyId(c.id); setErr(""); const m = await onSetHidden(c.id, hidden); setBusyId(null); if (m) setErr(m); };
   const mine = chars.find(c=>c.owner===me.id);
   const sorted = [...chars].sort((a,b)=> (a.owner===me.id?-1:b.owner===me.id?1:0) || (!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
@@ -1381,15 +1489,20 @@ function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc
           ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)} title="Apri la miniatura 3D in una finestrella che puoi spostare">🧍 Miniatura</button>`}
           ${M && !c.owner && onSetHidden && html`<button type="button" className="btn small" disabled=${busyId===c.id} onClick=${()=>move(c, true)} title="Torna tra le schede del master: i giocatori non la vedono più">Nascondi ai giocatori</button>`}</div>`)}</div>`}
     <${FoesSection} foes=${foes} urls=${foeUrls} onMini=${onMini} master=${M} onHide=${foeOps?.hide} onHideAll=${foeOps?.hideAll}/>
+    ${npcOps && html`<${KnownSection} me=${me} players=${players} names=${names} npcs=${npcs} saves=${npcSaves} urls=${foeUrls} onMini=${onMini} ops=${npcOps}/>`}
     ${M && html`<section className="secret-sheets">
       <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede del master</h2></div><span className="spacer"></span>
         <button type="button" className="btn" onClick=${onCreateNpc}>+ Nuova scheda segreta</button></div>
-      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. Con “⚔ Mostra come avversario” i giocatori vedono solo carta e miniatura (nome, tipo, descrizione, immagine e uno stato vago), mai statistiche o PF. I tiri fatti da una scheda segreta sono nascosti.</p>
+      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. Con “⚔ Mostra come avversario” i giocatori vedono solo carta e miniatura (nome, tipo, descrizione, immagine e uno stato vago), mai statistiche o PF. Con “👁 Fai conoscere” scegli quali giocatori lo conoscono: solo loro vedono la sua carta pubblica e possono salvarla tra i “Personaggi conosciuti”. I tiri fatti da una scheda segreta sono nascosti.</p>
       ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda segreta.</p>`
         : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className="tcard-wrap tc-secret"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
             ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini(c.id)}>🧍 Miniatura</button>`}
             ${foeOps && (foes.some(f=>f.id===c.id) ? html`<button type="button" className="btn small" onClick=${()=>foeOps.hide(c.id)}>Togli dalla scena</button>`
               : html`<button type="button" className="btn small" onClick=${async()=>{ const m = await foeOps.show(c); if (m) setErr(m); }} title="I giocatori vedono carta e miniatura, senza statistiche né PF">⚔ Mostra come avversario</button>`)}
+            ${npcOps && (()=>{ const n = npcs.find(x=>x.id===c.id); const k = (n?.audience || []).length;
+              return pickId===c.id ? html`<${AudiencePicker} initial=${n?.audience || []} players=${players} names=${names} onCancel=${()=>setPickId(null)}
+                  onSave=${async a=>{ setPickId(null); setErr(""); const m = n ? await npcOps.setAudience(c.id, a) : await npcOps.share(c, a); if (m) setErr(m); }}/>`
+                : html`<button type="button" className="btn small" onClick=${()=>setPickId(c.id)} title="Scegli quali giocatori conoscono questo personaggio: vedranno solo la sua carta pubblica">👁 ${n ? `Chi lo conosce (${k})` : "Fai conoscere…"}</button>`; })()}
             ${onSetHidden && html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`}</div>`)}</div>`}
     </section>`}
     ${err && html`<p className="notice err" role="alert">${err}</p>`}
@@ -2242,6 +2355,9 @@ function useCampaign(sb, active){
   const loadArchive = useCallback(async()=>{ const {data, error} = await sb.from("map_archive").select("*");
     if (error){ setArchiveErr(error.message); return; } setArchiveErr(""); setArchive(data); },[sb]);
   const [foes, setFoes] = useState([]);
+  const [npcs, setNpcs] = useState([]); const [npcSaves, setNpcSaves] = useState([]);
+  const loadNpcs = useCallback(async()=>{ const [a, b] = await Promise.all([sb.from("npc_cards").select("*"), sb.from("npc_saves").select("*")]);
+    if (!a.error) setNpcs(a.data); if (!b.error) setNpcSaves(b.data); },[sb]);
   const loadFoes = useCallback(async()=>{ const {data, error} = await sb.from("foes").select("*"); if (!error) setFoes(data); },[sb]);
   const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
@@ -2271,9 +2387,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -2312,20 +2428,22 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"maps_master"}, ()=>loadMmaps())
       .on("postgres_changes",{event:"*",schema:"public",table:"map_archive"}, ()=>loadArchive())
       .on("postgres_changes",{event:"*",schema:"public",table:"foes"}, ()=>loadFoes())
+      .on("postgres_changes",{event:"*",schema:"public",table:"npc_cards"}, ()=>loadNpcs())
+      .on("postgres_changes",{event:"*",schema:"public",table:"npc_saves"}, ()=>loadNpcs())
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
     /* un orologio o una scheda nascosti dal master non arrivano in tempo reale ai giocatori: ricontrollo ogni tanto */
-    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks(); loadFoes();
+    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks(); loadFoes(); loadNpcs();
       sb.from("characters").select("id").then(({data, error})=>{ if (error || !data) return; const ids = new Set(data.map(r=>r.id)); setChars(x=> x.every(c=>ids.has(c.id)) ? x : x.filter(c=>ids.has(c.id))); }); }, 30000);
     return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); clearInterval(clkT); };
   },[sb, active, loadAll]);
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs};
 }
 
 function useSignedUrls(sb, maps, bucket="mappe"){
@@ -2488,11 +2606,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves] = await Promise.all([
         q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -2536,6 +2654,8 @@ function BackupPanel({sb, camp}){
     await up("maps_master", b.maps_master, "versioni del master delle mappe");
     await up("map_archive", b.map_archive, "archivio delle mappe", r=>({...r, created_by:null}));
     await up("foes", b.foes, "avversari in scena");
+    await up("npc_cards", b.npc_cards, "personaggi conosciuti");
+    if (Array.isArray(b.npc_saves)) for (const s of b.npc_saves){ const {error} = await sb.from("npc_saves").insert(s); if (error && !/duplicate|unique/i.test(error.message)){ problems.push("raccolte dei giocatori: "+error.message); break; } }
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
   };
@@ -3871,7 +3991,7 @@ function Main({sb, me, onSignOut}){
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
   const masterUrls = useSignedUrls(sb, me.isMaster ? camp.mmaps : {});
-  const portraitPaths = useMemo(()=>({...Object.fromEntries(camp.foes.filter(f=>f.portrait).map(f=>[f.id, f.portrait])), ...Object.fromEntries(chars.filter(c=>c.portrait).map(c=>[c.id, c.portrait]))}), [chars, camp.foes]);
+  const portraitPaths = useMemo(()=>({...Object.fromEntries(camp.npcs.filter(f=>f.portrait).map(f=>[f.id, f.portrait])), ...Object.fromEntries(camp.foes.filter(f=>f.portrait).map(f=>[f.id, f.portrait])), ...Object.fromEntries(chars.filter(c=>c.portrait).map(c=>[c.id, c.portrait]))}), [chars, camp.foes, camp.npcs]);
   const portraits = useSignedUrls(sb, portraitPaths, "ritratti");
   const onPortrait = async (charId, file) => {
     if (!charId) return {error:"Salva prima la scheda."};
@@ -3957,6 +4077,37 @@ function Main({sb, me, onSignOut}){
         camp.setFoes(x=>x.map(y=>y.id===f.id ? {...y, ...pub} : y));
         await sb.from("foes").update({...pub, updated_at:new Date().toISOString()}).eq("id", f.id); } } }, 900);
     return ()=>clearTimeout(foeSync.current); },[chars, camp.foes, me.isMaster]);
+  /* personaggi conosciuti: il master sceglie chi li conosce, i giocatori li salvano nella propria raccolta */
+  const players = useMemo(()=>members.filter(m=>m.user_id !== me.id || !me.isMaster), [members, me.id, me.isMaster]);
+  const npcErr = (e) => e.message+(/npc_|schema cache|relation/i.test(e.message) ? " (esegui fase17.sql)" : "");
+  const npcOps = {
+    share: async (c, audience) => { const now = new Date().toISOString(); const row = {id:c.id, ...npcOf(c), audience, updated_at:now};
+      camp.setNpcs(x=> x.some(n=>n.id===c.id) ? x.map(n=>n.id===c.id ? {...n, ...row} : n) : [...x, {...row, created_at:now}]);
+      const {error:e} = await sb.from("npc_cards").upsert(row); if (e){ camp.loadNpcs(); return "Non condiviso: "+npcErr(e); } return ""; },
+    setAudience: async (id, audience) => { camp.setNpcs(x=>x.map(n=>n.id===id ? {...n, audience} : n));
+      const {error:e} = await sb.from("npc_cards").update({audience, updated_at:new Date().toISOString()}).eq("id", id); if (e){ camp.loadNpcs(); return "Non salvato: "+npcErr(e); } return ""; },
+    remove: async (id) => { camp.setNpcs(x=>x.filter(n=>n.id!==id)); camp.setNpcSaves(x=>x.filter(s=>s.card_id!==id));
+      const {error:e} = await sb.from("npc_cards").delete().eq("id", id); if (e){ camp.loadNpcs(); return "Non eliminata: "+npcErr(e); } return ""; },
+    mine: (cardId, patch) => saveMine(cardId, patch),
+    save: (cardId, saved) => saveMine(cardId, {saved}),
+    note: (cardId, note) => saveMine(cardId, {note: String(note||"").slice(0,500)}),
+  };
+  async function saveMine(cardId, patch){
+    const cur = camp.npcSaves.find(s=>s.card_id===cardId && s.user_id===me.id); const now = new Date().toISOString();
+    camp.setNpcSaves(x=> cur ? x.map(s=>(s.card_id===cardId && s.user_id===me.id) ? {...s, ...patch, updated_at:now} : s) : [...x, {card_id:cardId, user_id:me.id, saved:true, note:"", created_at:now, updated_at:now, ...patch}]);
+    const {error:e} = cur ? await sb.from("npc_saves").update({...patch, updated_at:now}).eq("card_id", cardId).eq("user_id", me.id)
+      : await sb.from("npc_saves").insert({card_id:cardId, user_id:me.id, saved:true, note:"", ...patch});
+    if (e){ camp.loadNpcs(); return "Non salvato: "+npcErr(e); } return ""; }
+  const npcSync = useRef(0);
+  useEffect(()=>{ if (!me.isMaster || !camp.npcs.length) return; clearTimeout(npcSync.current);
+    npcSync.current = setTimeout(async ()=>{ for (const n of camp.npcs){ const c = chars.find(x=>x.id===n.id); if (!c) continue; const pub = npcOf(c);
+      if (Object.keys(pub).some(k => JSON.stringify(pub[k]) !== JSON.stringify(n[k] ?? (k==="portrait" ? null : n[k])))){
+        camp.setNpcs(x=>x.map(y=>y.id===n.id ? {...y, ...pub} : y));
+        await sb.from("npc_cards").update({...pub, updated_at:new Date().toISOString()}).eq("id", n.id); } } }, 900);
+    return ()=>clearTimeout(npcSync.current); },[chars, camp.npcs, me.isMaster]);
+  const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
+  const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
+  const meetNpc = me.isMaster ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
   const setCharHidden = async (id, hidden) => {
     camp.setChars(x=>x.map(c=>c.id===id ? {...c, hidden} : c));
     const {data, error:e} = await sb.from("characters").update({hidden}).eq("id", id).select("id");
@@ -4138,6 +4289,7 @@ function Main({sb, me, onSignOut}){
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
       ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini} foes=${camp.foes} foeUrls=${portraits} foeOps=${foeOps}
+          npcs=${camp.npcs} npcSaves=${camp.npcSaves} npcOps=${npcOps} players=${players}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
@@ -4154,8 +4306,12 @@ function Main({sb, me, onSignOut}){
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
-    ${minis.map((id,i)=>{ const isFoe = id.startsWith("foe:"); const fid = isFoe ? id.slice(4) : id;
-      const foe = isFoe ? camp.foes.find(f=>f.id===fid && (f.visible || me.isMaster)) : null; const c = isFoe ? null : chars.find(x=>x.id===id);
+    ${!hoOpen && meetNpc && html`<${NpcMeetModal} key=${meetNpc.id} n=${meetNpc} url=${portraits[meetNpc.id]} onLater=${()=>markNpcSeen(meetNpc.id)}
+        onMini=${()=>openMini("npc:"+meetNpc.id)} onSave=${async()=>{ markNpcSeen(meetNpc.id); const m = await npcOps.save(meetNpc.id, true); if (m) setMsg(m); }}/>`}
+    ${minis.map((id,i)=>{ const isFoe = id.startsWith("foe:"), isNpc = id.startsWith("npc:"); const fid = (isFoe || isNpc) ? id.slice(4) : id;
+      const npc = isNpc ? camp.npcs.find(n=>n.id===fid && (me.isMaster || (n.audience||[]).includes(me.id))) : null;
+      const foe = isFoe ? camp.foes.find(f=>f.id===fid && (f.visible || me.isMaster)) : npc ? {...npc, known:true, note: me.isMaster ? "" : (camp.npcSaves.find(s=>s.card_id===fid && s.user_id===me.id)?.note || "")} : null;
+      const c = (isFoe || isNpc) ? null : chars.find(x=>x.id===id);
       return (foe || c) ? html`<${MiniWindow} key=${id} c=${c} foe=${foe} url=${portraits[fid]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
   </div><//>`;
