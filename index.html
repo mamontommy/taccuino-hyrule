@@ -509,6 +509,10 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .tr-cu{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.9rem}
 .tr-cu .tr-n{flex:1 1 120px}
 .tr-cu .muted{font-size:.78rem}
+.hub2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;align-items:start}
+.hub2>.col{display:grid;gap:16px;align-content:start}
+.hub2 .as-list{max-height:none}
+@media (max-width:860px){.hub2{grid-template-columns:minmax(0,1fr)}}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -4160,21 +4164,29 @@ function DiscordPanel({sb}){
   </section>`;
 }
 
+/* schede della sessione + tutti i personaggi: nella plancia (impilati) e nella pagina "Schede" del master (affiancati) */
+function SheetsHub({chars, names, camp, adjustHp, onOpen, onMini, sessionOps, split=false}){
+  const session = CFG.session || [];
+  const groups = useMemo(()=>sheetGroups(chars, camp.foes, camp.npcs, session), [chars, camp.foes, camp.npcs, session.join()]);
+  const sesList = groups[0].list;
+  const vis = chars.filter(c=>!c.hidden && c.owner).filter(c=>!session.includes(c.id));
+  const left = html`<${PartyStatus} chars=${sesList} sorted=${true} names=${names} adjustHp=${adjustHp} title="Schede della sessione" onOpen=${onOpen} onMini=${onMini} onUnpin=${id=>sessionOps.toggle(id)}
+          empty=${html`<div className="muted" style=${{fontSize:".9rem",display:"grid",gap:8}}><span>Tieni qui le schede che ti servono stasera: compagnia, PNG, avversari. Restano anche dopo aver chiuso l’app. Si aggiungono con “📌 Sessione” in “Tutti i personaggi”.</span>
+            ${vis.length>0 && html`<div><button type="button" className="btn small primary" onClick=${()=>sessionOps.add(vis.map(c=>c.id))}>📌 Aggiungi la compagnia (${vis.length})</button></div>`}</div>`}/>
+        ${sesList.length>0 && html`<div className="row ses-tools">${vis.length>0 && html`<button type="button" className="btn small" onClick=${()=>sessionOps.add(vis.map(c=>c.id))} title=${vis.map(c=>norm(c).name).join(", ")}>📌 Aggiungi la compagnia (${vis.length})</button>`}<span className="spacer"></span><button type="button" className="btn small" onClick=${()=>sessionOps.clear()} title="Svuota l’elenco della sessione (le schede restano)">Svuota la sessione</button></div>`}`;
+  const right = html`<${AllSheetsPanel} chars=${chars} groups=${groups} names=${names} session=${session} onOpen=${onOpen} onMini=${onMini} onPin=${id=>sessionOps.toggle(id)}/>`;
+  return split ? html`<div className="hub2"><div className="col">${left}</div><div className="col">${right}</div></div>` : html`${left}${right}`;
+}
+
 function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps, foeUrls={}, onMini, onOpen, sessionOps}){
   const {combat, fighters, secrets, rolls} = camp;
   const session = me.isMaster ? (CFG.session || []) : [];
   const groups = useMemo(()=> me.isMaster ? sheetGroups(chars, camp.foes, camp.npcs, session) : null, [me.isMaster, chars, camp.foes, camp.npcs, session.join()]);
-  const sesList = groups ? groups[0].list : [];
-  const vis = me.isMaster ? chars.filter(c=>!c.hidden && c.owner).filter(c=>!session.includes(c.id)) : [];
   if (me.isMaster) return html`<div>
     <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Plancia del master</h2></div></div>
     <div className="table3">
       <div className="col"><${Initiative} combat=${combat} fighters=${fighters} secrets=${secrets} chars=${chars} me=${me} act=${act} groups=${groups} names=${names} foes=${camp.foes}/><${ClocksPanel} clocks=${camp.clocks} ops=${clockOps} err=${camp.clocksErr}/></div>
-      <div className="col"><${PartyStatus} chars=${sesList} sorted=${true} names=${names} adjustHp=${adjustHp} title="Schede della sessione" onOpen=${onOpen} onMini=${onMini} onUnpin=${id=>sessionOps.toggle(id)}
-          empty=${html`<div className="muted" style=${{fontSize:".9rem",display:"grid",gap:8}}><span>Tieni qui le schede che ti servono stasera: compagnia, PNG, avversari. Restano anche dopo aver chiuso l’app. Si aggiungono con “📌 Sessione” in “Tutti i personaggi”.</span>
-            ${vis.length>0 && html`<div><button type="button" className="btn small primary" onClick=${()=>sessionOps.add(vis.map(c=>c.id))}>📌 Aggiungi la compagnia (${vis.length})</button></div>`}</div>`}/>
-        ${sesList.length>0 && html`<div className="row ses-tools">${vis.length>0 && html`<button type="button" className="btn small" onClick=${()=>sessionOps.add(vis.map(c=>c.id))} title=${vis.map(c=>norm(c).name).join(", ")}>📌 Aggiungi la compagnia (${vis.length})</button>`}<span className="spacer"></span><button type="button" className="btn small" onClick=${()=>sessionOps.clear()} title="Svuota l’elenco della sessione (le schede restano)">Svuota la sessione</button></div>`}
-        <${AllSheetsPanel} chars=${chars} groups=${groups} names=${names} session=${session} onOpen=${onOpen} onMini=${onMini} onPin=${id=>sessionOps.toggle(id)}/>
+      <div className="col"><${SheetsHub} chars=${chars} names=${names} camp=${camp} adjustHp=${adjustHp} onOpen=${onOpen} onMini=${onMini} sessionOps=${sessionOps}/>
         <${WorldPanel} sb=${sb} world=${camp.world} setWorld=${camp.setWorld} chars=${chars}/><${DiceTray} onFree=${onFree} master=${true}/></div>
       <div className="col"><${Feed} rolls=${rolls}/><${SoundsPanel} sb=${sb} sounds=${camp.sounds} audio=${camp.audio} reload=${camp.loadAudio}/><${DiscordPanel} sb=${sb}/><${BackupPanel} sb=${sb} camp=${camp}/></div>
     </div></div>`;
@@ -4254,7 +4266,7 @@ function Main({sb, me, onSignOut}){
     return {path}; };
   const onPortraitRemove = (path) => { if (path) sb.storage.from("ritratti").remove([path]); };
   const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
-  const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo","cronache","campagna"].includes(h)?h:lsGet("view","gruppo"); });
+  const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); const v = ["mappa","gruppo","tavolo","cronache","campagna","schede"].includes(h)?h:lsGet("view","gruppo"); return v==="schede" && !me.isMaster ? "gruppo" : v; });
   const [openId, setOpenId] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [minis, setMinis] = useState(()=>{ const v = lsGet("minis", []); return Array.isArray(v) ? v.slice(0,6) : []; });
@@ -4534,13 +4546,14 @@ function Main({sb, me, onSignOut}){
   const mine = chars.find(c=>c.owner===me.id);
   const goMine = () => { setBackView("gruppo"); if (mine){ setOpenId(mine.id); setView("scheda"); } else { setView("gruppo"); setOpenId(null); } };
   const openFromTable = (id) => { setBackView("tavolo"); setOpenId(id); setView("scheda"); window.scrollTo(0,0); };
-  const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],["scheda","La mia scheda"],["mappa", PLANES.length>1?"Mappe":"Mappa"],["cronache","Cronache"]];
+  const openFromSheets = (id) => { setBackView("schede"); setOpenId(id); setView("scheda"); window.scrollTo(0,0); };
+  const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],[me.isMaster ? "schede" : "scheda", me.isMaster ? "Schede" : "La mia scheda"],["mappa", PLANES.length>1?"Mappe":"Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
   return html`<${SpellsCtx.Provider} value=${book}><div>
     <header className="bar"><div className="bar-in">
       <div className="brand"><${Mark} size=${26}/><span>${CFG.name}</span></div>
-      <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${view===k && (k!=="scheda" || (mine && openId===mine.id))}
+      <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${(view===k && (k!=="scheda" || (mine && openId===mine.id))) || (k==="schede" && view==="scheda" && backView==="schede")}
         onClick=${()=> k==="scheda" ? goMine() : (setView(k), setOpenId(null))}>${l}${k==="tavolo" && combat.active ? html` <span className="live" aria-label="scontro in corso"></span>` : null}</button>`)}</nav>
       <${AudioControl} sb=${sb} me=${me} sounds=${camp.sounds} audio=${camp.audio} world=${camp.world}/>
       <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
@@ -4560,9 +4573,13 @@ function Main({sb, me, onSignOut}){
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini} onOpen=${openFromTable} sessionOps=${sessionOps}/>`}
+      ${view==="schede" && me.isMaster && html`<div>
+        <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Schede</h2></div><span className="spacer"></span>
+          <button type="button" className="btn" onClick=${()=>create(true)} title="Nasce tra le schede del master, invisibile ai giocatori">+ Scheda segreta</button></div>
+        <${SheetsHub} split=${true} chars=${chars} names=${names} camp=${camp} adjustHp=${adjustHp} onOpen=${openFromSheets} onMini=${openMini} sessionOps=${sessionOps}/></div>`}
       ${view==="scheda" && (openChar
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
-              onBack=${()=>{setView(backView); setOpenId(null);}} backLabel=${backView==="tavolo" ? "← Plancia" : "← Il gruppo"}
+              onBack=${()=>{setView(backView); setOpenId(null);}} backLabel=${backView==="tavolo" ? "← Plancia" : backView==="schede" ? "← Schede" : "← Il gruppo"}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
               portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null} onMini=${openMini}/>`
