@@ -1229,7 +1229,8 @@ function eqAttack(x, D){
   return {bonus: sg(bonus).replace("−","-"), dmg: dice + (dmgMod ? (dmgMod>0 ? "+" : "-") + Math.abs(dmgMod) : ""), notes: [x.dmgType, x.props].filter(Boolean).join(" · ")};
 }
 function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen, openV}){
-  const c = eqCat(x); const wear = eqWearable(c);
+  const setEq = (on) => upd(p=>equipItem(p, x.id, on));
+  const c = eqCat(x); const wear = eqWearable(c) || !!x.eq || !!slotFor([], x);
   const atk = (s.attacks||[]).find(a=>a.item===x.id);
   const toAttacks = () => { const a = eqAttack(x, D); upd(p=>{ const e = (p.attacks||[]).find(y=>y.item===x.id);
     if (e) Object.assign(e, {name: x.name||e.name, ...a}); else p.attacks = [...(p.attacks||[]), {id:uid(), item:x.id, name: x.name||"Arma", ...a}]; return p; }); };
@@ -1243,7 +1244,7 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     ${x.where==="altrove" && html`<span className="chip" title="Non conta nel peso trasportato">altrove</span>`}
     ${x.eq && SLOT_NAME[x.slot] && html`<span className="chip gold" title="Dove lo indossa">${SLOT_NAME[x.slot]}</span>`}`;
   const head = html`<summary className="tr-sum eq-sum">
-      ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); patch(x.eq ? {eq:false, slot:""} : {eq:true}); }}><span></span></button>` : null}
+      ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); setEq(!x.eq); }}><span></span></button>` : null}
       <span className="tr-n">${x.name || "Senza nome"}</span>${chips}
       ${Number(x.chg) > 0 && html`<span className="tr-uses" onClick=${e=>e.preventDefault()}><${Pips} n=${Math.min(20, Number(x.chg))} used=${Math.max(0, Number(x.chg) - (Number(x.used)||0))} label=${(x.name||"Oggetto")+" cariche"} onSet=${v=>patch({used: Number(x.chg) - v})}/></span>`}
       ${c==="consumabile" && !ro && Number(x.qty) > 0 && html`<button type="button" className="btn small" onClick=${e=>{ e.preventDefault(); patch({qty: Math.max(0, (Number(x.qty)||0) - 1)}); }} title="Usane uno">Usa 1</button>`}
@@ -1260,7 +1261,7 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
         <label className="lab tr-lv">Quantità<${Num} id=${"eq-q-"+x.id} value=${Number(x.qty)||0} min=${0} label="Quantità" onChange=${v=>patch({qty:v})}/></label>
         <label className="lab tr-lv">Peso (kg)<input className="field" id=${"eq-w-"+x.id} inputMode="decimal" value=${x.wt ? numIt(x.wt) : ""} placeholder="0" onChange=${e=>{ const v = parseFloat(e.target.value.replace(",",".")); patch({wt: isNaN(v) ? 0 : Math.max(0, v)}); }}/></label>
         <label className="lab">Dove<select className="field" id=${"eq-p-"+x.id} value=${x.where||"zaino"} onChange=${e=>patch({where:e.target.value})}>${EQ_WHERE.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
-        ${wear && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.eq} onChange=${e=>patch(e.target.checked ? {eq:true} : {eq:false, slot:""})}/>Equipaggiato</label>`}
+        ${wear && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.eq} onChange=${e=>setEq(e.target.checked)}/>Equipaggiato</label>`}
       </div>
       ${c==="armatura" && html`<div className="tr-row">
         <label className="lab">Tipo<select className="field" id=${"eq-at-"+x.id} value=${x.armor||"leggera"} onChange=${e=>patch({armor:e.target.value})}>${ARMOR_T.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
@@ -1323,6 +1324,30 @@ const SLOTS = [
 ];
 const SLOT_NAME = Object.fromEntries(SLOTS.map(([k,n])=>[k, n]));
 const slotGuess = (c) => c==="armatura" ? "corpo" : c==="scudo" ? "manoS" : c==="arma" ? "manoP" : "";
+/* il posto giusto per un oggetto: quello di prima, poi dal nome, poi dalla categoria */
+const SLOT_WORDS = [[/elm|cappell|corona|diadem|tiara|cappuccio|occhial|lenti|monocol|maschera|cerchiett/,"testa"],[/amulet|collan|medaglion|ciondol|pendent/,"collo"],
+  [/mantell|cappa\b|mantellin/,"spalle"],[/vest[ei]\b|tunica|abito|tonaca|saio/,"corpo"],[/cintur|cinghia|fascia/,"cintura"],[/stival|scarp|calzar|sandal/,"piedi"],
+  [/bracciali|bracciale|polsier/,"braccia"],[/guant|manopol|guanto/,"mani"],[/anell/,"anello1"],
+  [/bastone|bacchett|verga|scettro/,"manoP"],[/libro|tomo|grimorio|torcia|lantern|focus|simbolo sacro/,"manoS"]];
+function slotFor(items, x){
+  const c = eqCat(x); const n = String(x.name||"").toLowerCase();
+  let k = SLOT_NAME[x.lastSlot] ? x.lastSlot : (SLOT_WORDS.find(([re])=>re.test(n)) || [])[1] || slotGuess(c);
+  if (!k) return "";
+  const busy = (s) => items.some(y=>y.id!==x.id && y.eq && y.slot===s);
+  if (k==="anello1" && busy("anello1") && !busy("anello2")) k = "anello2";
+  if (k==="anello2" && busy("anello2") && !busy("anello1")) k = "anello1";
+  if (k==="manoP" && busy("manoP") && !busy("manoS") && c==="arma") k = "manoS";
+  return k;
+}
+/* equipaggia o toglie, tenendo il manichino allineato */
+function equipItem(p, id, on){
+  const items = p.items || []; const x = items.find(y=>y.id===id); if (!x) return p;
+  if (!on){ if (x.slot) x.lastSlot = x.slot; x.eq = false; x.slot = ""; return p; }
+  const k = slotFor(items, x); x.eq = true; x.slot = k;
+  if (k) for (const y of items) if (y.id!==x.id && y.eq && y.slot===k){ y.lastSlot = k; y.eq = false; y.slot = ""; }
+  const c = eqCat(x); if (c==="armatura" || c==="scudo") for (const y of items) if (y.id!==x.id && y.eq && eqCat(y)===c){ if (y.slot) y.lastSlot = y.slot; y.eq = false; y.slot = ""; }
+  return p;
+}
 const ARMOR_FILL = {leggera:"url(#pd-cuoio)", media:"url(#pd-scaglie)", pesante:"url(#pd-piastre)"};
 /* aspetto del manichino: scelte salvate nella scheda (s.look) */
 const LOOK_SKIN = ["#f3d7b8","#e3bf98","#c99a6e","#9c6b45","#6b4630","#9fbf9a","#a9bccf"];
@@ -1596,7 +1621,7 @@ function SlotPicker({slot, s, ro, upd, onClose, onNew}){
     /* armatura e scudo: uno solo indossato alla volta */
     if (x && (eqCat(x)==="armatura" || eqCat(x)==="scudo")) for (const y of p.items) if (y.id!==x.id && eqCat(y)===eqCat(x) && y.eq){ y.eq = false; if (y.slot) y.slot = ""; }
     return p; });
-  const off = () => upd(p=>{ for (const y of (p.items||[])) if (y.slot===k){ y.slot = ""; y.eq = false; } return p; });
+  const off = () => upd(p=>{ for (const y of (p.items||[])) if (y.slot===k){ y.lastSlot = k; y.slot = ""; y.eq = false; } return p; });
   const row = (x) => html`<button type="button" key=${x.id} className=${"pd-opt"+(x.slot===k && x.eq ? " on" : "")} onClick=${()=>{ put(x.id); onClose(); }}>
     <b>${x.name || "Senza nome"}</b><span className="muted">${EQ_ONE[eqCat(x)]}${x.slot && x.slot!==k && x.eq ? " · ora in "+SLOT_NAME[x.slot] : ""}</span></button>`;
   return html`<div className="pd-pick" role="dialog" aria-label=${"Scegli per "+n}>
