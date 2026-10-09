@@ -370,6 +370,11 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .tcard-wrap > .tcard{justify-self:stretch;margin:0 auto}
 .secret-sheets{margin-top:32px;padding-top:6px;border-top:2px dashed var(--line)}
 .tcard-wrap.tc-secret > .tcard{box-shadow:0 0 0 3px var(--bg),0 0 0 5px color-mix(in srgb,var(--muted) 60%,transparent),0 6px 18px rgb(0 0 0/.22)}
+.frame-ctl{display:grid;gap:8px;max-width:320px}
+.frame-ctl input[type=range]{width:100%}
+.cardprev.draggable .tc-art{cursor:grab;touch-action:none}
+.cardprev.draggable .tc-art:active{cursor:grabbing}
+.tc-art img{transition:none}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -579,6 +584,9 @@ const RAINBOW = "conic-gradient(from 0deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e
 const FRAME_TOKEN = {bianco:"#e9e2c8", blu:"#3f7fc0", nero:"#2f2b28", rosso:"#c0473a", verde:"#3f8a4c", viola:"#7d4fc0", arancione:"#e07f2e", rosa:"#d9709d", azzurro:"#36aec4", bronzo:"#8f6338", oro:"#d0a440", grigio:"#8c959a", arcobaleno:RAINBOW};
 const CLASS_FRAME = [["barbar","rosso"],["bard","oro"],["chieric","bianco"],["druid","verde"],["guerrier","rosso"],["ladr","nero"],["monac","bianco"],["paladin","bianco"],["ranger","verde"],["stregon","rosso"],["warlock","nero"],["artefic","grigio"],["mag","blu"]];
 const frameOf = (s, npc) => (CARD_FRAMES.some(f=>f[0]===s.card?.frame) && s.card.frame) || (CLASS_FRAME.find(([k])=>String(s.cls||"").toLowerCase().includes(k))||[])[1] || (npc ? "grigio" : "oro");
+/* inquadratura del ritratto: x e y in %, zoom 1–3 */
+const artFrame = (s) => { const x = clamp(Number(s.card?.px ?? 50),0,100), y = clamp(Number(s.card?.pos ?? 50),0,100), z = clamp(Number(s.card?.zoom) || 1, 1, 3);
+  return {x, y, z, style: {objectPosition:`${x}% ${y}%`, transform: z > 1 ? `scale(${z})` : undefined, transformOrigin:`${x}% ${y}%`}}; };
 const ALIGNMENTS = ["Legale buono","Neutrale buono","Caotico buono","Legale neutrale","Neutrale","Caotico neutrale","Legale malvagio","Neutrale malvagio","Caotico malvagio"];
 
 /* ---------- configurazione della campagna (dal database, modificabile dal master) ---------- */
@@ -679,7 +687,7 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const d = n => 1 + Math.floor(Math.random()*n);
 
 function blankSheet(){
-  return {name:"", species:"", cls:"", subclass:"", background:"", align:"", level:1, portrait:"", card:{frame:"", pos:50},
+  return {name:"", species:"", cls:"", subclass:"", background:"", align:"", level:1, portrait:"", card:{frame:"", pos:50, px:50, zoom:1},
     abil:{for:10,des:10,cos:10,int:10,sag:10,car:10}, saves:{}, skills:{},
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
@@ -807,7 +815,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
   const [hpAmt, setHpAmt] = useState("");
   const [restOk, setRestOk] = useState({});
   const [confirmDel, setConfirmDel] = useState(false);
-  const [pBusy, setPBusy] = useState(false); const [pMsg, setPMsg] = useState(""); const pIn = useRef(null);
+  const [pBusy, setPBusy] = useState(false); const [pMsg, setPMsg] = useState(""); const pIn = useRef(null); const artDrag = useRef(null);
   const ro = !editable || status==="denied";
   const D = derived(s);
   const set = (path, v) => change(p => setIn(p, path.split("."), v));
@@ -1080,7 +1088,13 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
       <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Appunti di sessione</h3><${Txt} area id="notes" value=${s.notes} placeholder="Nomi, indizi, promesse fatte…" onChange=${v=>set("notes",v)}/></section>
     </div>`}
     ${tab==="carta" && html`<div className="cardtab">
-      <div className="cardprev"><${PartyCard} c=${{...s, id:charId, owner:remote?.owner}} url=${portraitUrl} ownerName=${ownerName} world=${world}/></div>
+      <div className=${"cardprev"+(s.portrait && !ro ? " draggable" : "")}
+        onPointerDown=${e=>{ if (ro || !s.portrait) return; const art = e.target.closest && e.target.closest(".tc-art"); if (!art) return; e.preventDefault();
+          try { art.setPointerCapture(e.pointerId); } catch(_){} const f = artFrame(s); artDrag.current = {x:e.clientX, y:e.clientY, px:f.x, py:f.y, z:f.z, w:art.clientWidth||1, h:art.clientHeight||1}; }}
+        onPointerMove=${e=>{ const d = artDrag.current; if (!d) return; const k = 100 / d.z;
+          const nx = clamp(Math.round(d.px - (e.clientX-d.x)/d.w*k), 0, 100), ny = clamp(Math.round(d.py - (e.clientY-d.y)/d.h*k), 0, 100);
+          upd(p=>{ p.card = {...(p.card||{}), px:nx, pos:ny}; return p; }); }}
+        onPointerUp=${()=>{ artDrag.current = null; }} onPointerCancel=${()=>{ artDrag.current = null; }}><${PartyCard} c=${{...s, id:charId, owner:remote?.owner}} url=${portraitUrl} ownerName=${ownerName} world=${world}/></div>
       <section className="panel" style=${{alignSelf:"start"}}>
         <h3>La carta del personaggio</h3>
         <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Così compare il personaggio nella sezione “Il gruppo”; il colore della cornice è anche quello della sua pedina sulle mappe. L’immagine la vede tutto il gruppo; meglio verticale o quadrata, viene ridotta a 1000 pixel.</p>
@@ -1092,7 +1106,14 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
         <label className="lab" style=${{maxWidth:280}}>Cornice<select id="pg-frame" className="field" value=${s.card?.frame || ""} onChange=${e=>set("card.frame", e.target.value)}>
           <option value="">Automatica (dalla classe: ${(CARD_FRAMES.find(f=>f[0]===frameOf({...s, card:{}}, !remote?.owner))||[])[1]})</option>
           ${CARD_FRAMES.map(([k,l])=>html`<option key=${k} value=${k}>${l}</option>`)}</select></label>
-        ${s.portrait && html`<label className="lab" style=${{maxWidth:280}}>Inquadratura (in alto ↔ in basso)<input id="pg-pos" type="range" min="0" max="100" step="5" value=${s.card?.pos ?? 50} onChange=${e=>set("card.pos", Number(e.target.value))}/></label>`}
+        ${s.portrait && html`<div className="frame-ctl">
+          <div className="eyebrow">Inquadratura</div>
+          <label className="lab">Orizzontale (sinistra ↔ destra)<input id="pg-px" type="range" min="0" max="100" step="1" value=${artFrame(s).x} onChange=${e=>set("card.px", Number(e.target.value))}/></label>
+          <label className="lab">Verticale (in alto ↔ in basso)<input id="pg-pos" type="range" min="0" max="100" step="1" value=${artFrame(s).y} onChange=${e=>set("card.pos", Number(e.target.value))}/></label>
+          <label className="lab">Ingrandimento ${Math.round(artFrame(s).z*100)}%<input id="pg-zoom" type="range" min="1" max="3" step="0.05" value=${artFrame(s).z} onChange=${e=>set("card.zoom", Number(e.target.value))}/></label>
+          <div className="row"><button type="button" className="btn small" disabled=${ro} onClick=${()=>upd(p=>{ p.card = {...(p.card||{}), px:50, pos:50, zoom:1}; return p; })}>Centra</button>
+            <span className="muted" style=${{fontSize:".82rem"}}>Puoi anche trascinare l’immagine nell’anteprima.</span></div>
+        </div>`}
         ${pMsg && html`<p className="muted" role="status" style=${{margin:0}}>${pMsg}</p>`}
       </section>
     </div>`}
@@ -1119,7 +1140,7 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
   return html`<${Tag} type=${onOpen ? "button" : undefined} className=${"tcard f-"+frameOf(s, !c.owner)} onClick=${onOpen} aria-label=${onOpen ? "Apri la scheda di "+(s.name||"personaggio") : undefined}>
    <div className="tc-in">
     <div className="tc-title"><span className="tc-name">${s.name || "Senza nome"}</span><span className="tc-lv" title=${"Livello "+s.level}>${s.level}</span></div>
-    <div className="tc-art">${url ? html`<img src=${url} alt="" loading="lazy" draggable="false" style=${{objectPosition:`50% ${clamp(Number(s.card?.pos ?? 50),0,100)}%`}}/>`
+    <div className="tc-art">${url ? html`<img src=${url} alt="" loading="lazy" draggable="false" style=${artFrame(s).style}/>`
       : html`<span className="tc-ph" aria-hidden="true">${initialsOf(s.name)}</span>`}</div>
     <div className="tc-type"><span>${typeLine}</span><span className="tc-sym" aria-hidden="true">✦</span></div>
     <div className="tc-text">
@@ -1324,7 +1345,8 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
   const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
   const V = M && !peek;
-  const frameByChar = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, frameOf(norm(c), !c.owner)])), [chars]);   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
+  const frameByChar = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, frameOf(norm(c), !c.owner)])), [chars]);
+  const portraitPos = useMemo(()=>Object.fromEntries(chars.map(c=>{ const f = artFrame(norm(c)); return [c.id, `${f.x}% ${f.y}%`]; })), [chars]);   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
   const pos = tk => drag && drag.id === tk.id ? [drag.x, drag.y] : [tk.x, tk.y];
 
   /* muri attivi (le porte aperte non bloccano) e luci */
@@ -1481,7 +1503,7 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       const fr = tk.char_id && frameByChar[tk.char_id]; const col = fr ? FRAME_TOKEN[fr] : (tk.color || ENEMY_COLOR); const sz = Number(tk.size)||1; const pimg = tk.char_id && portraits[tk.char_id];
       return html`<div key=${tk.id} data-tok=${tk.id} title=${tk.name}
         className=${"bt-tok"+(pimg?" pimg":"")+(fr==="bianco"?" light":"")+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
-        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col, ...(pimg ? {background:`url("${pimg}") center 30%/cover padding-box, ${col} border-box`, borderColor:"transparent"} : {})}}>
+        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col, ...(pimg ? {background:`url("${pimg}") ${portraitPos[tk.char_id] || "50% 30%"}/cover padding-box, ${col} border-box`, borderColor:"transparent"} : {})}}>
         ${!pimg && html`<span className="bt-in">${initialsOf(tk.name)}</span>`}</div>`; })}
     ${drag && html`<div className="bt-dist" style=${{left:pctX(drag.x)+"%", top:pctY(drag.y)+"%"}}>${String(dist*CELL_M).replace(".",",")} m</div>`}
     ${ruler && html`<svg className="bt-ruler" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
