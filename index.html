@@ -366,6 +366,10 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .f-arcobaleno .tc-who{text-shadow:0 1px 2px rgb(0 0 0/.8)}
 .f-arcobaleno .tc-ph{background:conic-gradient(from 200deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
 .bt-tok.light .bt-in{color:#2a241c;text-shadow:none}
+.tcard-wrap{display:grid;gap:8px;justify-items:center;align-content:start}
+.tcard-wrap > .tcard{justify-self:stretch;margin:0 auto}
+.secret-sheets{margin-top:32px;padding-top:6px;border-top:2px dashed var(--line)}
+.tcard-wrap.tc-secret > .tcard{box-shadow:0 0 0 3px var(--bg),0 0 0 5px color-mix(in srgb,var(--muted) 60%,transparent),0 6px 18px rgb(0 0 0/.22)}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -796,7 +800,7 @@ function SaveState({status, ro}){
 }
 
 /* ---------- scheda personaggio ---------- */
-function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove}){
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden}){
   const [s, change, status] = useSheet(onSave, remote);
   const [tab, setTab] = useState(()=>lsGet("tab","comb"));
   const [mode, setMode] = useState("norm");
@@ -860,6 +864,8 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
       <button className="btn small" onClick=${onBack}>← Il gruppo</button>
       <span className="spacer"></span>
       ${ownerName && html`<span className="who"><${Who} id=${remote.owner} name=${ownerName}/>${ownerName}</span>`}
+      ${onSetHidden && !remote?.owner && html`<label className="row" style=${{gap:6,fontSize:".88rem"}} title="Le schede nascoste stanno tra le schede del master"><input id="pg-hidden" type="checkbox" checked=${!remote?.hidden} onChange=${e=>onSetHidden(remote.id, !e.target.checked)}/>Visibile ai giocatori</label>`}
+      ${remote?.hidden && html`<span className="chip">scheda segreta</span>`}
       <${SaveState} status=${status} ro=${!editable}/>
     </div>
     <fieldset disabled=${ro}>
@@ -1134,8 +1140,12 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
   <//>`;
 }
 
-function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}}){
-  const haz = climate(world);
+function Party({chars: allChars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}, onSetHidden}){
+  const haz = climate(world); const M = me.isMaster;
+  const chars = allChars.filter(c=>!c.hidden);
+  const secret = M ? allChars.filter(c=>c.hidden).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))) : [];
+  const [busyId, setBusyId] = useState(null); const [err, setErr] = useState("");
+  const move = async (c, hidden) => { setBusyId(c.id); setErr(""); const m = await onSetHidden(c.id, hidden); setBusyId(null); if (m) setErr(m); };
   const mine = chars.find(c=>c.owner===me.id);
   const sorted = [...chars].sort((a,b)=> (a.owner===me.id?-1:b.owner===me.id?1:0) || (!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
   return html`<div>
@@ -1143,7 +1153,7 @@ function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, r
       <div><div className="eyebrow">La compagnia</div><h2>Il gruppo</h2></div>
       <span className="spacer"></span>
       ${ready && !mine && html`<button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button>`}
-      ${me.isMaster && html`<button type="button" className="btn" onClick=${onCreateNpc}>+ Scheda PNG</button>`}
+      ${M && html`<button type="button" className="btn" onClick=${onCreateNpc} title="Nasce tra le schede del master, invisibile ai giocatori">+ Scheda segreta</button>`}
     </div>
     ${party && typeof party.x==="number" && html`<div className="where"><${Mark} size=${26}/><div><div className="eyebrow">${PLANE_NAME[party.plane]||"Posizione"}</div><b>${party.label || "Posizione segnata sulla mappa"}</b></div>
       <span className="spacer"></span><span className="muted" style=${{fontSize:".85rem"}}>${ago(party.at)}</span>
@@ -1153,7 +1163,17 @@ function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, r
       : chars.length===0 ? html`<div className="empty"><${Mark} size=${40}/><h3>Nessun personaggio ancora</h3>
           <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
           <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
-      : html`<div className="cards tcards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
+      : html`<div className="cards tcards">${sorted.map(c=>html`<div key=${c.id} className="tcard-wrap"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>
+          ${M && !c.owner && onSetHidden && html`<button type="button" className="btn small" disabled=${busyId===c.id} onClick=${()=>move(c, true)} title="Torna tra le schede del master: i giocatori non la vedono più">Nascondi ai giocatori</button>`}</div>`)}</div>`}
+    ${M && html`<section className="secret-sheets">
+      <div className="party-head"><div><div className="eyebrow">Solo per te</div><h2>Schede del master</h2></div><span className="spacer"></span>
+        <button type="button" className="btn" onClick=${onCreateNpc}>+ Nuova scheda segreta</button></div>
+      <p className="muted" style=${{margin:"0 0 12px",fontSize:".9rem"}}>PNG, avversari importanti, alleati futuri: i giocatori non vedono queste schede. Con “Porta nel gruppo” la scheda compare a tutti nella compagnia (per esempio un PNG che viaggia con loro); con “Nascondi ai giocatori” torna qui. I tiri fatti da una scheda segreta sono nascosti.</p>
+      ${secret.length === 0 ? html`<p className="muted" style=${{margin:0}}>Nessuna scheda segreta.</p>`
+        : html`<div className="cards tcards">${secret.map(c=>html`<div key=${c.id} className="tcard-wrap tc-secret"><${PartyCard} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} onOpen=${()=>onOpen(c.id)}/>
+            ${onSetHidden && html`<button type="button" className="btn small primary" disabled=${busyId===c.id} onClick=${()=>move(c, false)}>Porta nel gruppo</button>`}</div>`)}</div>`}
+    </section>`}
+    ${err && html`<p className="notice err" role="alert">${err}</p>`}
   </div>`;
 }
 
@@ -1951,7 +1971,7 @@ function Join({sb, user, onJoined}){
 }
 
 /* ---------- dati condivisi ---------- */
-const rowToChar = (r) => ({...(r.data||{}), id:r.id, owner:r.owner});
+const rowToChar = (r) => ({...(r.data||{}), id:r.id, owner:r.owner, hidden:!!r.hidden});
 
 function useCampaign(sb, active){
   const [chars, setChars] = useState([]);
@@ -2012,7 +2032,7 @@ function useCampaign(sb, active){
 
   const loadAll = useCallback(async () => {
     const [c,p,m,mb,r,cb] = await Promise.all([
-      sb.from("characters").select("id,owner,data,updated_at"),
+      sb.from("characters").select("id,owner,data,updated_at,hidden").then(r => r.error && /hidden/.test(r.error.message) ? sb.from("characters").select("id,owner,data,updated_at") : r),
       sb.from("party").select("state").eq("id",1).maybeSingle(),
       sb.from("maps").select("plane,path"),
       sb.from("members").select("user_id,name"),
@@ -2072,8 +2092,9 @@ function useCampaign(sb, active){
       .subscribe();
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
-    /* un orologio nascosto dal master non arriva in tempo reale ai giocatori: ricontrollo ogni tanto */
-    const clkT = setInterval(()=>{ if (document.visibilityState==="visible") loadClocks(); }, 30000);
+    /* un orologio o una scheda nascosti dal master non arrivano in tempo reale ai giocatori: ricontrollo ogni tanto */
+    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks();
+      sb.from("characters").select("id").then(({data, error})=>{ if (error || !data) return; const ids = new Set(data.map(r=>r.id)); setChars(x=> x.every(c=>ids.has(c.id)) ? x : x.filter(c=>ids.has(c.id))); }); }, 30000);
     return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); clearInterval(clkT); };
   },[sb, active, loadAll]);
 
@@ -2243,7 +2264,7 @@ function BackupPanel({sb, camp}){
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
       const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive] = await Promise.all([
-        q("characters","id,owner,data,updated_at"), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
+        q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
         q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
         characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive};
@@ -2262,7 +2283,7 @@ function BackupPanel({sb, camp}){
   const restore = async () => { const b = pending.b; setBusy(true); setErr(""); setMsg(""); const problems = [];
     let okChars = 0;
     for (const c of b.characters){
-      let r = await sb.from("characters").upsert({id:c.id, owner:c.owner, data:c.data, updated_at:c.updated_at||new Date().toISOString()});
+      let r = await sb.from("characters").upsert({id:c.id, owner:c.owner, data:c.data, updated_at:c.updated_at||new Date().toISOString(), ...(c.hidden !== undefined ? {hidden:!!c.hidden} : {})});
       if (r.error && c.owner){ r = await sb.from("characters").upsert({id:c.id, owner:null, data:c.data}); if (!r.error) problems.push(`${c.data?.name||"una scheda"} è tornata senza proprietario (account non trovato)`); }
       if (r.error) problems.push(`${c.data?.name||"una scheda"}: ${r.error.message}`); else okChars++;
     }
@@ -3508,7 +3529,7 @@ function PartyStatus({chars, names, adjustHp}){
     <div className="panel-h"><h3>Il gruppo</h3><span className="muted" style=${{fontSize:".82rem"}}>Danni e cure vanno subito sulla scheda</span></div>
     ${pcs.length===0 && html`<p className="muted" style=${{margin:0}}>Nessuna scheda ancora.</p>`}
     <div className="ps-list">${pcs.map(c=>{ const s=norm(c), D=derived(s); return html`<div key=${c.id} className="ps">
-      <div className="ps-top"><b>${s.name||"Senza nome"}</b><span className="muted">${c.owner ? (names[c.owner]||"") : "PNG"}</span><span className="spacer"></span>
+      <div className="ps-top"><b>${s.name||"Senza nome"}</b><span className="muted">${c.owner ? (names[c.owner]||"") : c.hidden ? "PNG · segreto" : "PNG"}</span><span className="spacer"></span>
         <span className="mono">${s.hp.cur}/${D.effMax}${s.hp.temp?` +${s.hp.temp}`:""}</span></div>
       <div className="hpbar"><i style=${{width:clamp(s.hp.cur/D.effMax*100,0,100)+"%"}}></i></div>
       <div className="ps-bot">
@@ -3659,31 +3680,40 @@ function Main({sb, me, onSignOut}){
   },[]);
   camp.onNewRoll.current = (row) => { if (row.user_id !== me.id && Date.now() - new Date(row.created_at).getTime() < 60000) showToast(row); };
 
-  const onRoll = useCallback(async (r)=>{
+  const onRoll = useCallback(async (r0)=>{
+    const r = r0.charId && chars.find(c=>c.id===r0.charId)?.hidden ? {...r0, hidden:true} : r0;   // i tiri delle schede segrete restano dietro lo schermo
     const call = r.type==="d20"
       ? sb.rpc("roll_d20", {p_label:r.label, p_mod:r.mod||0, p_mode:r.mode||"norm", p_pen:r.pen||0, p_char:r.charId||null, p_hidden:!!r.hidden})
       : sb.rpc("roll_formula", {p_label:r.label, p_formula:r.formula, p_char:r.charId||null, p_hidden:!!r.hidden});
     const {data, error:e} = await call;
     if (e || !data){ setMsg("Tiro non riuscito: "+(e?.message||"nessuna risposta")); return null; }
     camp.addRoll(data); showToast(data); return data.total;
-  },[sb, showToast]);
+  },[sb, showToast, chars]);
   const onFree = (x) => onRoll({type:"formula", label:x.label, formula:x.formula, hidden:x.hidden});
 
   const create = async (npc) => { setMsg("");
     const data = {...blankSheet(), name: npc ? "Nuovo PNG" : ""};
-    const {data:row, error:e} = await sb.from("characters").insert({owner: npc ? null : me.id, data}).select("id,owner,data").single();
+    let {data:row, error:e} = await sb.from("characters").insert({owner: npc ? null : me.id, data, ...(npc ? {hidden:true} : {})}).select("*").single();
+    if (e && npc && /hidden/.test(e.message)){ setMsg("Esegui fase15.sql per le schede segrete: questa scheda è visibile ai giocatori.");
+      ({data:row, error:e} = await sb.from("characters").insert({owner:null, data}).select("*").single()); }
     if (e){ setMsg("Non sono riuscito a creare la scheda: "+e.message); return; }
+    if (npc && row && row.hidden === undefined) row.hidden = true;
     camp.setChars(x=> x.some(c=>c.id===row.id) ? x : [...x, rowToChar(row)]);
     setOpenId(row.id); setView("scheda"); };
 
   const saveSheet = useCallback(async (id, sheet) => {
-    const {id:_i, owner:_o, ...data} = sheet;
+    const {id:_i, owner:_o, hidden:_h, ...data} = sheet;
     const {data:rows, error:e} = await sb.from("characters").update({data, updated_at:new Date().toISOString()}).eq("id", id).select("id");
     if (e) return /fetch|network/i.test(e.message) ? "error" : "denied";
     if (!rows || !rows.length) return "denied";
-    camp.setChars(x=>x.map(c=>c.id===id ? {...data, id, owner:c.owner} : c));
+    camp.setChars(x=>x.map(c=>c.id===id ? {...data, id, owner:c.owner, hidden:c.hidden} : c));
     return "ok";
   },[sb]);
+  const setCharHidden = async (id, hidden) => {
+    camp.setChars(x=>x.map(c=>c.id===id ? {...c, hidden} : c));
+    const {data, error:e} = await sb.from("characters").update({hidden}).eq("id", id).select("id");
+    if (e || !data?.length){ camp.reload(); return "Non riuscito"+(e ? ": "+e.message+(/hidden/.test(e.message) ? " (esegui fase15.sql)" : "") : ""); }
+    return ""; };
   const delSheet = async (id) => { const {error:e} = await sb.from("characters").delete().eq("id", id); if (e) return false;
     camp.setChars(x=>x.filter(c=>c.id!==id)); return true; };
 
@@ -3697,7 +3727,7 @@ function Main({sb, me, onSignOut}){
   const errText = (e) => e ? (e.message || "Operazione non riuscita") : "";
   const hpTimers = useRef({});
   const act = {
-    addPCs: async (list) => { const rows = list.map(c=>{ const D = derived(norm(c)); return {char_id:c.id, name:c.name||"PG", init_mod:D.init, dex:D.init}; });
+    addPCs: async (list) => { const rows = list.map(c=>{ const D = derived(norm(c)); return {char_id:c.id, name:c.name||"PG", init_mod:D.init, dex:D.init, hidden:!!c.hidden}; });
       const {error:e} = await sb.from("combatants").insert(rows); await camp.loadFighters(); return errText(e); },
     addMonsters: async (f) => { const n = clamp(f.n,1,20);
       const rows = Array.from({length:n},(_,i)=>({name: n>1 ? `${f.name.trim()} ${i+1}` : f.name.trim(), init_mod:f.mod, dex:f.mod, hidden:!!f.hidden}));
@@ -3859,7 +3889,7 @@ function Main({sb, me, onSignOut}){
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
-      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits} onSetHidden=${me.isMaster ? setCharHidden : null}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
@@ -3869,7 +3899,7 @@ function Main({sb, me, onSignOut}){
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
               ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
-              portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove}/>`
+              portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove} onSetHidden=${me.isMaster ? setCharHidden : null}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} masterUrls=${masterUrls}
           onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
