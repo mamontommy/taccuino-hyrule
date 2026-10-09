@@ -103,7 +103,7 @@ label.lab{display:grid;gap:3px;font-size:.78rem;color:var(--muted);font-weight:5
 
 /* sheet */
 .sheet-top{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;margin-bottom:14px}
-.ident{display:grid;grid-template-columns:2fr repeat(4,1fr) 70px;gap:8px}
+.ident{display:grid;grid-template-columns:2fr repeat(4,minmax(0,1fr)) minmax(140px,1.3fr) 70px;gap:8px}
 .ident .lab:first-child input{font-family:var(--f-display);font-size:1.3rem}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-block:14px;overflow-x:auto}
 .tabs button{border:0;background:none;padding:9px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-weight:500}
@@ -521,6 +521,7 @@ const SKILLS = [
  ["sopr","Sopravvivenza","sag"],["stor","Storia","int"]];
 const CONDS = ["Accecato","Affascinato","Afferrato","Assordato","Avvelenato","Incapacitato","Invisibile","Paralizzato","Pietrificato","Privo di sensi","Prono","Spaventato","Stordito","Trattenuto"];
 const HD = [6,8,10,12];
+const ALIGNMENTS = ["Legale buono","Neutrale buono","Caotico buono","Legale neutrale","Neutrale","Caotico neutrale","Legale malvagio","Neutrale malvagio","Caotico malvagio"];
 
 /* ---------- configurazione della campagna (dal database, modificabile dal master) ---------- */
 const PIN_ICONS = [["tempio","Tempio / santuario"],["luce","Luce / sole"],["stella","Stella"],["edificio","Edificio"],["villaggio","Villaggio"],["caverna","Caverna / voragine"],["pericolo","Pericolo"],["nota","Segnalino"],["spada","Spade incrociate"],["teschio","Teschio"],["chiave","Chiave / tesoro"],["porta","Portale"]];
@@ -620,7 +621,7 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const d = n => 1 + Math.floor(Math.random()*n);
 
 function blankSheet(){
-  return {name:"", species:"", cls:"", subclass:"", background:"", level:1,
+  return {name:"", species:"", cls:"", subclass:"", background:"", align:"", level:1,
     abil:{for:10,des:10,cos:10,int:10,sag:10,car:10}, saves:{}, skills:{},
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
@@ -809,6 +810,9 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
         <label className="lab">Classe<${Txt} id="pg-cl" value=${s.cls} placeholder="es. Ranger" onChange=${v=>set("cls",v)}/></label>
         <label className="lab">Sottoclasse<${Txt} id="pg-sub" value=${s.subclass} onChange=${v=>set("subclass",v)}/></label>
         <label className="lab">Background<${Txt} id="pg-bg" value=${s.background} onChange=${v=>set("background",v)}/></label>
+        <label className="lab">Allineamento<select id="pg-al" className="field" value=${s.align} onChange=${e=>set("align",e.target.value)}>
+          <option value="">—</option>${ALIGNMENTS.map(a=>html`<option key=${a} value=${a}>${a}</option>`)}
+          ${s.align && !ALIGNMENTS.includes(s.align) && html`<option value=${s.align}>${s.align}</option>`}</select></label>
         <label className="lab">Livello<${Num} id="pg-lv" value=${s.level} min=${1} max=${20} onChange=${v=>set("level",v)}/></label>
       </div>
       <div style=${{display:"grid",gap:6,justifyItems:"end"}}>
@@ -1029,7 +1033,7 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world}){
   const hpPct = clamp(s.hp.cur / D.effMax * 100, 0, 100);
   return html`<button type="button" className="card" onClick=${onOpen}>
     <div><div className="nm">${s.name || "Senza nome"}</div>
-      <div className="muted" style=${{fontSize:".9rem"}}>${[s.species, [s.cls,s.subclass].filter(Boolean).join(" · "), "liv. "+s.level].filter(Boolean).join(" — ")}</div></div>
+      <div className="muted" style=${{fontSize:".9rem"}}>${[s.species, [s.cls,s.subclass].filter(Boolean).join(" · "), "liv. "+s.level, s.align].filter(Boolean).join(" — ")}</div></div>
     <div className="who">${c.owner ? html`<${Who} id=${c.owner} name=${ownerName}/>` : null}${mine ? "La tua scheda" : c.owner ? (ownerName || "Giocatore") : "PNG del master"}</div>
     <div style=${{display:"grid",gap:4}}>
       <div className="row" style=${{justifyContent:"space-between",fontSize:".85rem"}}><span className="muted">PF</span>
