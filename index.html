@@ -356,10 +356,19 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .f-verde{--fr:#5d9e64;--fr2:#275a33;--tb:#d1e6cd;--tx:#ebf3e8;--ft:#fff}
 .f-oro{--fr:#e0bd67;--fr2:#9a7428;--tb:#f5e7bf;--tx:#faf3df;--ft:#2f2513}
 .f-grigio{--fr:#a9b1b5;--fr2:#5f676b;--tb:#e2e6e8;--tx:#f1f3f4;--ft:#1f2427}
+.f-viola{--fr:#9b6fd0;--fr2:#4f2a85;--tb:#e3d6f3;--tx:#f3edf9;--ft:#fff}
+.f-arancione{--fr:#e8964a;--fr2:#a4521a;--tb:#f8dcc0;--tx:#fbefe3;--ft:#fff}
+.f-rosa{--fr:#e48aae;--fr2:#a23f6c;--tb:#f7d8e5;--tx:#fbeef3;--ft:#fff}
+.f-azzurro{--fr:#5cc3d6;--fr2:#1f7c8f;--tb:#d0eef3;--tx:#eaf7f9;--ft:#fff}
+.f-bronzo{--fr:#b0855a;--fr2:#5e3f24;--tb:#ead9c6;--tx:#f5ece2;--ft:#fff}
+.f-arcobaleno{--fr:#c084fc;--fr2:#5b2a8c;--tb:#fbf6e9;--tx:#fdfaf2;--ft:#fff}
+.f-arcobaleno .tc-in{background:linear-gradient(135deg,#e53935,#fb8c00 20%,#fdd835 38%,#43a047 56%,#1e88e5 76%,#8e24aa)}
+.f-arcobaleno .tc-who{text-shadow:0 1px 2px rgb(0 0 0/.8)}
+.f-arcobaleno .tc-ph{background:conic-gradient(from 200deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
+.bt-tok.light .bt-in{color:#2a241c;text-shadow:none}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
-.bt-tok.pimg{background-size:cover;background-position:center 30%}
 .arch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
 .arch-card{display:grid;gap:4px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;color:inherit;font:inherit}
 .arch-card:hover{border-color:var(--accent)}.arch-card.hid{border-style:dashed;opacity:.75}
@@ -560,7 +569,10 @@ const SKILLS = [
  ["sopr","Sopravvivenza","sag"],["stor","Storia","int"]];
 const CONDS = ["Accecato","Affascinato","Afferrato","Assordato","Avvelenato","Incapacitato","Invisibile","Paralizzato","Pietrificato","Privo di sensi","Prono","Spaventato","Stordito","Trattenuto"];
 const HD = [6,8,10,12];
-const CARD_FRAMES = [["bianco","Bianco"],["blu","Blu"],["nero","Nero"],["rosso","Rosso"],["verde","Verde"],["oro","Oro (multicolore)"],["grigio","Grigio (incolore)"]];
+const CARD_FRAMES = [["bianco","Bianco"],["blu","Blu"],["nero","Nero"],["rosso","Rosso"],["verde","Verde"],["viola","Viola"],["arancione","Arancione"],["rosa","Rosa"],["azzurro","Azzurro"],["bronzo","Bronzo"],["oro","Oro (multicolore)"],["grigio","Grigio (incolore)"],["arcobaleno","Arcobaleno"]];
+const RAINBOW = "conic-gradient(from 0deg,#e53935,#fb8c00,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)";
+/* colore della pedina sulla mappa = colore della carta */
+const FRAME_TOKEN = {bianco:"#e9e2c8", blu:"#3f7fc0", nero:"#2f2b28", rosso:"#c0473a", verde:"#3f8a4c", viola:"#7d4fc0", arancione:"#e07f2e", rosa:"#d9709d", azzurro:"#36aec4", bronzo:"#8f6338", oro:"#d0a440", grigio:"#8c959a", arcobaleno:RAINBOW};
 const CLASS_FRAME = [["barbar","rosso"],["bard","oro"],["chieric","bianco"],["druid","verde"],["guerrier","rosso"],["ladr","nero"],["monac","bianco"],["paladin","bianco"],["ranger","verde"],["stregon","rosso"],["warlock","nero"],["artefic","grigio"],["mag","blu"]];
 const frameOf = (s, npc) => (CARD_FRAMES.some(f=>f[0]===s.card?.frame) && s.card.frame) || (CLASS_FRAME.find(([k])=>String(s.cls||"").toLowerCase().includes(k))||[])[1] || (npc ? "grigio" : "oro");
 const ALIGNMENTS = ["Legale buono","Neutrale buono","Caotico buono","Legale neutrale","Neutrale","Caotico neutrale","Legale malvagio","Neutrale malvagio","Caotico malvagio"];
@@ -1065,7 +1077,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
       <div className="cardprev"><${PartyCard} c=${{...s, id:charId, owner:remote?.owner}} url=${portraitUrl} ownerName=${ownerName} world=${world}/></div>
       <section className="panel" style=${{alignSelf:"start"}}>
         <h3>La carta del personaggio</h3>
-        <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Così compare il personaggio nella sezione “Il gruppo”. L’immagine la vede tutto il gruppo; meglio verticale o quadrata, viene ridotta a 1000 pixel.</p>
+        <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Così compare il personaggio nella sezione “Il gruppo”; il colore della cornice è anche quello della sua pedina sulle mappe. L’immagine la vede tutto il gruppo; meglio verticale o quadrata, viene ridotta a 1000 pixel.</p>
         <div className="row">
           <button type="button" className="btn primary" disabled=${ro || pBusy || !onPortrait} onClick=${()=>pIn.current?.click()}>${pBusy ? "Caricamento…" : s.portrait ? "Cambia immagine" : "Carica immagine"}</button>
           ${s.portrait && html`<button type="button" className="btn" disabled=${ro || pBusy} onClick=${()=>{ const old = s.portrait; set("portrait", ""); if (onPortraitRemove) onPortraitRemove(old); setPMsg("Immagine tolta."); }}>Togli immagine</button>`}
@@ -1291,7 +1303,8 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
   const charOwner = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, c.owner])), [chars]);
   const isParty = tk => tk.char_id && charOwner[tk.char_id] && !tk.hidden;
   const canMove = tk => M || (tk.char_id && charOwner[tk.char_id] === me.id);
-  const V = M && !peek;   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
+  const V = M && !peek;
+  const frameByChar = useMemo(()=>Object.fromEntries(chars.map(c=>[c.id, frameOf(norm(c), !c.owner)])), [chars]);   // il master vede tutto; con "Vista giocatori" o "Vedi la nebbia come i giocatori" vede esattamente ciò che vedono loro
   const pos = tk => drag && drag.id === tk.id ? [drag.x, drag.y] : [tk.x, tk.y];
 
   /* muri attivi (le porte aperte non bloccano) e luci */
@@ -1445,10 +1458,10 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       className=${"bt-door"+(doors[i]?" open":"")+(lk===1?" locked":"")+(lk===2?" secret":"")} title=${title} aria-label=${title}
       style=${{left:pctX((w[0]+w[2])/2)+"%", top:pctY((w[1]+w[3])/2)+"%"}}>${doors[i] ? "◫" : lk === 1 ? "🔒" : lk === 2 ? "S" : "▮"}</button>`; })}
     ${shown.map(tk => { const [x,y] = pos(tk); const f = fighterOf(tk); const pc = !!(tk.char_id && charOwner[tk.char_id]);
-      const col = tk.color || (pc ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR); const sz = Number(tk.size)||1; const pimg = tk.char_id && portraits[tk.char_id];
+      const fr = tk.char_id && frameByChar[tk.char_id]; const col = fr ? FRAME_TOKEN[fr] : (tk.color || ENEMY_COLOR); const sz = Number(tk.size)||1; const pimg = tk.char_id && portraits[tk.char_id];
       return html`<div key=${tk.id} data-tok=${tk.id} title=${tk.name}
-        className=${"bt-tok"+(pimg?" pimg":"")+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
-        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col, ...(pimg ? {backgroundImage:`url("${pimg}")`} : {})}}>
+        className=${"bt-tok"+(pimg?" pimg":"")+(fr==="bianco"?" light":"")+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
+        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col, ...(pimg ? {background:`url("${pimg}") center 30%/cover padding-box, ${col} border-box`, borderColor:"transparent"} : {})}}>
         ${!pimg && html`<span className="bt-in">${initialsOf(tk.name)}</span>`}</div>`; })}
     ${drag && html`<div className="bt-dist" style=${{left:pctX(drag.x)+"%", top:pctY(drag.y)+"%"}}>${String(dist*CELL_M).replace(".",",")} m</div>`}
     ${ruler && html`<svg className="bt-ruler" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
@@ -1529,7 +1542,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
         ${(M || a.created_by === me.id) && html` <button type="button" className="xbtn" aria-label="Togli l’area" onClick=${()=>ops.deleteArea(a.id)}>×</button>`}</span>`)}
       ${M && areas.length > 1 && html`<button type="button" className="btn small" onClick=${()=>areas.forEach(a=>ops.deleteArea(a.id))}>Togli tutte</button>`}</div>`}
     ${tk && html`<div className="bt-sel">
-      <span className="bt-sw" style=${{background: tk.color || (tk.char_id && charOwner[tk.char_id] ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR)}}></span>
+      <span className="bt-sw" style=${{background: (()=>{ const c = tk.char_id && chars.find(x=>x.id===tk.char_id); return c ? FRAME_TOKEN[frameOf(norm(c), !c.owner)] : (tk.color || ENEMY_COLOR); })()}}></span>
       ${M ? html`<input className="field" style=${{flex:"1 1 140px"}} aria-label="Nome della pedina" value=${tk.name} onChange=${e=>ops.updateToken(tk.id,{name:e.target.value}, true)}/>`
           : html`<b style=${{flex:"1 1 auto"}}>${tk.name}</b>`}
       ${M && html`<select className="field" style=${{width:"auto"}} aria-label="Taglia" value=${tk.size} onChange=${e=>ops.updateToken(tk.id,{size:Number(e.target.value)})}>${TOKEN_SIZES.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select>
