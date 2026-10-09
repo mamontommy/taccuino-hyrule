@@ -542,6 +542,22 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .fx-add{gap:8px}
 .fx-eff{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:700;white-space:nowrap}
 .chip.fxc{background:color-mix(in srgb,var(--gold,#c9a227) 22%,transparent);border-color:color-mix(in srgb,var(--gold,#c9a227) 60%,transparent)}
+/* equipaggiamento */
+.eq-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.eq-stat{display:grid;gap:4px;align-content:start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.eq-stat .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.eq-stat .v{font-family:var(--f-mono);font-size:1.5rem;line-height:1.1}
+.eq-stat .v small{font-size:.8rem;color:var(--muted)}
+.eq-stat .muted{font-size:.8rem}
+.eq-stat .btn{justify-self:start}
+.eq-sum .chip{font-size:.72rem}
+.eq-wt{font-size:.78rem;font-family:var(--f-mono);margin-left:auto}
+.eq-sw{position:relative;flex:none;width:36px;height:20px;border:0;padding:0;background:none;cursor:pointer}
+.eq-sw span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .15s;pointer-events:none}
+.eq-sw span::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.3);transition:transform .15s}
+.eq-sw[aria-checked="true"] span{background:var(--accent)}
+.eq-sw[aria-checked="true"] span::after{transform:translateX(16px)}
+.eq-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:999px}
 .cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
 .cardprev .tcard{max-width:280px;cursor:default}
 @media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
@@ -1152,6 +1168,165 @@ function FxPanel({s, upd, ro}){
   </section>`;
 }
 
+/* ---------- equipaggiamento: oggetti con categoria, peso, sintonia, cariche; CA e attacchi dalle armi ---------- */
+const EQ_CATS = [["arma","Armi"],["armatura","Armature"],["scudo","Scudi"],["magico","Oggetti magici"],["consumabile","Consumabili"],["attrezzatura","Attrezzatura"],["tesoro","Tesori"],["altro","Altro"]];
+const EQ_ONE = {arma:"Arma", armatura:"Armatura", scudo:"Scudo", magico:"Oggetto magico", consumabile:"Consumabile", attrezzatura:"Attrezzatura", tesoro:"Tesoro", altro:"Altro"};
+const EQ_WHERE = [["addosso","Addosso"],["zaino","Nello zaino"],["altrove","Altrove (cavalcatura, deposito…)"]];
+const ARMOR_T = [["leggera","Leggera (+ DES)"],["media","Media (+ DES, max 2)"],["pesante","Pesante (niente DES)"]];
+const eqCat = x => EQ_ONE[x?.cat] ? x.cat : "altro";
+const eqWearable = c => c==="arma" || c==="armatura" || c==="scudo" || c==="magico";
+const numIt = n => String(Math.round(n*100)/100).replace(".",",");
+/* CA che risulta da armatura, scudo e oggetti equipaggiati (gli effetti temporanei si aggiungono dopo) */
+function eqArmorClass(s, D){
+  const items = (s.items||[]).filter(x=>x.eq && (!x.attune || x.attuned)); const parts = [];
+  const arm = items.find(x=>eqCat(x)==="armatura"); const dex = D.m.des; let ac;
+  if (arm){ const base = Number(arm.base)||10, mg = Number(arm.magic)||0; const t = arm.armor || "leggera";
+    const d = t==="pesante" ? 0 : t==="media" ? Math.min(2, dex) : dex;
+    ac = base + d + mg; parts.push(`${arm.name||"Armatura"} ${base}${mg ? " +"+mg : ""}${t!=="pesante" ? " + DES "+sg(d) : ""}`); }
+  else { ac = 10 + dex; parts.push(`senza armatura 10 + DES ${sg(dex)}`); }
+  const sh = items.filter(x=>eqCat(x)==="scudo"); if (sh.length){ const x = sh[0]; const b = (Number(x.acBonus)||2) + (Number(x.magic)||0); ac += b; parts.push(`${x.name||"Scudo"} +${b}`); }
+  for (const x of items){ const c = eqCat(x); if (c==="armatura" || c==="scudo") continue; const b = Number(x.acBonus)||0; if (b){ ac += b; parts.push(`${x.name||"Oggetto"} ${sg(b)}`); } }
+  return {ac, parts, armor: arm || null};
+}
+/* l'attacco che un'arma produce */
+function eqAttack(x, D){
+  const ab = x.ability==="des" ? "des" : x.ability==="fin" ? (D.m.des > D.m.for ? "des" : "for") : "for";
+  const mg = Number(x.magic)||0; const m = D.m[ab];
+  const bonus = m + (x.prof === false ? 0 : D.pb) + mg; const dmgMod = m + mg;
+  const dice = String(x.dmg||"1d4").trim() || "1d4";
+  return {bonus: sg(bonus).replace("−","-"), dmg: dice + (dmgMod ? (dmgMod>0 ? "+" : "-") + Math.abs(dmgMod) : ""), notes: [x.dmgType, x.props].filter(Boolean).join(" · ")};
+}
+function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen, openV}){
+  const c = eqCat(x); const wear = eqWearable(c);
+  const atk = (s.attacks||[]).find(a=>a.item===x.id);
+  const toAttacks = () => { const a = eqAttack(x, D); upd(p=>{ const e = (p.attacks||[]).find(y=>y.item===x.id);
+    if (e) Object.assign(e, {name: x.name||e.name, ...a}); else p.attacks = [...(p.attacks||[]), {id:uid(), item:x.id, name: x.name||"Arma", ...a}]; return p; }); };
+  const chips = html`
+    ${(Number(x.qty)||0) !== 1 && html`<span className="chip">×${x.qty}</span>`}
+    ${x.attune && html`<span className=${"chip"+(x.attuned ? " gold" : "")} title=${x.attuned ? "Sintonizzato" : "Richiede sintonia (non sintonizzato)"}>${x.attuned ? "✦ sintonia" : "✧ sintonia"}</span>`}
+    ${c==="armatura" && html`<span className="chip">CA ${Number(x.base)||10}${Number(x.magic) ? " +"+x.magic : ""}</span>`}
+    ${c==="scudo" && html`<span className="chip">CA +${(Number(x.acBonus)||2)+(Number(x.magic)||0)}</span>`}
+    ${c==="arma" && x.dmg && html`<span className="chip">${x.dmg}${Number(x.magic) ? " +"+x.magic : ""}</span>`}
+    ${c!=="armatura" && c!=="scudo" && Number(x.acBonus) ? html`<span className="chip">CA ${sg(Number(x.acBonus))}</span>` : null}
+    ${x.where==="altrove" && html`<span className="chip" title="Non conta nel peso trasportato">altrove</span>`}`;
+  const head = html`<summary className="tr-sum eq-sum">
+      ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); patch({eq:!x.eq}); }}><span></span></button>` : null}
+      <span className="tr-n">${x.name || "Senza nome"}</span>${chips}
+      ${Number(x.chg) > 0 && html`<span className="tr-uses" onClick=${e=>e.preventDefault()}><${Pips} n=${Math.min(20, Number(x.chg))} used=${Math.max(0, Number(x.chg) - (Number(x.used)||0))} label=${(x.name||"Oggetto")+" cariche"} onSet=${v=>patch({used: Number(x.chg) - v})}/></span>`}
+      ${c==="consumabile" && !ro && Number(x.qty) > 0 && html`<button type="button" className="btn small" onClick=${e=>{ e.preventDefault(); patch({qty: Math.max(0, (Number(x.qty)||0) - 1)}); }} title="Usane uno">Usa 1</button>`}
+      ${Number(x.wt) > 0 && html`<span className="muted eq-wt">${numIt((Number(x.wt)||0)*(Number(x.qty)||0))} kg</span>`}
+    </summary>`;
+  if (editing && !ro) return html`<details className="trait editing eqi" open>
+    ${head}
+    <div className="tr-body tr-form">
+      <div className="tr-row">
+        <label className="lab grow">Nome<input className="field" id=${"eq-n-"+x.id} autoFocus=${!x.name} maxLength="80" value=${x.name||""} placeholder="es. Spada lunga, Pozione di guarigione" onChange=${e=>patch({name:e.target.value})}/></label>
+        <label className="lab">Categoria<select className="field" id=${"eq-c-"+x.id} value=${c} onChange=${e=>patch({cat:e.target.value})}>${EQ_CATS.map(([k])=>html`<option key=${k} value=${k}>${EQ_ONE[k]}</option>`)}</select></label>
+      </div>
+      <div className="tr-row">
+        <label className="lab tr-lv">Quantità<${Num} id=${"eq-q-"+x.id} value=${Number(x.qty)||0} min=${0} label="Quantità" onChange=${v=>patch({qty:v})}/></label>
+        <label className="lab tr-lv">Peso (kg)<input className="field" id=${"eq-w-"+x.id} inputMode="decimal" value=${x.wt ? numIt(x.wt) : ""} placeholder="0" onChange=${e=>{ const v = parseFloat(e.target.value.replace(",",".")); patch({wt: isNaN(v) ? 0 : Math.max(0, v)}); }}/></label>
+        <label className="lab">Dove<select className="field" id=${"eq-p-"+x.id} value=${x.where||"zaino"} onChange=${e=>patch({where:e.target.value})}>${EQ_WHERE.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
+        ${wear && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.eq} onChange=${e=>patch({eq:e.target.checked})}/>Equipaggiato</label>`}
+      </div>
+      ${c==="armatura" && html`<div className="tr-row">
+        <label className="lab">Tipo<select className="field" id=${"eq-at-"+x.id} value=${x.armor||"leggera"} onChange=${e=>patch({armor:e.target.value})}>${ARMOR_T.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
+        <label className="lab tr-lv">CA base<${Num} id=${"eq-b-"+x.id} value=${Number(x.base)||10} min=${10} max=${20} label="CA base dell’armatura" onChange=${v=>patch({base:v})}/></label>
+        <label className="lab tr-lv">Bonus magico<${Num} id=${"eq-m-"+x.id} value=${Number(x.magic)||0} min=${0} max=${5} label="Bonus magico" onChange=${v=>patch({magic:v})}/></label>
+        <span className="muted" style=${{fontSize:".78rem",paddingBottom:8}}>Es. cuoio 11, cuoio borchiato 12, giaco di maglia 13, corazza di scaglie 14, mezza armatura 15, cotta di maglia 16, armatura a strisce 17, armatura completa 18.</span></div>`}
+      ${c==="scudo" && html`<div className="tr-row">
+        <label className="lab tr-lv">Bonus CA<${Num} id=${"eq-sb-"+x.id} value=${Number(x.acBonus)||2} min=${1} max=${5} label="Bonus alla CA" onChange=${v=>patch({acBonus:v})}/></label>
+        <label className="lab tr-lv">Bonus magico<${Num} id=${"eq-m-"+x.id} value=${Number(x.magic)||0} min=${0} max=${5} label="Bonus magico" onChange=${v=>patch({magic:v})}/></label></div>`}
+      ${c==="arma" && html`<div className="tr-row">
+        <label className="lab tr-lv">Danno<input className="field" id=${"eq-d-"+x.id} maxLength="12" placeholder="1d8" value=${x.dmg||""} onChange=${e=>patch({dmg:e.target.value.replace(/[^0-9dD+\-]/g,"").toLowerCase()})}/></label>
+        <label className="lab">Tipo di danno<input className="field" id=${"eq-dt-"+x.id} maxLength="30" placeholder="Tagliente" value=${x.dmgType||""} onChange=${e=>patch({dmgType:e.target.value})}/></label>
+        <label className="lab">Caratteristica<select className="field" id=${"eq-ab-"+x.id} value=${x.ability||"for"} onChange=${e=>patch({ability:e.target.value})}>
+          <option value="for">Forza (mischia)</option><option value="des">Destrezza (a distanza)</option><option value="fin">Accurata: la migliore tra FOR e DES</option></select></label>
+        <label className="lab tr-lv">Bonus magico<${Num} id=${"eq-m-"+x.id} value=${Number(x.magic)||0} min=${0} max=${5} label="Bonus magico" onChange=${v=>patch({magic:v})}/></label>
+        <label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${x.prof !== false} onChange=${e=>patch({prof:e.target.checked})}/>Competente</label></div>
+        <label className="lab">Proprietà e maestria<input className="field" id=${"eq-pr-"+x.id} maxLength="120" placeholder="es. Versatile (1d10), Maestria: Fiaccare" value=${x.props||""} onChange=${e=>patch({props:e.target.value})}/></label>`}
+      ${c!=="armatura" && c!=="scudo" && c!=="arma" && html`<div className="tr-row">
+        <label className="lab tr-lv">Bonus CA<${Num} id=${"eq-ac-"+x.id} value=${Number(x.acBonus)||0} min=${-5} max=${5} label="Bonus alla CA quando equipaggiato" onChange=${v=>patch({acBonus:v})}/></label>
+        <span className="muted" style=${{fontSize:".78rem",paddingBottom:8}}>Es. anello o mantello di protezione +1: conta solo se equipaggiato (e sintonizzato, se richiede sintonia).</span></div>`}
+      <div className="tr-row">
+        <label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.attune} onChange=${e=>patch({attune:e.target.checked, attuned: e.target.checked ? !!x.attuned : false})}/>Richiede sintonia</label>
+        ${x.attune && html`<label className="row" style=${{gap:6,fontSize:".88rem",paddingBottom:8}}><input type="checkbox" checked=${!!x.attuned} onChange=${e=>patch({attuned:e.target.checked})}/>Sintonizzato</label>`}
+        <label className="lab tr-lv">Cariche<${Num} id=${"eq-ch-"+x.id} value=${Number(x.chg)||0} min=${0} max=${20} label="Cariche (0 = nessuna)" onChange=${v=>patch({chg:v, used: Math.min(Number(x.used)||0, v)})}/></label>
+        ${Number(x.chg) > 0 && html`<label className="lab">Si ricaricano<select className="field" id=${"eq-r-"+x.id} value=${x.recharge||"lungo"} onChange=${e=>patch({recharge:e.target.value})}>
+          <option value="lungo">Riposo lungo / all’alba</option><option value="breve">Riposo breve</option><option value="mai">Mai (a mano)</option></select></label>`}
+      </div>
+      <label className="lab">Descrizione<textarea className="field tr-ta" id=${"eq-x-"+x.id} value=${x.notes||""} placeholder="Cosa fa, proprietà magiche, da dove viene…" onChange=${e=>patch({notes:e.target.value})}></textarea></label>
+      <div className="tr-row"><span className="spacer"></span>
+        <button type="button" className="btn small danger" onClick=${del}>Elimina</button>
+        <button type="button" className="btn small primary" onClick=${onDone}>Fatto</button></div>
+    </div>
+  </details>`;
+  return html`<details className="trait eqi" key=${openV+(keepOpen ? "k" : "")} open=${keepOpen || openV % 2 === 1}>
+    ${head}
+    <div className="tr-body">
+      ${x.notes ? html`<div className="tr-desc">${x.notes}</div>` : null}
+      ${c==="arma" && html`<div className="muted" style=${{fontSize:".85rem"}}>${(()=>{ const a = eqAttack(x, D); return `Colpire ${a.bonus.replace("-","−")} · danni ${a.dmg}${x.dmgType ? " "+x.dmgType.toLowerCase() : ""}${x.props ? " · "+x.props : ""}`; })()}</div>`}
+      ${!x.notes && c!=="arma" && html`<p className="muted" style=${{margin:0}}>Nessuna descrizione.</p>`}
+      ${!ro && html`<div className="tr-row"><span className="muted" style=${{fontSize:".8rem"}}>${EQ_ONE[c]} · ${(EQ_WHERE.find(w=>w[0]===(x.where||"zaino"))||[])[1]}</span><span className="spacer"></span>
+        ${c==="arma" && html`<button type="button" className="btn small" onClick=${toAttacks} title="Crea o aggiorna l’attacco in Combattimento con bonus e danni calcolati">${atk ? "↻ Aggiorna l’attacco" : "⚔ Aggiungi agli attacchi"}</button>`}
+        <button type="button" className="btn small" onClick=${onEdit}>✎ Modifica</button></div>`}
+    </div>
+  </details>`;
+}
+function EquipTab({s, D, ro, upd, set}){
+  const items = s.items || [];
+  const [filter, setFilter] = useState(()=>lsGet("eqFilter","tutti"));
+  const [editId, setEditId] = useState(null); const [lastId, setLastId] = useState(null); const [openV, setOpenV] = useState(0); const [newCat, setNewCat] = useState("arma");
+  useEffect(()=>{ lsSet("eqFilter", filter); },[filter]);
+  const patch = (id, o) => upd(p=>{ const x = (p.items||[]).find(y=>y.id===id); if (x) Object.assign(x, o); return p; });
+  const del = (id) => { upd(p=>{ p.items = (p.items||[]).filter(y=>y.id!==id); return p; }); if (editId===id) setEditId(null); };
+  const add = (cat) => { const id = uid(); const base = {id, name:"", qty:1, notes:"", cat, wt:0, where: eqWearable(cat) ? "addosso" : "zaino", eq: eqWearable(cat)};
+    if (cat==="armatura") Object.assign(base, {armor:"leggera", base:11}); if (cat==="scudo") Object.assign(base, {acBonus:2, wt:3}); if (cat==="arma") Object.assign(base, {dmg:"1d6", ability:"for"});
+    upd(p=>{ p.items = [...(p.items||[]), base]; return p; }); setEditId(id); if (filter!=="tutti" && filter!=="eq" && filter!==cat) setFilter(cat); };
+  const ac = eqArmorClass(s, D);
+  const carried = items.filter(x=>(x.where||"zaino")!=="altrove").reduce((a,x)=>a + (Number(x.wt)||0)*(Number(x.qty)||0), 0);
+  const coins = Object.values(s.coins||{}).reduce((a,v)=>a+(Number(v)||0), 0); const coinKg = coins/100;
+  const load = carried + coinKg; const cap = (D.sc?.for || s.abil.for || 10) * 7.5;
+  const att = items.filter(x=>x.attune && x.attuned).length;
+  const gp = (Number(s.coins?.mp)||0)*10 + (Number(s.coins?.mo)||0) + (Number(s.coins?.me)||0)*0.5 + (Number(s.coins?.ma)||0)*0.1 + (Number(s.coins?.mr)||0)*0.01;
+  const groups = [["eq","Equipaggiati", items.filter(x=>x.eq && eqWearable(eqCat(x)))], ...EQ_CATS.map(([k,n])=>[k, n, items.filter(x=>eqCat(x)===k)])];
+  const shown = filter==="tutti" ? EQ_CATS.map(([k,n])=>[k, n, items.filter(x=>eqCat(x)===k)]).filter(g=>g[2].length) : groups.filter(g=>g[0]===filter);
+  return html`<div className="traits equip">
+    <section className="panel eq-sum-panel">
+      <div className="eq-stats">
+        <div className="eq-stat"><span className="k">CA dall’equipaggiamento</span><b className="v">${ac.ac}</b>
+          <span className="muted">${ac.parts.join(" · ")}</span>
+          ${!ro && ac.ac !== Number(s.ac) ? html`<button type="button" className="btn small" onClick=${()=>set("ac", ac.ac)} title="Scrive questo valore nella CA della scheda">Usa come CA (ora ${s.ac})</button>` : html`<span className="muted" style=${{fontSize:".78rem"}}>${ac.ac === Number(s.ac) ? "Uguale alla CA della scheda" : ""}</span>`}</div>
+        <div className="eq-stat"><span className="k">Peso trasportato</span><b className="v">${numIt(load)} <small>/ ${numIt(cap)} kg</small></b>
+          <div className="hpbar" title=${`${numIt(load)} kg su ${numIt(cap)}`}><i style=${{width:clamp(load/cap*100,0,100)+"%", background: load > cap ? "var(--heart)" : "var(--accent)"}}></i></div>
+          <span className=${load > cap ? "err" : "muted"} style=${{fontSize:".78rem"}}>${load > cap ? "Oltre la capacità di carico (Forza × 7,5 kg)" : `Capacità: Forza ${D.sc?.for ?? s.abil.for} × 7,5 kg`}${coinKg >= 0.1 ? ` · monete ${numIt(coinKg)} kg` : ""}</span></div>
+        <div className="eq-stat"><span className="k">Sintonia</span><b className=${"v"+(att > 3 ? " err" : "")}>${att} <small>/ 3</small></b>
+          <span className=${att > 3 ? "err" : "muted"} style=${{fontSize:".78rem"}}>${att > 3 ? "Massimo 3 oggetti sintonizzati" : items.filter(x=>x.attune && x.attuned).map(x=>x.name).join(", ") || "Nessun oggetto sintonizzato"}</span></div>
+      </div>
+    </section>
+    <section className="panel">
+      <div className="panel-h"><h3>Oggetti</h3><span className="spacer"></span>
+        ${items.length > 0 && html`<button type="button" className="btn small" onClick=${()=>setOpenV(v=>v+1)}>${openV % 2 === 1 ? "Chiudi tutti" : "Apri tutti"}</button>`}
+        ${!ro && html`<select className="field" aria-label="Categoria del nuovo oggetto" value=${newCat} onChange=${e=>setNewCat(e.target.value)} style=${{width:"auto"}}>${EQ_CATS.map(([k])=>html`<option key=${k} value=${k}>${EQ_ONE[k]}</option>`)}</select>
+          <button type="button" className="btn small primary" onClick=${()=>add(newCat)}>+ Aggiungi</button>`}</div>
+      <div className="pk-tabs" role="tablist" aria-label="Categorie di oggetti">
+        <button type="button" role="tab" aria-selected=${filter==="tutti"} className=${"pk-tab"+(filter==="tutti"?" on":"")} onClick=${()=>setFilter("tutti")}>Tutti <span>${items.length}</span></button>
+        ${groups.filter(g=>g[2].length || g[0]===filter).map(([k,n,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${filter===k} className=${"pk-tab"+(filter===k?" on":"")} onClick=${()=>setFilter(k)}>${n} <span>${l.length}</span></button>`)}</div>
+      ${items.length === 0 && html`<p className="muted" style=${{margin:0}}>Lo zaino è vuoto. Aggiungi armi, armature, scudi, oggetti magici, pozioni e attrezzatura: per ognuno quantità, peso, dove lo tieni, sintonia, cariche e descrizione. Le armi diventano attacchi pronti, armatura e scudo danno la CA.</p>`}
+      ${shown.map(([k,n,l])=>html`<div key=${k} className="tr-group">
+        ${filter==="tutti" && html`<div className="eyebrow">${n}</div>`}
+        ${l.length === 0 && html`<p className="muted" style=${{margin:0}}>Nessun oggetto qui.</p>`}
+        ${l.map(x=>html`<${EqItem} key=${x.id} x=${x} s=${s} D=${D} ro=${ro} upd=${upd} editing=${editId===x.id} keepOpen=${lastId===x.id} openV=${openV}
+          onEdit=${()=>setEditId(x.id)} onDone=${()=>{ setEditId(null); setLastId(x.id); }} patch=${o=>patch(x.id, o)} del=${()=>del(x.id)}/>`)}
+      </div>`)}
+    </section>
+    <section className="panel"><div className="panel-h"><h3>Monete</h3><span className="muted" style=${{fontSize:".82rem"}}>In tutto ${numIt(gp)} mo</span></div>
+      <div className="coins">${[["mr","Rame"],["ma","Argento"],["me","Electrum"],["mo","Oro"],["mp","Platino"]].map(([k,n])=>html`
+        <label className="lab" key=${k}>${n} (${k})<${Num} id=${"c-"+k} value=${s.coins[k]} min=${0} onChange=${v=>set("coins."+k,v)}/></label>`)}</div>
+    </section>
+  </div>`;
+}
+
 /* ---------- scheda personaggio ---------- */
 function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove, onSetHidden, onMini}){
   const [s, change, status] = useSheet(onSave, remote);
@@ -1187,13 +1362,13 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
     const gain = Math.max(1, total);
     upd(p=>{ p.hd.spent+=1; p.hp.cur=Math.min(D.effMax,p.hp.cur+gain); return p; });
   };
-  const shortRest = () => upd(p=>{ p.res.forEach(r=>{ if(r.reset==="breve") r.used=0 }); (p.traits||[]).forEach(x=>{ if (x.reset==="breve") x.used=0; }); return p; });
+  const shortRest = () => upd(p=>{ p.res.forEach(r=>{ if(r.reset==="breve") r.used=0 }); (p.traits||[]).forEach(x=>{ if (x.reset==="breve") x.used=0; }); (p.items||[]).forEach(x=>{ if (x.recharge==="breve") x.used=0; }); return p; });
   const longRest = () => upd(p=>{
     p.ctr = p.ctr || {};
     COUNTERS.forEach(c=>{ if (c.reset && (!c.cond || restOk[c.k])) p.ctr[c.k] = 0; });
     const eff = Math.max(1,(p.hp.max||0)-ctrHp(p));
     p.hp.cur = eff; p.hp.temp = 0; p.hd.spent = 0; p.death={s:0,f:0};
-    p.spell.slots.forEach(x=>x.used=0); p.res.forEach(r=>r.used=0); (p.traits||[]).forEach(x=>{ if (x.reset!=="mai") x.used=0; });
+    p.spell.slots.forEach(x=>x.used=0); p.res.forEach(r=>r.used=0); (p.traits||[]).forEach(x=>{ if (x.reset!=="mai") x.used=0; }); (p.items||[]).forEach(x=>{ if (Number(x.chg) > 0 && x.recharge!=="mai") x.used=0; });
     p.exh = Math.max(0,(p.exh||0)-1); return p; });
 
   const listOps = (key, make) => ({
@@ -1207,7 +1382,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
   const itm = listOps("items", ()=>({id:uid(),name:"",qty:1,notes:""}));
   const spl = listOps("spells", ()=>({id:uid(),name:"",lvl:0,prep:true,conc:false,notes:""}));
 
-  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["tratti","Tratti e talenti"],["zaino","Zaino"],["note","Note e storia"],["carta","Carta"]];
+  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["tratti","Tratti e talenti"],["zaino","Equipaggiamento"],["note","Note e storia"],["carta","Carta"]];
   const uploadPortrait = async (file) => { if (!file || !onPortrait) return; setPBusy(true); setPMsg("");
     const r = await onPortrait(charId, file); setPBusy(false); if (pIn.current) pIn.current.value = "";
     if (r.error){ setPMsg(r.error); return; }
@@ -1422,23 +1597,7 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, backLabel, o
       </section>
     </div>`}
 
-    ${tab==="zaino" && html`<div style=${{display:"grid",gap:16}}>
-      <section className="panel"><h3>Monete</h3>
-        <div className="coins">${[["mr","Rame"],["ma","Argento"],["me","Electrum"],["mo","Oro"],["mp","Platino"]].map(([k,n])=>html`
-          <label className="lab" key=${k}>${n} (${k})<${Num} id=${"c-"+k} value=${s.coins[k]} min=${0} onChange=${v=>set("coins."+k,v)}/></label>`)}</div>
-      </section>
-      <section className="panel">
-        <div className="panel-h"><h3>Equipaggiamento</h3><button type="button" className="btn small" onClick=${itm.add}>+ Aggiungi</button></div>
-        ${s.items.length===0 && html`<p className="muted" style=${{margin:0}}>Lo zaino è vuoto. Corda, razioni, torce, pozioni…</p>`}
-        <div className="list">${s.items.map((x,i)=>html`<div className="li item" key=${x.id}>
-          <${Txt} id=${"it-n-"+x.id} value=${x.name} placeholder="Oggetto" label="Oggetto" onChange=${v=>itm.set(i,"name",v)}/>
-          <${Num} id=${"it-q-"+x.id} value=${x.qty} min=${0} label="Quantità" onChange=${v=>itm.set(i,"qty",v)}/>
-          <${Txt} id=${"it-x-"+x.id} value=${x.notes} placeholder="Note" label="Note" className="note" onChange=${v=>itm.set(i,"notes",v)}/>
-          <button type="button" className="iconbtn" aria-label="Elimina oggetto" onClick=${()=>itm.del(i)}>×</button>
-        </div>`)}</div>
-      </section>
-    </div>`}
-
+    ${tab==="zaino" && html`<${EquipTab} s=${s} D=${D} ro=${ro} upd=${upd} set=${set}/>`}
     ${tab==="tratti" && html`<${TraitsTab} s=${s} ro=${ro} upd=${upd} set=${set}/>`}
     ${tab==="note" && html`<div className="grid2">
       <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Storia del personaggio</h3><${Txt} area id="story" value=${s.story} placeholder="Da dove viene, cosa cerca, chi ha perso nella Caduta…" onChange=${v=>set("story",v)}/></section>
