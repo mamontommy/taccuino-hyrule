@@ -321,6 +321,45 @@ button.vital{cursor:pointer;font:inherit;color:inherit}
 .layer img.mimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill}
 .pin.mst > svg{opacity:1;filter:drop-shadow(0 0 2.5px #8e5bd6) drop-shadow(0 0 1px #8e5bd6)}
 .mapfoot.mview{border-top:1px dashed var(--line);padding-top:8px}
+/* carte del gruppo */
+.cards.tcards{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;align-items:start}
+.tcard{--fr:#e0bd67;--fr2:#9a7428;--tb:#f5e7bf;--tx:#f9f1dc;--ft:#2f2513;display:block;width:100%;max-width:290px;justify-self:center;aspect-ratio:63/88;box-sizing:border-box;padding:8px;border:0;border-radius:14px;background:#171412;cursor:pointer;text-align:left;font:inherit;color:#1b1712;box-shadow:0 6px 18px rgb(0 0 0/.28);transition:transform .15s ease,box-shadow .15s ease}
+button.tcard:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgb(0 0 0/.34)}
+button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.tc-in{height:100%;box-sizing:border-box;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:5px;padding:7px 7px 6px;border-radius:9px;background:linear-gradient(160deg,var(--fr),var(--fr2))}
+.tc-title,.tc-type{display:flex;align-items:center;justify-content:space-between;gap:6px;background:linear-gradient(180deg,var(--tb),color-mix(in srgb,var(--tb) 82%,#000));border:1.5px solid rgb(0 0 0/.5);border-radius:9px;box-shadow:inset 0 1px 0 rgb(255 255 255/.6);min-width:0}
+.tc-title{padding:4px 5px 4px 9px}
+.tc-name{font-family:var(--f-display);font-size:1.05rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-lv{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#fffaf0,#d9cfb8);border:1.5px solid #2a241c;font-family:var(--f-mono);font-weight:600;font-size:.8rem}
+.tc-art{aspect-ratio:4/3;border:2px solid rgb(0 0 0/.6);border-radius:2px;overflow:hidden;background:#2a241c;margin:0 3px}
+.tc-art img{display:block;width:100%;height:100%;object-fit:cover}
+.tc-ph{display:grid;place-items:center;width:100%;height:100%;font-family:var(--f-display);font-size:2.6rem;color:rgb(255 255 255/.88);background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--fr) 70%,#fff),var(--fr2) 60%,#1b1712)}
+.tc-type{padding:3px 9px;font-size:.78rem;font-weight:600}
+.tc-type span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-sym{flex:none;color:var(--fr2);font-size:.9rem}
+.tc-text{margin:0 3px;background:var(--tx);border:1.5px solid rgb(0 0 0/.35);border-radius:2px;padding:7px 9px;display:flex;flex-direction:column;gap:6px;font-size:.8rem;overflow:hidden;min-height:0}
+.tc-stats{display:flex;flex-wrap:wrap;gap:4px 10px}
+.tc-stats b{font-family:var(--f-mono);font-weight:600}
+.tcard .hpbar{background:rgb(0 0 0/.1);border-color:rgb(0 0 0/.25);height:7px;flex:none}
+.tcard .chips{gap:4px}
+.tcard .chip{background:rgb(255 255 255/.6);border-color:rgb(0 0 0/.2);color:#2a241c;font-size:.7rem;padding:1px 6px}
+.tcard .chip.bad{color:#8a2c1f;border-color:rgb(138 44 31/.4)}.tcard .chip.gold{color:#7a5310;border-color:rgb(122 83 16/.4)}
+.tc-flavor{margin-top:auto;padding-top:4px;border-top:1px solid rgb(0 0 0/.15);font-family:Georgia,serif;font-size:.78rem;color:#4a3f30}
+.tc-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;padding:0 3px;min-height:20px}
+.tc-who{font-size:.68rem;color:var(--ft);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
+.tc-pt{flex:none;margin-top:-12px;background:linear-gradient(180deg,var(--tb),color-mix(in srgb,var(--tb) 82%,#000));border:1.5px solid rgb(0 0 0/.55);border-radius:7px;padding:1px 8px;font-family:var(--f-mono);font-weight:600;font-size:.85rem;color:#1b1712}
+.tc-pt small{font-size:.7rem;color:#7a5310}
+.f-bianco{--fr:#efe9d6;--fr2:#c4b792;--tb:#f8f4e8;--tx:#fbf8ef;--ft:#3a3226}
+.f-blu{--fr:#5b93c9;--fr2:#20507f;--tb:#d3e3f2;--tx:#eaf1f8;--ft:#fff}
+.f-nero{--fr:#5a554f;--fr2:#1d1a18;--tb:#cfc7bf;--tx:#e8e3de;--ft:#fff}
+.f-rosso{--fr:#d06a4e;--fr2:#8a2c1f;--tb:#f3d0c2;--tx:#f9ebe5;--ft:#fff}
+.f-verde{--fr:#5d9e64;--fr2:#275a33;--tb:#d1e6cd;--tx:#ebf3e8;--ft:#fff}
+.f-oro{--fr:#e0bd67;--fr2:#9a7428;--tb:#f5e7bf;--tx:#faf3df;--ft:#2f2513}
+.f-grigio{--fr:#a9b1b5;--fr2:#5f676b;--tb:#e2e6e8;--tx:#f1f3f4;--ft:#1f2427}
+.cardtab{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
+.cardprev .tcard{max-width:280px;cursor:default}
+@media (max-width:640px){.cardtab{grid-template-columns:1fr}.cardprev{justify-self:center;width:min(280px,100%)}}
+.bt-tok.pimg{background-size:cover;background-position:center 30%}
 .arch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
 .arch-card{display:grid;gap:4px;text-align:left;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer;color:inherit;font:inherit}
 .arch-card:hover{border-color:var(--accent)}.arch-card.hid{border-style:dashed;opacity:.75}
@@ -521,6 +560,9 @@ const SKILLS = [
  ["sopr","Sopravvivenza","sag"],["stor","Storia","int"]];
 const CONDS = ["Accecato","Affascinato","Afferrato","Assordato","Avvelenato","Incapacitato","Invisibile","Paralizzato","Pietrificato","Privo di sensi","Prono","Spaventato","Stordito","Trattenuto"];
 const HD = [6,8,10,12];
+const CARD_FRAMES = [["bianco","Bianco"],["blu","Blu"],["nero","Nero"],["rosso","Rosso"],["verde","Verde"],["oro","Oro (multicolore)"],["grigio","Grigio (incolore)"]];
+const CLASS_FRAME = [["barbar","rosso"],["bard","oro"],["chieric","bianco"],["druid","verde"],["guerrier","rosso"],["ladr","nero"],["monac","bianco"],["paladin","bianco"],["ranger","verde"],["stregon","rosso"],["warlock","nero"],["artefic","grigio"],["mag","blu"]];
+const frameOf = (s, npc) => (CARD_FRAMES.some(f=>f[0]===s.card?.frame) && s.card.frame) || (CLASS_FRAME.find(([k])=>String(s.cls||"").toLowerCase().includes(k))||[])[1] || (npc ? "grigio" : "oro");
 const ALIGNMENTS = ["Legale buono","Neutrale buono","Caotico buono","Legale neutrale","Neutrale","Caotico neutrale","Legale malvagio","Neutrale malvagio","Caotico malvagio"];
 
 /* ---------- configurazione della campagna (dal database, modificabile dal master) ---------- */
@@ -621,7 +663,7 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const d = n => 1 + Math.floor(Math.random()*n);
 
 function blankSheet(){
-  return {name:"", species:"", cls:"", subclass:"", background:"", align:"", level:1,
+  return {name:"", species:"", cls:"", subclass:"", background:"", align:"", level:1, portrait:"", card:{frame:"", pos:50},
     abil:{for:10,des:10,cos:10,int:10,sag:10,car:10}, saves:{}, skills:{},
     ac:10, speed:9, initBonus:0, hp:{cur:10,max:10,temp:0}, hd:{die:8,spent:0}, death:{s:0,f:0},
     insp:false, exh:0, cond:[], attacks:[], spell:{abil:"", slots:Array.from({length:9},()=>({max:0,used:0}))},
@@ -742,13 +784,14 @@ function SaveState({status, ro}){
 }
 
 /* ---------- scheda personaggio ---------- */
-function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world}){
+function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, canDelete, world, portraitUrl, onPortrait, onPortraitRemove}){
   const [s, change, status] = useSheet(onSave, remote);
   const [tab, setTab] = useState(()=>lsGet("tab","comb"));
   const [mode, setMode] = useState("norm");
   const [hpAmt, setHpAmt] = useState("");
   const [restOk, setRestOk] = useState({});
   const [confirmDel, setConfirmDel] = useState(false);
+  const [pBusy, setPBusy] = useState(false); const [pMsg, setPMsg] = useState(""); const pIn = useRef(null);
   const ro = !editable || status==="denied";
   const D = derived(s);
   const set = (path, v) => change(p => setIn(p, path.split("."), v));
@@ -793,7 +836,12 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
   const itm = listOps("items", ()=>({id:uid(),name:"",qty:1,notes:""}));
   const spl = listOps("spells", ()=>({id:uid(),name:"",lvl:0,prep:true,conc:false,notes:""}));
 
-  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["zaino","Zaino"],["note","Note e storia"]];
+  const tabs = [["comb","Combattimento"],["abil","Abilità"],["magia","Magia"],["zaino","Zaino"],["note","Note e storia"],["carta","Carta"]];
+  const uploadPortrait = async (file) => { if (!file || !onPortrait) return; setPBusy(true); setPMsg("");
+    const r = await onPortrait(charId, file); setPBusy(false); if (pIn.current) pIn.current.value = "";
+    if (r.error){ setPMsg(r.error); return; }
+    const old = s.portrait; set("portrait", r.path); if (old && old !== r.path && onPortraitRemove) onPortraitRemove(old);
+    setPMsg("Immagine caricata: la vede tutto il gruppo."); };
 
   return html`<div>
     <div className="row" style=${{marginBottom:10}}>
@@ -1013,6 +1061,23 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
       <section className="panel"><h3>Storia del personaggio</h3><${Txt} area id="story" value=${s.story} placeholder="Da dove viene, cosa cerca, chi ha perso nella Caduta…" onChange=${v=>set("story",v)}/></section>
       <section className="panel" style=${{gridColumn:"1/-1"}}><h3>Appunti di sessione</h3><${Txt} area id="notes" value=${s.notes} placeholder="Nomi, indizi, promesse fatte…" onChange=${v=>set("notes",v)}/></section>
     </div>`}
+    ${tab==="carta" && html`<div className="cardtab">
+      <div className="cardprev"><${PartyCard} c=${{...s, id:charId, owner:remote?.owner}} url=${portraitUrl} ownerName=${ownerName} world=${world}/></div>
+      <section className="panel" style=${{alignSelf:"start"}}>
+        <h3>La carta del personaggio</h3>
+        <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Così compare il personaggio nella sezione “Il gruppo”. L’immagine la vede tutto il gruppo; meglio verticale o quadrata, viene ridotta a 1000 pixel.</p>
+        <div className="row">
+          <button type="button" className="btn primary" disabled=${ro || pBusy || !onPortrait} onClick=${()=>pIn.current?.click()}>${pBusy ? "Caricamento…" : s.portrait ? "Cambia immagine" : "Carica immagine"}</button>
+          ${s.portrait && html`<button type="button" className="btn" disabled=${ro || pBusy} onClick=${()=>{ const old = s.portrait; set("portrait", ""); if (onPortraitRemove) onPortraitRemove(old); setPMsg("Immagine tolta."); }}>Togli immagine</button>`}
+          <input ref=${pIn} id="pg-portrait" type="file" accept="image/png,image/jpeg,image/webp" hidden onChange=${e=>uploadPortrait(e.target.files[0])}/>
+        </div>
+        <label className="lab" style=${{maxWidth:280}}>Cornice<select id="pg-frame" className="field" value=${s.card?.frame || ""} onChange=${e=>set("card.frame", e.target.value)}>
+          <option value="">Automatica (dalla classe: ${(CARD_FRAMES.find(f=>f[0]===frameOf({...s, card:{}}, !remote?.owner))||[])[1]})</option>
+          ${CARD_FRAMES.map(([k,l])=>html`<option key=${k} value=${k}>${l}</option>`)}</select></label>
+        ${s.portrait && html`<label className="lab" style=${{maxWidth:280}}>Inquadratura (in alto ↔ in basso)<input id="pg-pos" type="range" min="0" max="100" step="5" value=${s.card?.pos ?? 50} onChange=${e=>set("card.pos", Number(e.target.value))}/></label>`}
+        ${pMsg && html`<p className="muted" role="status" style=${{margin:0}}>${pMsg}</p>`}
+      </section>
+    </div>`}
     </fieldset>
 
     ${canDelete && html`<div className="row" style=${{marginTop:24}}>
@@ -1025,22 +1090,23 @@ function Sheet({remote, editable, onSave, onDelete, onRoll, onBack, ownerName, c
 }
 
 /* ---------- vista gruppo ---------- */
-function PartyCard({c, ownerName, onOpen, mine, haz, world}){
+function PartyCard({c, ownerName, onOpen, mine, haz, world, url}){
   const s = norm(c); const D = derived(s);
   const cold = haz && haz.kind && c.owner && !isProtected(s, haz.kind, world);
   const meal = CFG.modules.cucina && s.hy.meal && s.hy.mealUntil && mealActive(s.hy.mealUntil, world) ? s.hy.meal.split(":")[0] : null;
   const ctrs = COUNTERS.filter(x=>(Number(s.ctr?.[x.k])||0)>0);
   const hpPct = clamp(s.hp.cur / D.effMax * 100, 0, 100);
-  return html`<button type="button" className="card" onClick=${onOpen}>
-    <div><div className="nm">${s.name || "Senza nome"}</div>
-      <div className="muted" style=${{fontSize:".9rem"}}>${[s.species, [s.cls,s.subclass].filter(Boolean).join(" · "), "liv. "+s.level, s.align].filter(Boolean).join(" — ")}</div></div>
-    <div className="who">${c.owner ? html`<${Who} id=${c.owner} name=${ownerName}/>` : null}${mine ? "La tua scheda" : c.owner ? (ownerName || "Giocatore") : "PNG del master"}</div>
-    <div style=${{display:"grid",gap:4}}>
-      <div className="row" style=${{justifyContent:"space-between",fontSize:".85rem"}}><span className="muted">PF</span>
-        <span className="mono">${s.hp.cur} / ${D.effMax}${s.hp.temp?` (+${s.hp.temp})`:""}</span></div>
-      <div className="hpbar"><i style=${{width:hpPct+"%"}}></i></div>
-    </div>
-    <div className="stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. pass. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
+  const Tag = onOpen ? "button" : "div";
+  const typeLine = [s.species, [s.cls, s.subclass].filter(Boolean).join(" · ")].filter(Boolean).join(" — ") || (c.owner ? "Avventuriero" : "PNG");
+  return html`<${Tag} type=${onOpen ? "button" : undefined} className=${"tcard f-"+frameOf(s, !c.owner)} onClick=${onOpen} aria-label=${onOpen ? "Apri la scheda di "+(s.name||"personaggio") : undefined}>
+   <div className="tc-in">
+    <div className="tc-title"><span className="tc-name">${s.name || "Senza nome"}</span><span className="tc-lv" title=${"Livello "+s.level}>${s.level}</span></div>
+    <div className="tc-art">${url ? html`<img src=${url} alt="" loading="lazy" draggable="false" style=${{objectPosition:`50% ${clamp(Number(s.card?.pos ?? 50),0,100)}%`}}/>`
+      : html`<span className="tc-ph" aria-hidden="true">${initialsOf(s.name)}</span>`}</div>
+    <div className="tc-type"><span>${typeLine}</span><span className="tc-sym" aria-hidden="true">✦</span></div>
+    <div className="tc-text">
+    <div className="tc-stats"><span>CA <b>${s.ac}</b></span><span>Iniz. <b>${sg(D.init)}</b></span><span>Perc. <b>${D.passPerc}</b></span>${D.dc!=null && html`<span>CD <b>${D.dc}</b></span>`}</div>
+    <div className="hpbar" title=${`PF ${s.hp.cur} su ${D.effMax}`}><i style=${{width:hpPct+"%"}}></i></div>
     ${(s.cond.length>0 || s.insp || s.exh>0 || ctrs.length>0 || cold || meal) && html`<div className="chips">
       ${cold && html`<span className="chip bad">Non protetto dal ${haz.kind}</span>`}
       ${meal && html`<span className="chip gold">Pasto: ${meal}</span>`}
@@ -1048,10 +1114,15 @@ function PartyCard({c, ownerName, onOpen, mine, haz, world}){
       ${s.exh>0 && html`<span className="chip bad">Esaurimento ${s.exh}</span>`}
       ${ctrs.map(x=>html`<span key=${x.k} className=${"chip"+(x.hpMax?" bad":"")}>${x.name} ${x.hpMax?"−":""}${s.ctr[x.k]}</span>`)}
       ${s.cond.map(x=>html`<span className="chip bad" key=${x}>${x}</span>`)}</div>`}
-  </button>`;
+    ${s.align && html`<i className="tc-flavor">${s.align}</i>`}
+    </div>
+    <div className="tc-foot"><span className="tc-who">${mine ? "La tua scheda" : c.owner ? "Giocato da "+(ownerName || "un giocatore") : "PNG del master"}</span>
+      <span className="tc-pt" title="Punti ferita">${s.hp.cur}/${D.effMax}${s.hp.temp ? html`<small> +${s.hp.temp}</small>` : null}</span></div>
+   </div>
+  <//>`;
 }
 
-function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world}){
+function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, ready, error, world, portraits={}}){
   const haz = climate(world);
   const mine = chars.find(c=>c.owner===me.id);
   const sorted = [...chars].sort((a,b)=> (a.owner===me.id?-1:b.owner===me.id?1:0) || (!a.owner - !b.owner) || String(a.name||"").localeCompare(String(b.name||"")));
@@ -1070,7 +1141,7 @@ function Party({chars, me, names, party, onOpen, onCreate, onCreateNpc, goMap, r
       : chars.length===0 ? html`<div className="empty"><${Mark} size=${40}/><h3>Nessun personaggio ancora</h3>
           <p className="muted">Ogni giocatore crea qui la propria scheda: la vedrà tutto il gruppo, ma potrà modificarla solo chi la possiede (e il master).</p>
           <button type="button" className="btn primary" onClick=${onCreate}>Crea la tua scheda</button></div>`
-      : html`<div className="cards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
+      : html`<div className="cards tcards">${sorted.map(c=>html`<${PartyCard} key=${c.id} c=${c} url=${portraits[c.id]} haz=${haz} world=${world} ownerName=${names[c.owner]} mine=${c.owner===me.id} onOpen=${()=>onOpen(c.id)}/>`)}</div>`}
   </div>`;
 }
 
@@ -1204,7 +1275,7 @@ function areaCells(gm, cols, rows){ let xa, xb, ya, yb;
   return out; }
 const areaLabel = (a) => `${AREA_NAMES[a.shape]||"Area"} ${fmtM(a.size)}${a.shape === "linea" ? " × "+fmtM(a.width||CELL_M) : ""}`;
 
-function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr, areas=[], areaSpec, names={}}){
+function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, peek, tool, brushR, showWalls, imgRef, ctlRef, selTok, setSelTok, ops, onErr, areas=[], areaSpec, names={}, portraits={}}){
   const D = sceneDims(scene.grid, W, H);
   const fogC = useRef(null);
   const [drag, setDrag] = useState(null);       // {id, x, y, sx, sy}
@@ -1374,11 +1445,11 @@ function BattleLayer({scene, st, tokens, W, H, M, me, chars, fighters, combat, p
       className=${"bt-door"+(doors[i]?" open":"")+(lk===1?" locked":"")+(lk===2?" secret":"")} title=${title} aria-label=${title}
       style=${{left:pctX((w[0]+w[2])/2)+"%", top:pctY((w[1]+w[3])/2)+"%"}}>${doors[i] ? "◫" : lk === 1 ? "🔒" : lk === 2 ? "S" : "▮"}</button>`; })}
     ${shown.map(tk => { const [x,y] = pos(tk); const f = fighterOf(tk); const pc = !!(tk.char_id && charOwner[tk.char_id]);
-      const col = tk.color || (pc ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR); const sz = Number(tk.size)||1;
+      const col = tk.color || (pc ? colorFor(charOwner[tk.char_id]) : ENEMY_COLOR); const sz = Number(tk.size)||1; const pimg = tk.char_id && portraits[tk.char_id];
       return html`<div key=${tk.id} data-tok=${tk.id} title=${tk.name}
-        className=${"bt-tok"+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
-        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col}}>
-        <span className="bt-in">${initialsOf(tk.name)}</span></div>`; })}
+        className=${"bt-tok"+(pimg?" pimg":"")+(tk.hidden?" hid":"")+(tk.light>0?" lit":"")+(selTok===tk.id?" sel":"")+(f && turnId===f.id?" turn":"")+(canMove(tk)?" mine":"")+(f && !pc ? " hp-"+(f.hp_state||"illeso").replace(/\s+/g,"-") : "")}
+        style=${{left:pctX(x)+"%", top:pctY(y)+"%", width:(sz*D.size/W*100)+"%", "--c":col, ...(pimg ? {backgroundImage:`url("${pimg}")`} : {})}}>
+        ${!pimg && html`<span className="bt-in">${initialsOf(tk.name)}</span>`}</div>`; })}
     ${drag && html`<div className="bt-dist" style=${{left:pctX(drag.x)+"%", top:pctY(drag.y)+"%"}}>${String(dist*CELL_M).replace(".",",")} m</div>`}
     ${ruler && html`<svg className="bt-ruler" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
       <line x1=${D.offX+ruler.a[0]*D.size} y1=${D.offY+ruler.a[1]*D.size} x2=${D.offX+ruler.b[0]*D.size} y2=${D.offY+ruler.b[1]*D.size} strokeWidth=${Math.max(2, D.size/14)}/></svg>
@@ -1482,7 +1553,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, portraits={}, masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
   const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
@@ -1680,7 +1751,7 @@ function MapView({me, party, mapUrls, masterUrls={}, onUploadMaster, onRemoveMas
           ${draft && html`<span className="pin draft" style=${{left:draft.x*100+"%",top:draft.y*100+"%"}}><${Glyph} kind="nota"/></span>`}
           ${battle && dims && loaded && html`<${BattleLayer} scene=${scene} st=${sst} tokens=${planeTokens} W=${dims[0]} H=${dims[1]} M=${M} me=${me} chars=${chars} fighters=${fighters} combat=${combat}
             peek=${peek} tool=${tool} brushR=${brushR} showWalls=${showWalls} imgRef=${img} ctlRef=${ctl} selTok=${selTok} setSelTok=${setSelTok} ops=${bOps} onErr=${setErr}
-            areas=${planeAreas} areaSpec=${areaSpec} names=${names}/>`}
+            areas=${planeAreas} areaSpec=${areaSpec} names=${names} portraits=${portraits}/>`}
           ${here && !pending && !battle && html`<div className="marker" style=${{left:party.x*100+"%",top:party.y*100+"%"}}>
             <span className="ring"></span><span className="m"><${Mark} size=${38}/></span>${party.label && html`<span className="lbl">${party.label}</span>`}</div>`}
           ${pending && html`<div className="marker pending" style=${{left:pending.x*100+"%",top:pending.y*100+"%"}}><span className="m"><${Mark} size=${38}/></span></div>`}
@@ -1998,18 +2069,18 @@ function useCampaign(sb, active){
     pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr};
 }
 
-function useSignedUrls(sb, maps){
+function useSignedUrls(sb, maps, bucket="mappe"){
   const [urls, setUrls] = useState({});
   const key = JSON.stringify(maps);
   useEffect(()=>{ let off = false;
     (async()=>{ const out = {};
       for (const [plane, path] of Object.entries(maps)){
-        const {data} = await sb.storage.from("mappe").createSignedUrl(path, 60*60*12);
+        const {data} = await sb.storage.from(bucket).createSignedUrl(path, 60*60*12);
         if (data?.signedUrl) out[plane] = data.signedUrl;
       }
       if (!off) setUrls(out); })();
     return ()=>{ off = true; };
-  },[sb, key]);
+  },[sb, key, bucket]);
   return urls;
 }
 
@@ -3537,6 +3608,18 @@ function Main({sb, me, onSignOut}){
   const {chars, party, maps, members, ready, error, combat, fighters} = camp;
   const urls = useSignedUrls(sb, maps);
   const masterUrls = useSignedUrls(sb, me.isMaster ? camp.mmaps : {});
+  const portraitPaths = useMemo(()=>Object.fromEntries(chars.filter(c=>c.portrait).map(c=>[c.id, c.portrait])), [chars]);
+  const portraits = useSignedUrls(sb, portraitPaths, "ritratti");
+  const onPortrait = async (charId, file) => {
+    if (!charId) return {error:"Salva prima la scheda."};
+    if (file.size > 25*1024*1024) return {error:"Immagine troppo grande: resta sotto i 25 MB."};
+    const th = await makeThumb(file, 1000);
+    if (!th) return {error:"Non riesco a leggere l’immagine: usa un file JPG, PNG o WebP."};
+    const path = `${charId}/${Date.now()}-${uid()}.jpg`;
+    const up = await sb.storage.from("ritratti").upload(path, th.blob, {contentType:"image/jpeg", upsert:false});
+    if (up.error) return {error:"Caricamento non riuscito: "+up.error.message+(/bucket|not found|row-level|policy/i.test(up.error.message) ? " (esegui fase14.sql)" : "")};
+    return {path}; };
+  const onPortraitRemove = (path) => { if (path) sb.storage.from("ritratti").remove([path]); };
   const names = useMemo(()=>Object.fromEntries(members.map(m=>[m.user_id, m.name])),[members]);
   const [view, setView] = useState(()=>{ const h=(location.hash||"").slice(1); return ["mappa","gruppo","tavolo","cronache","campagna"].includes(h)?h:lsGet("view","gruppo"); });
   const [openId, setOpenId] = useState(null);
@@ -3763,7 +3846,7 @@ function Main({sb, me, onSignOut}){
     </header>
     <main className=${"wrap"+(view==="tavolo"?" wide":"")}>
       ${msg && html`<p className="notice err" role="alert">${msg} <button type="button" className="btn small" onClick=${()=>setMsg("")}>Chiudi</button></p>`}
-      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world}
+      ${view==="gruppo" && html`<${Party} chars=${chars} me=${me} names=${names} party=${party} ready=${ready} error=${error} world=${camp.world} portraits=${portraits}
           onOpen=${id=>{setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
       ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
@@ -3772,9 +3855,10 @@ function Main({sb, me, onSignOut}){
           ? html`<${Sheet} key=${openId} remote=${openChar} onSave=${saveFor} onDelete=${()=>delSheet(openId)} onRoll=${onRoll}
               onBack=${()=>{setView("gruppo"); setOpenId(null);}}
               editable=${me.isMaster || openChar.owner===me.id} canDelete=${me.isMaster || openChar.owner===me.id}
-              ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}/>`
+              ownerName=${openChar.owner ? (names[openChar.owner]||"Giocatore") : "PNG del master"} world=${camp.world}
+              portraitUrl=${portraits[openId]} onPortrait=${onPortrait} onPortraitRemove=${onPortraitRemove}/>`
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
-      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} masterUrls=${masterUrls}
+      ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} masterUrls=${masterUrls}
           onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
           scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
     </main>
