@@ -3316,7 +3316,10 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"foes"}, ()=>loadFoes())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_cards"}, ()=>loadNpcs())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_saves"}, ()=>loadNpcs())
-      .on("postgres_changes",{event:"*",schema:"public",table:"marks"}, ()=>{ clearTimeout(mkT.current); mkT.current = setTimeout(loadMarks, 500); })
+      .on("postgres_changes",{event:"*",schema:"public",table:"marks"}, (pl)=>{   /* applico la riga ricevuta: niente ricarica completa (meno traffico) */
+          if (pl.eventType==="DELETE"){ if (pl.old?.id) setMarks(x=>x.filter(m=>m.id!==pl.old.id)); return; }
+          const n = pl.new; if (!n || !n.id || !n.item_type){ clearTimeout(mkT.current); mkT.current = setTimeout(loadMarks, 800); return; }
+          setMarks(x=>[...x.filter(m=>m.id!==n.id && !(m.user_id===n.user_id && m.item_type===n.item_type && m.item_id===n.item_id)), n]); })
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
