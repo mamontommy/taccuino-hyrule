@@ -761,6 +761,66 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .bt-sw{width:18px;height:18px;border-radius:50%;flex:0 0 auto}
 .bt-areas{overflow:visible;pointer-events:none}
 .bt-alabel{transform:translate(-50%,-140%) scale(var(--inv));background:rgb(30 41 35/.85);font-size:.74rem}
+/* organizzazione: ★, etichette, note, indizi, ricerca (fase 18) */
+.mk-wrap{display:grid;gap:6px;min-width:0}
+.tcard-wrap .mk-wrap{justify-self:stretch;max-width:100%}
+.mk-bar{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.mk-star{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;width:32px;height:28px;font-size:1rem;line-height:1;cursor:pointer;padding:0;flex:0 0 auto}
+.mk-star.on{color:var(--gold);border-color:var(--gold);background:color-mix(in srgb,var(--gold) 14%,var(--surface))}
+.mk-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;font:inherit;font-size:.8rem;cursor:pointer;min-height:28px;white-space:nowrap}
+.mk-btn:hover,.mk-star:hover{border-color:var(--accent)}
+.mk-btn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.mk-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid hsl(var(--th) 45% 50% / .55);background:hsl(var(--th) 55% 50% / .15);color:var(--ink);border-radius:999px;padding:2px 9px;font:inherit;font-size:.78rem;line-height:1.45;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+button.mk-tag{cursor:pointer}
+button.mk-tag.on{background:hsl(var(--th) 55% 45% / .42);border-color:hsl(var(--th) 45% 40%);font-weight:600}
+.mk-x{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 0 0 3px;font-size:.95rem;line-height:1}
+.mk-x:hover{color:var(--heart)}
+.mk-n{opacity:.7;font-size:.72rem}
+.mk-in{width:160px;padding:3px 9px;min-height:28px;font-size:.85rem}
+.mk-note{margin:0;font-size:.86rem;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);border-radius:8px;padding:6px 9px}
+.mk-note.other{background:color-mix(in srgb,var(--gold) 11%,var(--sunk))}
+.mk-edit{display:grid;gap:6px}.mk-edit textarea{min-height:70px}
+.mk-starmini{color:var(--gold)}
+.mk-filter{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 260px;min-width:0}
+.mk-filter input{flex:1 1 170px;min-width:0;width:auto}
+.mk-filter select{width:auto;max-width:200px}
+.jr-list .mk-filter{flex:0 0 auto}
+.find-flash{animation:findflash 2.4s ease-out}
+@keyframes findflash{0%,35%{box-shadow:0 0 0 3px var(--gold)}100%{box-shadow:0 0 0 3px transparent}}
+.cl-wrap{display:grid;gap:12px}
+.cl-tools{gap:8px;align-items:center}
+.cl-tools > input[type=search]{flex:1 1 200px;min-width:0;width:auto}
+.cl-cloud{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.cl-card{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;display:grid;gap:8px;align-content:start;min-width:0}
+.cl-card.star{border-color:color-mix(in srgb,var(--gold) 65%,var(--line))}
+.cl-card.other{background:color-mix(in srgb,var(--gold) 5%,var(--surface))}
+.cl-card h3{margin:0;font-size:1.02rem;overflow-wrap:anywhere}
+.cl-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cl-sub{font-size:.8rem}.cl-gone{font-size:.8rem;font-weight:400}
+.cl-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cl-act{gap:6px}
+.cl-group{display:grid;gap:4px}.cl-gt{margin:6px 0 4px;display:flex;gap:8px;align-items:center}
+.cl-form{max-width:720px}
+.so-open{white-space:nowrap}
+.modal-back.so-back{place-items:start center;padding-top:7vh}
+.so-box{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgb(0 0 0/.35);width:min(740px,100%);max-height:82vh;display:grid;grid-template-rows:auto auto minmax(0,1fr);overflow:hidden}
+.so-in{display:flex;gap:8px;align-items:center;padding:12px;border-bottom:1px solid var(--line)}
+.so-in input{flex:1 1 auto;min-width:0;font-size:1.05rem}
+.so-types{padding:8px 12px;border-bottom:1px solid var(--line)}
+.so-types button{padding:4px 10px;font-size:.85rem}
+.so-types button:disabled{opacity:.45;cursor:default}
+.so-res{overflow:auto;padding:6px 8px 12px;display:grid;gap:10px;align-content:start}
+.so-g{display:grid;gap:2px}.so-g .eyebrow{padding:4px 8px 2px}
+.so-r{display:grid;gap:2px;text-align:left;border:0;background:none;border-radius:8px;padding:7px 10px;cursor:pointer;color:inherit;font:inherit;min-width:0}
+.so-r.on{background:color-mix(in srgb,var(--accent) 15%,var(--surface))}
+.so-t{font-weight:600;overflow-wrap:anywhere}.so-sub{font-weight:400;color:var(--muted);font-size:.85rem}
+.so-s{font-size:.85rem;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.so-r mark{background:color-mix(in srgb,var(--gold) 38%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+.so-more{justify-self:start;margin:2px 10px}
+.so-hint{margin:10px;font-size:.9rem}
+kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--sunk)}
+@media (max-width:640px){.modal-back.so-back{padding:0}.so-box{max-height:100vh;height:100%;border-radius:0;border:0}.so-lbl{display:none}}
 </style>
 </head>
 <body>
@@ -2135,7 +2195,8 @@ function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
       <div className="party-head"><div><div className="eyebrow">Condivisi con chi li conosce</div><h2>Personaggi conosciuti</h2></div></div>
       <div className="cards tcards">${[...npcs].sort(byNameN).map(n=>{ const aud = n.audience || [];
         const who = aud.length ? aud.map(u=>(names[u] || "?")+(saves.some(s=>s.card_id===n.id && s.user_id===u && s.saved) ? " ★" : "")).join(", ") : "Nessuno";
-        return html`<div key=${n.id} className=${"tcard-wrap"+(aud.length ? "" : " tc-secret")}><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who=${"Lo conoscono: "+who}/>
+        return html`<div key=${n.id} data-find=${"png:"+n.id} className=${"tcard-wrap"+(aud.length ? "" : " tc-secret")}><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who=${"Lo conoscono: "+who}/>
+          <${MarkBar} type="png" id=${n.id} title=${n.name}/>
           ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
           ${pick===n.id ? html`<${AudiencePicker} initial=${aud} players=${players} names=${names} onCancel=${()=>setPick(null)} onSave=${a=>{ setPick(null); run(()=>ops.setAudience(n.id, a)); }}/>`
             : html`<button type="button" className="btn small" onClick=${()=>setPick(n.id)}>👁 Chi lo conosce</button>`}
@@ -2152,12 +2213,13 @@ function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
   return html`<section className="known-sec">
     <div className="party-head"><div><div className="eyebrow">La tua raccolta</div><h2>Personaggi conosciuti</h2></div></div>
     ${fresh.length > 0 && html`<div className="known-new"><div className="eyebrow">Nuovi incontri</div>
-      <div className="cards tcards">${fresh.map(n=>html`<div key=${n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Nuovo incontro"/>
+      <div className="cards tcards">${fresh.map(n=>html`<div key=${n.id} data-find=${"png:"+n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Nuovo incontro"/>
         <button type="button" className="btn small primary" onClick=${()=>run(()=>ops.save(n.id, true))}>★ Salva tra i conosciuti</button>
         ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
         <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, false))}>Ignora</button></div>`)}</div></div>`}
     ${saved.length === 0 ? html`<p className="muted" style=${{margin:"0 0 8px"}}>${mine.length ? "Non hai ancora salvato nessun personaggio." : "Quando il master ti farà conoscere qualcuno, la sua carta comparirà qui e potrai salvarla nella tua raccolta."}</p>`
-      : html`<div className="cards tcards">${saved.map(n=>html`<div key=${n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="★" who="Conosciuto" extra=${note(n)}/>
+      : html`<div className="cards tcards">${saved.map(n=>html`<div key=${n.id} data-find=${"png:"+n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="★" who="Conosciuto" extra=${note(n)}/>
+          <${MarkBar} type="png" id=${n.id} title=${n.name} noNote=${true}/>
           ${onMini && html`<button type="button" className="btn small" onClick=${()=>onMini("npc:"+n.id)}>🧍 Miniatura</button>`}
           <${NoteBox} value=${sv[n.id]?.note} onSave=${v=>run(()=>ops.note(n.id, v))}/>
           <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, false))} title="Lo togli dalla raccolta: lo ritrovi tra gli ignorati">Togli dalla raccolta</button></div>`)}</div>`}
@@ -2740,7 +2802,7 @@ function BattleTools({scene, st, tokens, chars, fighters, names, M, me, tool, se
 }
 
 /* ---------- mappa ---------- */
-function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat}){
+function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUploadMaster, onRemoveMaster, archiveOps, archiveFolder, archive=[], names, onMove, onClearTrail, onUpload, pins, pinOps, cfgOps, scenes={}, sceneStates={}, tokens=[], areas=[], sceneOps, chars=[], fighters=[], combat, focus}){
   const [tool, setTool] = useState(null); const [brushR, setBrushR] = useState(1); const [showWalls, setShowWalls] = useState(true);
   const [areaSpec, setAreaSpec] = useState({shape:"sfera", size:0, width:1.5});
   const [selTok, setSelTok] = useState(null); const [dims, setDims] = useState(null); const ctl = useRef(null); const uvIn = useRef(null);
@@ -2805,6 +2867,8 @@ function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUp
   const planePins = pins.filter(p=>p.plane===plane);
   const shownPins = planePins.filter(p=>!hiddenKinds.includes(p.kind) && (!M || mview || !p.hidden));
   const sel = pins.find(p=>p.id===selId);
+  useEffect(()=>{ if (!focusFresh(focus) || !focus.pin) return; const p = pins.find(x=>x.id===focus.pin); if (!p) return;
+    setPlane(p.plane); setSelId(p.id); setEditing(false); setDraft(null); setHiddenKinds(h=>h.filter(k=>k!==p.kind)); },[focus?.key]);
   const canEditPin = p => p && (M || p.created_by===me.id);
 
   const apply = () => { const el = layer.current; if(!el) return; const {s,x,y} = t.current;
@@ -2984,6 +3048,7 @@ function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUp
           </div>
           <button type="button" className="iconbtn" aria-label="Chiudi" onClick=${()=>setSelId(null)}>×</button>
         </div>
+        <${MarkBar} key=${sel.id} type="segnaposto" id=${sel.id} title=${sel.label || PIN_NAME[sel.kind]}/>
         ${canEditPin(sel) && html`<div className="row">
           ${M && html`<button type="button" className="btn small" onClick=${async()=>{ const m = await pinOps.update(sel.id,{done:!sel.done}); if (m) setErr(m); }}>${sel.done ? "Segna come non "+(PIN_DONE[sel.kind]||"fatto").toLowerCase() : (PIN_DONE[sel.kind]||"Fatto")}</button>`}
           <button type="button" className="btn small" onClick=${()=>setEditing(true)}>Modifica</button>
@@ -3178,6 +3243,8 @@ function useCampaign(sb, active){
   const loadNpcs = useCallback(async()=>{ const [a, b] = await Promise.all([sb.from("npc_cards").select("*"), sb.from("npc_saves").select("*")]);
     if (!a.error) setNpcs(a.data); if (!b.error) setNpcSaves(b.data); },[sb]);
   const loadFoes = useCallback(async()=>{ const {data, error} = await sb.from("foes").select("*"); if (!error) setFoes(data); },[sb]);
+  const [marks, setMarks] = useState([]); const [marksErr, setMarksErr] = useState(""); const mkT = useRef(0);
+  const loadMarks = useCallback(async()=>{ const {data, error} = await sb.from("marks").select("*"); if (error){ setMarksErr(error.message); return; } setMarksErr(""); setMarks(data); },[sb]);
   const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
   const loadPins = useCallback(async()=>{ const {data, error} = await sb.from("pins").select("*"); if (!error) setPins(data); },[sb]);
   const loadWorld = useCallback(async()=>{ const {data, error} = await sb.from("world").select("*").eq("id",1).maybeSingle(); if (!error && data) setWorld(data); },[sb]);
@@ -3206,9 +3273,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs(), loadMarks()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs, loadMarks]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -3249,6 +3316,7 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"foes"}, ()=>loadFoes())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_cards"}, ()=>loadNpcs())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_saves"}, ()=>loadNpcs())
+      .on("postgres_changes",{event:"*",schema:"public",table:"marks"}, ()=>{ clearTimeout(mkT.current); mkT.current = setTimeout(loadMarks, 500); })
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign"}, (pl)=>{ if (pl.new && pl.new.id) setConfig(pl.new.config || null); })
       .on("postgres_changes",{event:"*",schema:"public",table:"audio_state"}, (pl)=>{ if (pl.new && pl.new.id) setAudio(pl.new); })
       .subscribe();
@@ -3262,7 +3330,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs, marks, setMarks, loadMarks, marksErr};
 }
 
 /* ---------- risparmio di spazio e traffico (piano gratuito di Supabase) ---------- */
@@ -3468,11 +3536,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks] = await Promise.all([
         q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[]), q("marks").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -3517,6 +3585,7 @@ function BackupPanel({sb, camp}){
     await up("map_archive", b.map_archive, "archivio delle mappe", r=>({...r, created_by:null}));
     await up("foes", b.foes, "avversari in scena");
     await up("npc_cards", b.npc_cards, "personaggi conosciuti");
+    if (Array.isArray(b.marks)) for (const m of b.marks){ const {error} = await sb.from("marks").insert(m); if (error && !/duplicate|unique/i.test(error.message)){ problems.push("indizi ed etichette: "+error.message); break; } }
     if (Array.isArray(b.npc_saves)) for (const s of b.npc_saves){ const {error} = await sb.from("npc_saves").insert(s); if (error && !/duplicate|unique/i.test(error.message)){ problems.push("raccolte dei giocatori: "+error.message); break; } }
     await camp.reload(); setBusy(false); setPending(null);
     setMsg(`Ripristinate ${okChars} schede su ${b.characters.length}.` + (problems.length ? " Attenzione: "+problems.join("; ")+"." : ""));
@@ -3567,6 +3636,7 @@ function HandoutModal({h, url, onClose}){
       <h2>${h.title || "Senza titolo"}</h2>
       ${url && html`<img className="ho-img" src=${url} alt=${h.title}/>`}
       ${h.body && html`<div className="ho-body">${h.body}</div>`}
+      <${MarkBar} type="handout" id=${h.id} title=${h.title}/>
       <div className="row"><span className="spacer"></span><button type="button" className="btn primary" onClick=${onClose} autoFocus>Chiudi</button></div>
     </div>
   </div>`;
@@ -3597,6 +3667,8 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
   const [announce, setAnnounce] = useState(true); const [confirmDel, setConfirmDel] = useState(null);
   const names = Object.fromEntries(members.map(m=>[m.user_id, m.name]));
   const list = [...handouts].sort((a,b)=> (b.revealed_at||b.created_at).localeCompare(a.revealed_at||a.created_at));
+  const F = useMarkFilter("handout", {id:"ho-q", placeholder:"Cerca negli handout…"}); const [hst, setHst] = useState("tutti");
+  const shown = list.filter(h=>(hst==="tutti" || (hst==="bozze" ? !h.revealed : h.revealed)) && F.test(h.id, (h.title||"")+" "+(h.body||"")));
   const save = async (f) => { setBusy(true); setErr("");
     try {
       let image_path = editing?.image_path || null;
@@ -3624,13 +3696,17 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
     ${M && html`<div className="row"><button type="button" className="btn primary" onClick=${()=>setEditing({})}>+ Nuovo handout</button>
       <span className="spacer"></span><label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="ho-ann" type="checkbox" checked=${announce} onChange=${e=>setAnnounce(e.target.checked)}/>Avvisa su Discord quando rivelo a tutti</label></div>`}
     ${list.length===0 && html`<div className="empty"><h3>Nessun handout</h3><p className="muted">${M ? "Prepara lettere, mappe parziali, murali o indizi come bozza e rivelali al momento giusto: compariranno a tutto schermo sui dispositivi dei giocatori." : "Quando il master rivela una lettera, un indizio o un’immagine, la ritrovi qui."}</p></div>`}
-    <div className="ho-grid">${list.map(h=>html`<article key=${h.id} className=${"ho-card"+(h.revealed?"":" draft")}>
+    ${list.length > 0 && html`<div className="row" style=${{gap:8}}>${F.bar}
+      ${M && html`<div className="planes" role="group" aria-label="Stato">${[["tutti","Tutti"],["bozze","Bozze"],["rivelati","Rivelati"]].map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${hst===k} onClick=${()=>setHst(k)}>${n}</button>`)}</div>`}</div>`}
+    ${list.length > 0 && shown.length === 0 && html`<p className="muted">Nessun handout corrisponde ai filtri.</p>`}
+    <div className="ho-grid">${shown.map(h=>html`<article key=${h.id} data-find=${"handout:"+h.id} className=${"ho-card"+(h.revealed?"":" draft")}>
       ${urls[h.id] ? html`<button type="button" className="ho-thumb" onClick=${()=>onOpen(h)}><img src=${urls[h.id]} alt=""/></button>` : null}
       <div className="ho-meta">
         <div className="eyebrow">${h.revealed ? "Rivelato "+(h.revealed_at?fmtDate(h.revealed_at):"") : "Bozza · solo tu la vedi"}${h.audience.length ? " · per "+h.audience.map(id=>names[id]||"?").join(", ") : ""}</div>
         <h3><button type="button" className="linkish" onClick=${()=>onOpen(h)}>${h.title||"Senza titolo"}</button></h3>
         ${h.body && html`<p className="muted clamp">${h.body}</p>`}
       </div>
+      <${MarkBar} type="handout" id=${h.id} title=${h.title}/>
       ${M && html`<div className="row">
         ${h.revealed ? html`<button type="button" className="btn small" onClick=${()=>reveal(h,false)}>Nascondi</button>`
           : html`<button type="button" className="btn small primary" onClick=${()=>reveal(h,true)}>Rivela</button>`}
@@ -3645,13 +3721,15 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
   </div>`;
 }
 
-function CodexTab({sb, me, codex, secrets, reload}){
+function CodexTab({sb, me, codex, secrets, reload, focus}){
   const M = me.isMaster;
   const [kind, setKind] = useState(()=>lsGet("codexKind","fazione"));
   const [editing, setEditing] = useState(null); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
-  const [notes, setNotes] = useState({}); const [q, setQ] = useState("");
+  const [notes, setNotes] = useState({});
+  const F = useMarkFilter("codex", {id:"cx-q", placeholder:"Cerca in tutto il codex…"});
   useEffect(()=>lsSet("codexKind",kind),[kind]);
-  const list = codex.filter(c=>c.kind===kind && (!q || (c.name+" "+c.summary).toLowerCase().includes(q.toLowerCase())))
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="codex" && focus.kind){ F.clear(); setKind(focus.kind); } },[focus?.key]);
+  const list = codex.filter(c=>(F.active || c.kind===kind) && F.test(c.id, [c.name, c.summary, c.party_notes, M ? secrets[c.id]?.notes : ""].filter(Boolean).join(" ")))
     .sort((a,b)=> (b.revealed - a.revealed) || a.name.localeCompare(b.name));
   const save = async (f) => { setBusy(true); setErr("");
     const row = {kind:f.kind, name:f.name.trim(), summary:f.summary, reputation:f.reputation, revealed:f.revealed, updated_at:new Date().toISOString()};
@@ -3670,15 +3748,16 @@ function CodexTab({sb, me, codex, secrets, reload}){
   if (editing) return html`<${CodexForm} initial=${editing} busy=${busy} onSave=${save} onCancel=${()=>setEditing(null)} onDelete=${editing.id ? ()=>del(editing) : null}/>`;
   return html`<div style=${{display:"grid",gap:12}}>
     <div className="row">
-      <div className="planes" role="group" aria-label="Sezione del codex">${CODEX_KINDS.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${kind===k} onClick=${()=>setKind(k)}>${n} <span className="muted">${codex.filter(c=>c.kind===k).length}</span></button>`)}</div>
-      <span className="spacer"></span>
-      <input id="cx-q" className="field" style=${{maxWidth:220}} placeholder="Cerca…" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <div className="planes" role="group" aria-label="Sezione del codex">${CODEX_KINDS.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${!F.active && kind===k} onClick=${()=>{ F.clear(); setKind(k); }}>${n} <span className="muted">${codex.filter(c=>c.kind===k).length}</span></button>`)}</div>
+      ${F.bar}
       ${M && html`<button type="button" className="btn primary" onClick=${()=>setEditing({kind, name:"", summary:"", reputation:0, revealed:false, secret:""})}>+ Nuova voce</button>`}
     </div>
-    ${list.length===0 && html`<div className="empty"><p className="muted">${M ? `Nessuna voce in “${CODEX_KINDS.find(k=>k[0]===kind)[1]}”. Le voci nuove restano nascoste finché non le riveli.` : "Ancora niente qui: le voci compaiono quando il gruppo le scopre."}</p></div>`}
-    <div className="cx-grid">${list.map(c=>html`<article key=${c.id} className=${"cx-card"+(c.revealed?"":" draft")}>
+    ${F.active && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>${list.length} ${list.length===1 ? "voce trovata" : "voci trovate"} in tutte le sezioni.</p>`}
+    ${list.length===0 && !F.active && html`<div className="empty"><p className="muted">${M ? `Nessuna voce in “${CODEX_KINDS.find(k=>k[0]===kind)[1]}”. Le voci nuove restano nascoste finché non le riveli.` : "Ancora niente qui: le voci compaiono quando il gruppo le scopre."}</p></div>`}
+    <div className="cx-grid">${list.map(c=>html`<article key=${c.id} data-find=${"codex:"+c.id} className=${"cx-card"+(c.revealed?"":" draft")}>
       <div className="row" style=${{alignItems:"baseline"}}>
         <h3 style=${{flex:"1 1 auto"}}>${c.name||"Senza nome"}</h3>
+        ${F.active && html`<span className="chip">${CODEX_ONE[c.kind]||c.kind}</span>`}
         ${!c.revealed && html`<span className="chip">nascosta</span>`}
       </div>
       ${c.kind==="fazione" && html`<div className="rep" aria-label=${"Reputazione: "+REP[c.reputation]}>
@@ -3690,6 +3769,7 @@ function CodexTab({sb, me, codex, secrets, reload}){
       ${M && secrets[c.id]?.notes && html`<div className="secret"><span className="eyebrow">Solo per te</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${secrets[c.id].notes}</p></div>`}
       ${c.revealed && html`<label className="lab">Note del gruppo
         <textarea className="field" style=${{minHeight:60}} value=${notes[c.id] ?? c.party_notes} placeholder="Cosa sappiamo, cosa ci hanno promesso…" onChange=${e=>setNotes(x=>({...x,[c.id]:e.target.value}))} onBlur=${()=>saveNote(c)}></textarea></label>`}
+      <${MarkBar} type="codex" id=${c.id} title=${c.name}/>
       ${M && html`<div className="row">
         <button type="button" className="btn small" onClick=${()=>quick(c,{revealed:!c.revealed})}>${c.revealed?"Nascondi":"Rivela al gruppo"}</button>
         <button type="button" className="btn small" onClick=${()=>setEditing({...c, secret:secrets[c.id]?.notes||""})}>Modifica</button></div>`}
@@ -3719,11 +3799,15 @@ function CodexForm({initial, onSave, onCancel, onDelete, busy}){
   </form>`;
 }
 
-function JournalTab({sb, me, journal, names, world, reload}){
+function JournalTab({sb, me, journal, names, world, reload, focus}){
   const M = me.isMaster;
   const [editing, setEditing] = useState(null); const [openId, setOpenId] = useState(null);
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false); const [confirmDel, setConfirmDel] = useState(false);
-  const list = [...journal].sort((a,b)=> (b.session_no??0)-(a.session_no??0) || b.created_at.localeCompare(a.created_at));
+  const F = useMarkFilter("diario", {id:"jr-q", placeholder:"Cerca nel diario…"});
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="diario"){ F.clear(); setOpenId(focus.id); setEditing(null); } },[focus?.key]);
+  const mctx = useContext(MarksCtx);
+  const all = [...journal].sort((a,b)=> (b.session_no??0)-(a.session_no??0) || b.created_at.localeCompare(a.created_at));
+  const list = all.filter(j=>F.test(j.id, [j.title, j.body, j.session_no ? "sessione "+j.session_no : "", names[j.author]].filter(Boolean).join(" ")));
   const nextNo = (journal.reduce((m,j)=>Math.max(m, j.session_no||0), 0)) + 1;
   const today = new Date().toISOString().slice(0,10);
   const save = async (f) => { setBusy(true); setErr("");
@@ -3752,15 +3836,18 @@ function JournalTab({sb, me, journal, names, world, reload}){
   return html`<div className="jr-layout">
     <aside className="jr-list">
       <button type="button" className="btn primary" onClick=${()=>setEditing({session_no:nextNo, played_on:today, title:"", body:"", visible:true})}>+ Scrivi la sessione ${nextNo}</button>
-      ${list.length===0 && html`<p className="muted">Il diario è vuoto. Dopo ogni sessione, il master o un giocatore a turno racconta cosa è successo.</p>`}
+      ${all.length > 2 && F.bar}
+      ${all.length===0 && html`<p className="muted">Il diario è vuoto. Dopo ogni sessione, il master o un giocatore a turno racconta cosa è successo.</p>`}
+      ${all.length > 0 && list.length===0 && html`<p className="muted">Nessuna sessione corrisponde.</p>`}
       ${list.map(j=>html`<button type="button" key=${j.id} className="jr-item" aria-current=${j.id===openId} onClick=${()=>{ setOpenId(j.id); setConfirmDel(false); }}>
-        <span className="eyebrow">${j.session_no?"Sessione "+j.session_no:"Senza numero"}${j.played_on?" · "+fmtDate(j.played_on):""}${!j.visible?" · bozza":""}</span>
+        <span className="eyebrow">${mctx?.mine("diario", j.id)?.star ? html`<span className="mk-starmini">★ </span>` : null}${j.session_no?"Sessione "+j.session_no:"Senza numero"}${j.played_on?" · "+fmtDate(j.played_on):""}${!j.visible?" · bozza":""}</span>
         <b>${j.title || "Senza titolo"}</b><span className="muted" style=${{fontSize:".82rem"}}>di ${names[j.author]||"qualcuno"}</span></button>`)}
     </aside>
-    <section className="panel jr-read">
+    <section className="panel jr-read" data-find=${open ? "diario:"+open.id : null}>
       ${!open ? html`<p className="muted" style=${{margin:0}}>${list.length ? "Scegli una sessione dall’elenco per leggerla." : "Qui comparirà il racconto delle vostre sessioni."}</p>`
       : html`<div className="eyebrow">${open.session_no?"Sessione "+open.session_no:""}${open.played_on?" · "+fmtDate(open.played_on):""} · scritta da ${names[open.author]||"qualcuno"}</div>
         <h2>${open.title || "Senza titolo"}</h2>
+        <${MarkBar} type="diario" id=${open.id} title=${(open.session_no ? "Sessione "+open.session_no+" · " : "")+(open.title || "Senza titolo")}/>
         <div className="jr-body">${open.body || html`<span className="muted">Ancora vuota.</span>`}</div>
         ${canEdit(open) && html`<div className="row"><button type="button" className="btn small" onClick=${()=>setEditing({...open})}>Modifica</button><span className="spacer"></span>
           ${!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
@@ -4108,17 +4195,277 @@ function CampaignSettings({sb, me, config, setConfig}){
   </div>`;
 }
 
-function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, archiveFolder}){
+/* ---------- organizzazione: ★, etichette, note personali, indizi e ricerca (fase 18) ---------- */
+const MARK_TYPES = {handout:"Handout", codex:"Codex", diario:"Diario", mappa:"Mappa", png:"Personaggio", segnaposto:"Segnaposto", nota:"Indizio"};
+const MarksCtx = React.createContext(null);
+const normTag = t => String(t||"").replace(/^#+/,"").replace(/[,;#]+/g," ").replace(/\s+/g," ").trim().toLowerCase().slice(0,30);
+const splitTags = s => [...new Set(String(s||"").split(/[,;\n]+|(?=#)/).map(normTag).filter(Boolean))];
+const markEmpty = m => !m.star && !(m.tags||[]).length && !String(m.note||"").trim() && !m.shared;
+const tagHue = t => { let h = 0; for (const c of String(t)) h = (h*31 + c.charCodeAt(0))>>>0; return h % 360; };
+const tagCount = (rows) => { const c = {}; for (const m of rows) for (const t of (m.tags||[])) c[t] = (c[t]||0) + 1;
+  return Object.entries(c).sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0])); };
+const focusFresh = f => !!(f && Date.now() - f.key < 4000);
+
+function TagChip({t, on, n, onClick, onRemove}){
+  const st = {"--th": tagHue(t)};
+  if (onClick) return html`<button type="button" className=${"mk-tag"+(on?" on":"")} style=${st} aria-pressed=${!!on} onClick=${onClick}>#${t}${n != null ? html` <span className="mk-n">${n}</span>` : null}</button>`;
+  return html`<span className="mk-tag" style=${st}>#${t}${onRemove ? html`<button type="button" className="mk-x" aria-label=${"Togli l’etichetta "+t} onClick=${onRemove}>×</button>` : null}</span>`;
+}
+
+/* la barra ★ · etichette · nota · privato/condiviso che compare su handout, codex, diario, mappe, personaggi e segnaposti */
+function MarkBar({type, id, title, noNote=false, showOthers=true, className=""}){
+  const ctx = useContext(MarksCtx);
+  const [adding, setAdding] = useState(false); const [tagIn, setTagIn] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false); const [nv, setNv] = useState("");
+  if (!ctx || id == null || ctx.off) return null;
+  const key = String(id);
+  const m = ctx.mine(type, key) || {star:false, tags:[], note:"", shared:false};
+  const others = showOthers ? ctx.others(type, key) : [];
+  const save = (patch) => ctx.save(type, key, title, patch);
+  const commitTags = () => { const add = splitTags(tagIn); setTagIn(""); if (add.length) save(cur => ({tags:[...new Set([...(cur.tags||[]), ...add])].slice(0,20)})); };
+  const any = m.star || (m.tags||[]).length || m.note;
+  return html`<div className=${"mk-wrap "+className} onClick=${e=>e.stopPropagation()}>
+    <div className="mk-bar">
+      <button type="button" className=${"mk-star"+(m.star?" on":"")} aria-pressed=${!!m.star} aria-label="Importante" title=${m.star ? "Togli la stella" : "Segna con una stella: importante"} onClick=${()=>save(cur=>({star:!cur.star}))}>${m.star ? "★" : "☆"}</button>
+      ${(m.tags||[]).map(t=>html`<${TagChip} key=${t} t=${t} onRemove=${()=>save(cur=>({tags:(cur.tags||[]).filter(x=>x!==t)}))}/>`)}
+      ${adding ? html`<input className="field mk-in" list="mk-tags" autoFocus maxLength="60" placeholder="etichetta + invio" aria-label="Nuova etichetta" value=${tagIn}
+          onChange=${e=>setTagIn(e.target.value)} onKeyDown=${e=>{ if (e.key==="Enter" || e.key===","){ e.preventDefault(); commitTags(); } else if (e.key==="Escape"){ setTagIn(""); setAdding(false); } }}
+          onBlur=${()=>{ commitTags(); setAdding(false); }}/>`
+        : html`<button type="button" className="mk-btn" title="Aggiungi un’etichetta (es. sospetti, da chiedere, castello)" onClick=${()=>setAdding(true)}>🏷 +</button>`}
+      ${!noNote ? html`<button type="button" className=${"mk-btn"+(m.note?" on":"")} aria-expanded=${noteOpen} title="Una nota tua" onClick=${()=>{ setNv(m.note||""); setNoteOpen(!noteOpen); }}>📝${m.note ? "" : " nota"}</button>` : null}
+      ${any ? html`<button type="button" className=${"mk-btn"+(m.shared?" on":"")} title=${m.shared ? "Lo vede anche il gruppo: tocca per tornare privato" : "Lo vedi solo tu: tocca per condividerlo con il gruppo"} onClick=${()=>save(cur=>({shared:!cur.shared}))}>${m.shared ? "👥 condiviso" : "🔒 privato"}</button>` : null}
+    </div>
+    ${noteOpen ? html`<div className="mk-edit"><textarea className="field" maxLength="2000" autoFocus aria-label="La mia nota" placeholder="Solo tua finché non la condividi: sospetti, collegamenti, cose da chiedere…" value=${nv} onChange=${e=>setNv(e.target.value)}></textarea>
+        <div className="aud-btns"><button type="button" className="btn small primary" onClick=${()=>{ save({note:nv.trim().slice(0,2000)}); setNoteOpen(false); }}>Salva nota</button><button type="button" className="btn small" onClick=${()=>setNoteOpen(false)}>Annulla</button></div></div>`
+      : (m.note && !noNote) ? html`<p className="mk-note">📝 ${m.note}</p>` : null}
+    ${others.map(o=>html`<p key=${o.id} className="mk-note other"><b>👥 ${ctx.names[o.user_id] || "Qualcuno"}${o.star ? " ★" : ""}</b>${(o.tags||[]).map(t=>html`<span key=${t}> <${TagChip} t=${t}/></span>`)}${o.note ? " — "+o.note : ""}</p>`)}
+  </div>`;
+}
+
+/* filtro riutilizzabile: testo + ★ + etichetta (handout, codex, diario, mappe) */
+function useMarkFilter(type, {id, placeholder="Cerca…"}={}){
+  const ctx = useContext(MarksCtx);
+  const [q, setQ] = useState(""); const [star, setStar] = useState(false); const [tag, setTag] = useState("");
+  const on = !!(ctx && !ctx.off);
+  const tags = on ? ctx.tagsFor(type) : [];
+  const words = fold(q).split(" ").filter(Boolean);
+  const test = (iid, text) => {
+    const m = on ? ctx.mine(type, String(iid)) : null; const all = on ? [...(m ? [m] : []), ...ctx.others(type, String(iid))] : [];
+    if (star && !m?.star) return false;
+    if (tag && !all.some(x=>(x.tags||[]).includes(tag))) return false;
+    if (!words.length) return true;
+    const hay = fold(text+" "+all.map(x=>(x.tags||[]).map(t=>"#"+t).join(" ")+" "+(x.note||"")).join(" "));
+    return words.every(w=>hay.includes(w)); };
+  const active = words.length > 0 || star || !!tag;
+  const clear = () => { setQ(""); setStar(false); setTag(""); };
+  const bar = html`<div className="mk-filter">
+    <input id=${id} className="field" type="search" placeholder=${placeholder} aria-label=${placeholder} value=${q} onChange=${e=>setQ(e.target.value)}/>
+    ${on ? html`<button type="button" className=${"mk-btn"+(star?" on":"")} aria-pressed=${star} title="Solo quelli con la tua stella" onClick=${()=>setStar(!star)}>★</button>` : null}
+    ${tags.length > 0 || tag ? html`<select className="field" aria-label="Filtra per etichetta" value=${tag} onChange=${e=>setTag(e.target.value)}><option value="">🏷 Tutte le etichette</option>${tags.map(([t,n])=>html`<option key=${t} value=${t}>#${t} (${n})</option>`)}</select>` : null}
+    ${active ? html`<button type="button" className="btn small" onClick=${clear}>Azzera</button>` : null}
+  </div>`;
+  return {q, words, star, tag, test, active, clear, bar};
+}
+
+/* ---------- bacheca degli indizi (Cronache → Indizi) ---------- */
+function resolveMark(m, camp){
+  const id = m.item_id;
+  switch (m.item_type){
+    case "handout": { const h = camp.handouts.find(x=>x.id===id); return h ? {title:h.title||"Senza titolo", sub: h.revealed ? "" : "bozza", text:h.body} : null; }
+    case "codex": { const c = camp.codex.find(x=>x.id===id); return c ? {title:c.name||"Senza nome", sub:CODEX_ONE[c.kind]||"Codex", text:c.summary, kind:c.kind} : null; }
+    case "diario": { const j = camp.journal.find(x=>x.id===id); return j ? {title:j.title||"Senza titolo", sub:j.session_no ? "Sessione "+j.session_no : "Diario", text:j.body} : null; }
+    case "mappa": { const a = camp.archive.find(x=>x.id===id); return a ? {title:a.title||"Mappa", sub:a.folder||"Mappa", text:a.note} : null; }
+    case "png": { const n = camp.npcs.find(x=>x.id===id); return n ? {title:n.name||"Sconosciuto", sub:n.kind||"Personaggio", text:n.blurb} : null; }
+    case "segnaposto": { const p = camp.pins.find(x=>x.id===id); return p ? {title:p.label||PIN_NAME[p.kind]||"Segnaposto", sub:[PIN_NAME[p.kind], PLANE_NAME[p.plane]].filter(Boolean).join(" · "), text:p.note, plane:p.plane} : null; }
+    case "nota": return {title:m.title||"Indizio", sub:"", text:m.note};
+  }
+  return null;
+}
+function ClueForm({initial, onSave, onCancel}){
+  const [f, setF] = useState(()=>({title:"", note:"", tagsTxt:"", shared:false, ...initial}));
+  const ok = f.title.trim() || f.note.trim();
+  return html`<form className="panel cl-form" onSubmit=${e=>{ e.preventDefault(); if (!ok) return;
+      onSave({title:(f.title.trim() || f.note.trim().split("\n")[0]).slice(0,120), note:f.note.trim().slice(0,2000), tags:splitTags(f.tagsTxt).slice(0,20), shared:!!f.shared}); }}>
+    <h3>${initial?.id ? "Modifica indizio" : "Nuovo indizio"}</h3>
+    <label className="lab">Titolo<input id="cl-title" className="field" maxLength="120" autoFocus value=${f.title} placeholder="es. Il simbolo sull’anello del mercante" onChange=${e=>setF({...f, title:e.target.value})}/></label>
+    <label className="lab">Cosa sappiamo<textarea id="cl-note" className="field" maxLength="2000" style=${{minHeight:110}} value=${f.note} placeholder="Collegamenti, sospetti, domande aperte, chi l’ha detto…" onChange=${e=>setF({...f, note:e.target.value})}></textarea></label>
+    <label className="lab">Etichette, separate da virgola<input id="cl-tags" className="field" list="mk-tags" value=${f.tagsTxt} placeholder="es. sospetti, castello, da chiedere" onChange=${e=>setF({...f, tagsTxt:e.target.value})}/></label>
+    <label className="row" style=${{gap:6}}><input id="cl-shared" type="checkbox" checked=${f.shared} onChange=${e=>setF({...f, shared:e.target.checked})}/>Condividi con il gruppo (lo vedono tutti, lo modifichi solo tu)</label>
+    <div className="row"><span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${!ok}>Salva</button></div>
+  </form>`;
+}
+function CluesTab({me, camp, names, onGo, focus}){
+  const ctx = useContext(MarksCtx);
+  const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [starOnly, setStarOnly] = useState(false);
+  const [scope, setScope] = useState(()=>lsGet("clueScope","tutti")); const [type, setType] = useState("");
+  const [group, setGroup] = useState(()=>!!lsGet("clueGroup", false));
+  const [editing, setEditing] = useState(null); const [confirmDel, setConfirmDel] = useState(null);
+  useEffect(()=>lsSet("clueScope", scope),[scope]); useEffect(()=>lsSet("clueGroup", group),[group]);
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="indizi"){ setQ(""); setTags([]); setStarOnly(false); setScope("tutti"); setType(""); } },[focus?.key]);
+  if (!ctx) return null;
+  if (ctx.off) return html`<p className="muted">${me.isMaster ? "Esegui fase18.sql su Supabase per attivare indizi, etichette e note personali." : "La bacheca degli indizi non è ancora attiva: il master deve aggiornare il database."}</p>`;
+  const rows = camp.marks.filter(m => m.user_id===me.id ? (scope!=="gruppo" || m.shared) : (m.shared && scope!=="mie"));
+  const items = rows.map(m=>{ const r = resolveMark(m, camp); return {m, r, mine: m.user_id===me.id, title: r?.title || m.title || MARK_TYPES[m.item_type] || "Voce", gone: !r}; });
+  const words = fold(q).split(" ").filter(Boolean);
+  const vis = items.filter(x=>(!type || x.m.item_type===type) && (!starOnly || x.m.star) && tags.every(t=>(x.m.tags||[]).includes(t))
+      && (!words.length || words.every(w=>fold([x.title, x.r?.sub, x.r?.text, x.m.note, (x.m.tags||[]).map(t=>"#"+t).join(" "), x.mine ? "" : names[x.m.user_id]].join(" ")).includes(w))))
+    .sort((a,b)=>(Number(!!b.m.star) - Number(!!a.m.star)) || String(b.m.updated_at||"").localeCompare(String(a.m.updated_at||"")));
+  const cloud = tagCount(rows);
+  const typesHere = Object.keys(MARK_TYPES).filter(k=>rows.some(m=>m.item_type===k));
+  const togTag = t => setTags(x=> x.includes(t) ? x.filter(y=>y!==t) : [...x, t]);
+  const filtered = !!(words.length || tags.length || starOnly || type);
+  const saveForm = async (f) => { const ed = editing; setEditing(null);
+    if (ed?.id) await ctx.save("nota", ed.item_id, f.title, {note:f.note, tags:f.tags, shared:f.shared});
+    else await ctx.addNote(f); };
+  const card = (x) => { const m = x.m; const t = m.item_type; const isNote = t === "nota";
+    return html`<article key=${m.id} className=${"cl-card"+(m.star?" star":"")+(x.mine?"":" other")} data-find=${isNote ? "nota:"+m.id : null}>
+      <div className="cl-h"><span className="chip">${MARK_TYPES[t] || t}</span>${x.r?.sub && !isNote ? html`<span className="muted cl-sub">${x.r.sub}</span>` : null}<span className="spacer"></span>
+        ${x.mine ? (m.shared ? html`<span className="chip gold" title="Lo vede tutto il gruppo">👥 condiviso</span>` : html`<span className="chip" title="Lo vedi solo tu">🔒 privato</span>`)
+          : html`<span className="chip gold" title="Condiviso da">👥 ${names[m.user_id] || "Qualcuno"}</span>`}</div>
+      <h3>${m.star ? html`<span className="mk-starmini" aria-label="importante">★ </span>` : null}${x.title}${x.gone && !isNote ? html` <span className="muted cl-gone">(non disponibile)</span>` : null}</h3>
+      ${isNote ? (m.note ? html`<p className="cl-text">${m.note}</p>` : null) : (x.r?.text ? html`<p className="muted clamp">${x.r.text}</p>` : null)}
+      ${!x.mine && !isNote && m.note ? html`<p className="mk-note other">📝 ${m.note}</p>` : null}
+      ${(!x.mine || isNote) && (m.tags||[]).length > 0 ? html`<div className="chips">${m.tags.map(tg=>html`<${TagChip} key=${tg} t=${tg} on=${tags.includes(tg)} onClick=${()=>togTag(tg)}/>`)}</div>` : null}
+      ${x.mine && !isNote ? html`<${MarkBar} type=${t} id=${m.item_id} title=${x.title} showOthers=${false}/>` : null}
+      <div className="row cl-act">
+        ${!isNote && !x.gone ? html`<button type="button" className="btn small primary" onClick=${()=>onGo(t, m.item_id, x.r)}>Apri</button>` : null}
+        ${x.mine && isNote ? html`<button type="button" className=${"mk-star"+(m.star?" on":"")} aria-pressed=${!!m.star} aria-label="Importante" onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({star:!cur.star}))}>${m.star ? "★" : "☆"}</button>
+          <button type="button" className="btn small" onClick=${()=>setEditing({...m, tagsTxt:(m.tags||[]).join(", ")})}>✎ Modifica</button>
+          <button type="button" className=${"mk-btn"+(m.shared?" on":"")} onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({shared:!cur.shared}))}>${m.shared ? "👥 condiviso" : "🔒 privato"}</button>` : null}
+        <span className="spacer"></span>
+        ${x.mine ? (confirmDel===m.id ? html`<span className="confirm">${isNote ? "Eliminare l’indizio?" : "Togliere stella, etichette e nota?"}<button type="button" className="btn small danger" onClick=${()=>{ setConfirmDel(null); ctx.remove(t, m.item_id); }}>${isNote ? "Elimina" : "Togli"}</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
+          : html`<button type="button" className="btn small" onClick=${()=>setConfirmDel(m.id)}>${isNote ? "Elimina" : "Togli dalla bacheca"}</button>`) : null}
+      </div>
+    </article>`; };
+  const tagOrder = cloud.map(c=>c[0]);
+  const grouped = group ? [...tagOrder.filter(tg=>vis.some(x=>(x.m.tags||[]).includes(tg))).map(tg=>[tg, vis.filter(x=>(x.m.tags||[]).includes(tg))]),
+      ["", vis.filter(x=>!(x.m.tags||[]).length)]].filter(g=>g[1].length) : null;
+  return html`<div className="cl-wrap">
+    <p className="muted" style=${{margin:0,fontSize:".9rem"}}>Qui finisce tutto quello che segni con ★, 🏷 etichette o 📝 nota (su handout, codex, diario, mappe, personaggi conosciuti e segnaposti), più gli indizi che scrivi a mano. È privato: con 👥 lo condividi con il gruppo, e qui vedi anche quello che hanno condiviso gli altri.</p>
+    <div className="row cl-tools">
+      <input id="cl-q" className="field" type="search" placeholder="Cerca negli indizi…" aria-label="Cerca negli indizi" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <div className="planes" role="group" aria-label="Di chi">${[["tutti","Tutti"],["mie","Solo miei"],["gruppo","Condivisi"]].map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${scope===k} onClick=${()=>setScope(k)}>${n}</button>`)}</div>
+      <button type="button" className=${"mk-btn"+(starOnly?" on":"")} aria-pressed=${starOnly} title="Solo quelli con la stella" onClick=${()=>setStarOnly(!starOnly)}>★ importanti</button>
+      ${typesHere.length > 1 ? html`<select id="cl-type" className="field" style=${{width:"auto"}} aria-label="Tipo" value=${type} onChange=${e=>setType(e.target.value)}><option value="">Tutti i tipi</option>${typesHere.map(k=>html`<option key=${k} value=${k}>${MARK_TYPES[k]}</option>`)}</select>` : null}
+      <label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="cl-group" type="checkbox" checked=${group} onChange=${e=>setGroup(e.target.checked)}/>Raggruppa per etichetta</label>
+      <span className="spacer"></span>
+      <button type="button" className="btn primary" onClick=${()=>setEditing({})}>+ Nuovo indizio</button>
+    </div>
+    ${cloud.length > 0 ? html`<div className="cl-cloud" role="group" aria-label="Filtra per etichetta">${cloud.map(([t,n])=>html`<${TagChip} key=${t} t=${t} n=${n} on=${tags.includes(t)} onClick=${()=>togTag(t)}/>`)}
+      ${filtered ? html`<button type="button" className="btn small" onClick=${()=>{ setQ(""); setTags([]); setStarOnly(false); setType(""); }}>Azzera filtri</button>` : null}</div>` : null}
+    ${editing ? html`<${ClueForm} key=${editing.id || "new"} initial=${editing} onCancel=${()=>setEditing(null)} onSave=${saveForm}/>` : null}
+    ${rows.length === 0 ? html`<div className="empty"><h3>Bacheca vuota</h3><p className="muted">${scope==="mie" ? "Non hai ancora segnato niente." : scope==="gruppo" ? "Nessuno ha ancora condiviso indizi con il gruppo." : "Segna con ★ o con un’etichetta un handout, una voce del codex, una sessione del diario, una mappa, un personaggio o un segnaposto, oppure scrivi un indizio con “+ Nuovo indizio”."}</p></div>`
+      : vis.length === 0 ? html`<p className="muted">Nessun indizio corrisponde ai filtri.</p>`
+      : grouped ? grouped.map(([tg, l])=>html`<section key=${tg || "_none"} className="cl-group"><h3 className="cl-gt">${tg ? html`<${TagChip} t=${tg}/>` : "Senza etichetta"} <span className="muted" style=${{fontSize:".85rem",fontWeight:400}}>${l.length}</span></h3><div className="cl-grid">${l.map(card)}</div></section>`)
+      : html`<div className="cl-grid">${vis.map(card)}</div>`}
+  </div>`;
+}
+
+/* ---------- cerca ovunque (🔎 / Ctrl+K) ---------- */
+const SEARCH_GROUPS = [["scheda","Schede"],["png","Personaggi conosciuti"],["codex","Codex"],["handout","Handout"],["diario","Diario"],["mappa","Mappe"],["segnaposto","Segnaposti"],["ricetta","Ricette"],["nota","Indizi"]];
+function snippetAt(text, words, n=120){
+  const t = String(text||"").replace(/\s+/g," ").trim(); if (!t) return "";
+  const f = fold(t); let i = -1;
+  for (const w of words){ const j = f.indexOf(w); if (j >= 0 && (i < 0 || j < i)) i = j; }
+  if (i < 0) return t.length > n ? t.slice(0, n)+"…" : t;
+  const a = Math.max(0, i - 40); return (a > 0 ? "…" : "") + t.slice(a, a+n) + (a+n < t.length ? "…" : "");
+}
+function Hl({text, words}){
+  const s = String(text||""); if (!words.length || !s) return s;
+  const f = fold(s); if (f.length !== s.length) return s;
+  const hits = []; for (const w of words){ let j = f.indexOf(w); while (j >= 0 && w){ hits.push([j, j+w.length]); j = f.indexOf(w, j+w.length); } }
+  if (!hits.length) return s; hits.sort((a,b)=>a[0]-b[0]);
+  const out = []; let p = 0;
+  for (const [a,b] of hits){ if (a < p) continue; if (a > p) out.push(s.slice(p, a)); out.push(html`<mark key=${a}>${s.slice(a,b)}</mark>`); p = b; }
+  if (p < s.length) out.push(s.slice(p)); return out;
+}
+function buildIndex(camp, me, chars, names){
+  const M = me.isMaster; const out = [];
+  const vm = camp.marks.filter(m=>m.user_id===me.id || m.shared);
+  const add = (type, id, title, sub, text, extra={}) => { const ms = vm.filter(m=>m.item_type===type && m.item_id===String(id));
+    const mtxt = ms.map(m=>[(m.tags||[]).map(t=>"#"+t).join(" "), m.note].filter(Boolean).join(" ")).filter(Boolean).join(" · ");
+    out.push({type, id:String(id), title: title || "Senza titolo", sub: sub || "", text: String(text||""), mtxt, star: ms.some(m=>m.user_id===me.id && m.star),
+      hay: fold([title, sub, text, mtxt].join(" ")), ...extra}); };
+  for (const c of chars){ const s = norm(c);
+    add("scheda", c.id, s.name || "Senza nome", [s.species, s.cls, s.level ? "liv. "+s.level : "", c.owner ? (names[c.owner] || "giocatore") : (c.hidden ? "PNG segreto" : "PNG")].filter(Boolean).join(" · "),
+      [s.subclass, s.background, (s.traits||[]).map(t=>t.name).join(", "), (s.items||[]).map(x=>x.name).join(", "), s.feats, s.notes, s.story].filter(Boolean).join(" · ")); }
+  for (const n of camp.npcs){
+    if (M){ add("png", n.id, n.name, n.kind || "Personaggio", n.blurb); continue; }
+    if (!(n.audience||[]).includes(me.id)) continue; const sv = camp.npcSaves.find(s=>s.card_id===n.id && s.user_id===me.id); if (sv && !sv.saved) continue;
+    add("png", n.id, n.name, n.kind || "Personaggio", [n.blurb, sv?.note].filter(Boolean).join(" · ")); }
+  for (const c of camp.codex) add("codex", c.id, c.name, (CODEX_ONE[c.kind]||"Codex")+(c.revealed ? "" : " · nascosta"), [c.summary, c.party_notes, M ? camp.codexSecrets[c.id]?.notes : ""].filter(Boolean).join(" · "), {kind:c.kind});
+  for (const h of camp.handouts) add("handout", h.id, h.title, h.revealed ? "rivelato"+(h.revealed_at ? " il "+fmtDate(h.revealed_at) : "") : "bozza", h.body);
+  for (const j of camp.journal) add("diario", j.id, j.title || "Senza titolo", [j.session_no ? "Sessione "+j.session_no : "", j.played_on ? fmtDate(j.played_on) : "", j.visible ? "" : "bozza"].filter(Boolean).join(" · "), j.body);
+  for (const a of camp.archive) add("mappa", a.id, a.title || "Mappa", (a.folder || "Senza cartella")+(a.visible ? "" : " · nascosta"), a.note);
+  for (const p of camp.pins) if (M || !p.hidden) add("segnaposto", p.id, p.label || PIN_NAME[p.kind] || "Segnaposto", [PIN_NAME[p.kind], PLANE_NAME[p.plane], p.hidden ? "nascosto" : ""].filter(Boolean).join(" · "), p.note, {plane:p.plane});
+  if (CFG.modules.cucina) for (const r of camp.recipes) if (M || r.revealed) add("ricetta", r.id, r.name, [r.region, r.revealed ? "" : "nascosta"].filter(Boolean).join(" · "), [r.ingredients, r.effect].filter(Boolean).join(" · "));
+  for (const m of vm) if (m.item_type==="nota"){ const tg = (m.tags||[]).map(t=>"#"+t).join(" ");
+    out.push({type:"nota", id:m.id, title:m.title || "Indizio", sub: m.user_id===me.id ? (m.shared ? "tuo · condiviso" : "tuo") : "di "+(names[m.user_id] || "qualcuno"), text: m.note || "", mtxt: tg,
+      star: m.user_id===me.id && m.star, hay: fold([m.title, m.note, tg, m.user_id===me.id ? "" : names[m.user_id]].join(" "))}); }
+  return out;
+}
+function SearchOverlay({camp, me, chars, names, onGo, onClose}){
+  const [q, setQ] = useState(()=>lsGet("lastSearch","")); const [act, setAct] = useState(0); const [only, setOnly] = useState("");
+  const idx = useMemo(()=>buildIndex(camp, me, chars, names), [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.codexSecrets, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, chars, names]);
+  const words = useMemo(()=>fold(q).split(" ").filter(Boolean), [q]);
+  const all = useMemo(()=>{ if (!words.length) return [];
+    const ft = e => fold(e.title);
+    return idx.filter(e=>words.every(w=>e.hay.includes(w)))
+      .map(e=>({...e, sc:(words.every(w=>ft(e).includes(w)) ? 10 : 0) + (ft(e).startsWith(words[0]) ? 5 : 0) + (e.star ? 3 : 0)}))
+      .sort((a,b)=>b.sc-a.sc || natCmp(a.title, b.title)); }, [idx, words]);
+  const res = only ? all.filter(e=>e.type===only) : all;
+  const LIM = only ? 60 : 6;
+  const groups = SEARCH_GROUPS.map(([k,n])=>[k, n, res.filter(e=>e.type===k)]).filter(g=>g[2].length);
+  const flat = groups.flatMap(g=>g[2].slice(0, LIM));
+  const typesIn = SEARCH_GROUPS.filter(([k])=>idx.some(e=>e.type===k));
+  useEffect(()=>{ setAct(0); },[q, only]);
+  useEffect(()=>{ lsSet("lastSearch", q); },[q]);
+  useEffect(()=>{ const el = document.getElementById("so-"+act); if (el) el.scrollIntoView({block:"nearest"}); },[act]);
+  const go = e => { onClose(); onGo(e.type, e.id, e); };
+  const onKey = e => {
+    if (e.key==="Escape"){ e.preventDefault(); onClose(); }
+    else if (e.key==="ArrowDown"){ e.preventDefault(); setAct(a=>Math.min(flat.length-1, a+1)); }
+    else if (e.key==="ArrowUp"){ e.preventDefault(); setAct(a=>Math.max(0, a-1)); }
+    else if (e.key==="Enter" && flat[act]){ e.preventDefault(); go(flat[act]); } };
+  let i = -1;
+  return html`<div className="modal-back so-back" role="dialog" aria-modal="true" aria-label="Cerca nel taccuino" onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
+    <div className="so-box">
+      <div className="so-in"><span aria-hidden="true">🔎</span>
+        <input id="so-q" className="field" autoFocus autoComplete="off" spellCheck="false" placeholder="Nomi, luoghi, parole di un handout, #etichetta…" value=${q}
+          onChange=${e=>setQ(e.target.value)} onKeyDown=${onKey} onFocus=${e=>e.target.select()} role="combobox" aria-expanded=${flat.length > 0} aria-controls="so-list" aria-activedescendant=${flat[act] ? "so-"+act : undefined}/>
+        <button type="button" className="btn small" onClick=${onClose}>Chiudi</button></div>
+      <div className="so-types planes" role="group" aria-label="Cerca solo in">${[["","Tutto"], ...typesIn].map(([k,n])=>{ const c = k ? all.filter(e=>e.type===k).length : all.length;
+        return html`<button type="button" key=${k || "_all"} aria-pressed=${only===k} disabled=${!!(words.length && k && !c)} onClick=${()=>setOnly(k)}>${n}${words.length ? html` <span className="muted">${c}</span>` : null}</button>`; })}</div>
+      <div className="so-res" id="so-list" role="listbox" aria-label="Risultati">
+        ${!words.length ? html`<p className="muted so-hint">Scrivi una o più parole: cerco in schede, personaggi conosciuti, codex, handout, diario, mappe, segnaposti${CFG.modules.cucina ? ", ricette" : ""} e indizi, comprese le tue etichette e note. Con <b>#nome</b> cerchi un’etichetta. Scorciatoie: <kbd>Ctrl</kbd>+<kbd>K</kbd> oppure <kbd>/</kbd>; frecce e Invio per scegliere.</p>`
+          : !flat.length ? html`<p className="muted so-hint">Nessun risultato per “${q}”.</p>`
+          : groups.map(([k, n, l])=>html`<section key=${k} className="so-g"><div className="eyebrow">${n} · ${l.length}</div>
+              ${l.slice(0, LIM).map(e=>{ i++; const ii = i; const inBody = words.every(w=>fold(e.title+" "+e.sub+" "+e.text).includes(w));
+                const snip = inBody ? snippetAt(e.text, words) : snippetAt(e.mtxt, words);
+                return html`<button type="button" key=${e.type+":"+e.id} id=${"so-"+ii} role="option" aria-selected=${ii===act} className=${"so-r"+(ii===act ? " on" : "")}
+                    onMouseMove=${()=>{ if (act !== ii) setAct(ii); }} onClick=${()=>go(e)}>
+                  <span className="so-t">${e.star ? html`<span className="mk-starmini">★ </span>` : null}<${Hl} text=${e.title} words=${words}/>${e.sub ? html`<span className="so-sub"> · ${e.sub}</span>` : null}</span>
+                  ${snip ? html`<span className="so-s">${inBody ? null : "🏷 "}<${Hl} text=${snip} words=${words}/></span>` : null}
+                </button>`; })}
+              ${l.length > LIM ? html`<button type="button" className="btn small so-more" onClick=${()=>setOnly(k)}>Mostra tutti (${l.length})</button>` : null}</section>`)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, archiveFolder, focus, onGo}){
   const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
   useEffect(()=>lsSet("chronTab",tab),[tab]);
-  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab) setTab(focus.tab); },[focus?.key]);
+  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["indizi","Indizi"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
   const cur = tabs.some(t=>t[0]===tab) ? tab : "diario";
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${cur===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
-    ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron}/>`}
-    ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron}/>`}
-    ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names}/>`}
+    ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron} focus=${focus}/>`}
+    ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron} focus=${focus}/>`}
+    ${cur==="indizi" && html`<${CluesTab} me=${me} camp=${camp} names=${names} onGo=${onGo} focus=${focus}/>`}
+    ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names} focus=${focus}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
     ${cur==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${cur==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
@@ -4176,6 +4523,7 @@ function MapViewer({sb, item, master, canEdit, by, folders, ops, onClose}){
         onPointerUp=${()=>{ drag.current = null; }} onPointerLeave=${()=>{ drag.current = null; }}>
         ${url ? html`<img src=${url} alt=${item.title||"Mappa"} draggable="false" style=${{width:(zoom*100)+"%"}}/>` : html`<p className="muted" style=${{padding:20}}>${err || "Caricamento…"}</p>`}
       </div>
+      <${MarkBar} type="mappa" id=${item.id} title=${item.title}/>
       ${item.note && !canEdit && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${item.note}</p>`}
       ${canEdit && ops && html`<div className="mv-edit">
         <label className="lab" style=${{flex:"2 1 200px"}}>Titolo<input id="arch-title" className="field" maxLength="80" value=${f.title} onChange=${e=>setF({...f, title:e.target.value})}/></label>
@@ -4192,7 +4540,7 @@ function MapViewer({sb, item, master, canEdit, by, folders, ops, onClose}){
     </div>
   </div>`;
 }
-function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names={}}){
+function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names={}, focus}){
   const M = me.isMaster; const canEdit = a => M || (a.created_by && a.created_by === me.id);
   const [openId, setOpenId] = useState(null); const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [msg, setMsg] = useState("");
@@ -4200,7 +4548,9 @@ function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names=
   const fileIn = useRef(null);
   useEffect(()=>setFolderIn(defaultFolder),[defaultFolder]);
   const thumbs = useSignedUrls(sb, useMemo(()=>Object.fromEntries(archive.filter(a=>a.thumb).map(a=>[a.id, a.thumb])), [archive]));
-  const list = archive.filter(a => !q.trim() || (a.title+" "+a.folder+" "+(a.note||"")).toLowerCase().includes(q.trim().toLowerCase()));
+  const F = useMarkFilter("mappa", {id:"arch-q", placeholder:"Cerca una mappa…"}); const mctx = useContext(MarksCtx);
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="mappe" && archive.some(a=>a.id===focus.id)) setOpenId(focus.id); },[focus?.key]);
+  const list = archive.filter(a => F.test(a.id, a.title+" "+a.folder+" "+(a.note||"")));
   const lastOf = {}; for (const a of archive){ const t = String(a.created_at||""); if (!lastOf[a.folder] || t > lastOf[a.folder]) lastOf[a.folder] = t; }
   const byRecent = (a,b) => (lastOf[b]||"").localeCompare(lastOf[a]||"") || natCmp(b,a);   // la cartella usata più di recente in alto
   const folders = [...new Set(archive.map(a=>a.folder))].sort(byRecent);
@@ -4227,7 +4577,8 @@ function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names=
       ${!M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Puoi aggiungere le tue immagini (PNG, JPG o WebP, fino a 20 MB): mappe disegnate da voi, schizzi, foto del tavolo. Le vede tutto il gruppo; puoi modificarle o eliminarle solo tu (e il master).</p>`}
       ${M && html`<p className="muted" style=${{margin:0,fontSize:".82rem"}}>Ogni immagine PNG o JPG caricata nella sezione Mappe finisce anche qui, nella cartella scelta (all’inizio “${defaultFolder}”). I file Dungeondraft e le versioni del master non vengono archiviati. Tocca una mappa per rinominarla, spostarla di cartella, nasconderla o eliminarla. Anche i giocatori possono aggiungere immagini: le loro le puoi nascondere o eliminare.</p>`}
     </section>`}
-    ${archive.length > 6 && html`<input id="arch-q" className="field" placeholder="Cerca una mappa…" value=${q} onChange=${e=>setQ(e.target.value)}/>`}
+    ${archive.length > 3 && F.bar}
+    ${archive.length > 0 && list.length === 0 && html`<p className="muted">Nessuna mappa corrisponde ai filtri.</p>`}
     ${archive.length === 0 && html`<div className="empty"><h3>Nessuna mappa archiviata</h3><p className="muted">${M ? "Carica una mappa nella sezione Mappe o aggiungi un’immagine qui." : "Le mappe che il master condivide compariranno qui, divise per sessione."}</p></div>`}
     ${groups.map(([fd, items]) => html`<section key=${fd} className="panel arch-folder">
       <div className="panel-h">
@@ -4236,9 +4587,9 @@ function MapsArchiveTab({sb, me, archive, archiveErr, ops, defaultFolder, names=
             <button type="button" className="btn small primary" disabled=${!ren.to.trim()} onClick=${async()=>{ const m = await ops.renameFolder(fd, ren.to.trim()); if (m) setErr(m); setRen(null); }}>Salva</button><button type="button" className="btn small" onClick=${()=>setRen(null)}>Annulla</button></span>`
           : html`<button type="button" className="btn small" onClick=${()=>setRen({from:fd, to:fd})}>✎ Rinomina</button>`)}
       </div>
-      ${!closed.has(fd) && html`<div className="arch-grid">${items.map(a => html`<button type="button" key=${a.id} className=${"arch-card"+(a.visible?"":" hid")} onClick=${()=>setOpenId(a.id)}>
+      ${(F.active || !closed.has(fd)) && html`<div className="arch-grid">${items.map(a => html`<button type="button" key=${a.id} data-find=${"mappa:"+a.id} className=${"arch-card"+(a.visible?"":" hid")} onClick=${()=>setOpenId(a.id)}>
         ${thumbs[a.id] ? html`<img className="arch-thumb" src=${thumbs[a.id]} alt="" loading="lazy"/>` : html`<span className="arch-thumb arch-ph"><${Glyph} icon="stella" size=${30}/></span>`}
-        <span className="arch-t">${a.title || "Mappa"}</span>
+        <span className="arch-t">${mctx?.mine("mappa", a.id)?.star ? html`<span className="mk-starmini">★ </span>` : null}${a.title || "Mappa"}</span>
         <span className="muted arch-d">${fmtDate(a.created_at)}${a.created_by && names[a.created_by] && !(M && a.created_by === me.id) ? " · "+names[a.created_by] : ""}${!a.visible ? " · nascosta" : ""}</span>
       </button>`)}</div>`}
     </section>`)}
@@ -4548,7 +4899,7 @@ function RecipesTab({sb, me, recipes, chars, world, reload}){
     </div>
     ${msg && html`<p className="notice" role="status">${msg}</p>`}
     ${list.length===0 && html`<div className="empty"><p className="muted">${M ? "Nessuna ricetta." : "Il gruppo non conosce ancora nessuna ricetta: le scoprirete viaggiando."}</p></div>`}
-    <div className="cx-grid">${list.map(r=>html`<article key=${r.id} className=${"cx-card"+(r.revealed?"":" draft")}>
+    <div className="cx-grid">${list.map(r=>html`<article key=${r.id} data-find=${"ricetta:"+r.id} className=${"cx-card"+(r.revealed?"":" draft")}>
       <div className="row" style=${{alignItems:"baseline"}}><h3 style=${{flex:"1 1 auto"}}>${r.name}</h3>${!r.revealed && html`<span className="chip">nascosta</span>`}</div>
       <div className="chips">${r.region && html`<span className="chip">${r.region}</span>`}${r.protects && html`<span className="chip gold">Protegge dal ${r.protects}</span>`}${r.temp_hp && html`<span className="chip gold">PF temporanei</span>`}</div>
       ${r.ingredients && html`<p style=${{margin:0}}><span className="muted">Ingredienti:</span> ${r.ingredients}</p>`}
@@ -5091,6 +5442,62 @@ function Main({sb, me, onSignOut}){
         camp.setNpcs(x=>x.map(y=>y.id===n.id ? {...y, ...pub} : y));
         await sb.from("npc_cards").update({...pub, updated_at:new Date().toISOString()}).eq("id", n.id); } } }, 900);
     return ()=>clearTimeout(npcSync.current); },[chars, camp.npcs, me.isMaster]);
+  /* ★, etichette e note personali (fase 18): private, condivise col gruppo a scelta */
+  const latestMk = useRef({}); const mkChain = useRef({});
+  const mkKey = (t, id) => t+":"+id;
+  const marksOff = !!(camp.marksErr && /marks|relation|does not exist|schema cache/i.test(camp.marksErr));
+  const marksMine = useMemo(()=>{ const o = {}; for (const m of camp.marks) if (m.user_id===me.id) o[mkKey(m.item_type, m.item_id)] = m; return o; },[camp.marks, me.id]);
+  const markErr = (e) => "Non salvato: "+e.message+(/marks|schema cache|relation|does not exist/i.test(e.message) ? " (va eseguito fase18.sql)" : "");
+  const sameMk = (m, t, id) => m.user_id===me.id && m.item_type===t && m.item_id===id;
+  const visMarks = camp.marks.filter(m=>m.user_id===me.id || m.shared);
+  const markOps = {
+    off: marksOff, names,
+    mine: (t, id) => marksMine[mkKey(t, String(id))],
+    others: (t, id) => camp.marks.filter(m=>m.user_id!==me.id && m.shared && m.item_type===t && m.item_id===String(id)),
+    tagsFor: (t) => tagCount(visMarks.filter(m=>m.item_type===t)),
+    save: (t, id0, title, patch) => { const id = String(id0); const k = mkKey(t, id);
+      const base = latestMk.current[k] || marksMine[k] || {user_id:me.id, item_type:t, item_id:id, title:"", tags:[], star:false, note:"", shared:false};
+      const p = typeof patch === "function" ? patch(base) : patch;
+      const next = {...base, ...p, title: String(title ?? base.title ?? "").slice(0,120), updated_at:new Date().toISOString()};
+      latestMk.current[k] = next;
+      const drop = t !== "nota" && markEmpty(next);
+      camp.setMarks(xs=>{ const rest = xs.filter(m=>!sameMk(m, t, id)); return drop ? rest : [...rest, {created_at: next.updated_at, ...next, id: base.id || "tmp-"+uid()}]; });
+      const run = async () => { const cur = latestMk.current[k]; if (!cur) return;
+        const empty = t !== "nota" && markEmpty(cur);
+        const row = {user_id:me.id, item_type:t, item_id:id, title:String(cur.title||"").slice(0,120), tags:(cur.tags||[]).slice(0,20), star:!!cur.star, note:String(cur.note||"").slice(0,2000), shared:!!cur.shared, updated_at:cur.updated_at};
+        const r = empty ? await sb.from("marks").delete().eq("user_id", me.id).eq("item_type", t).eq("item_id", id)
+          : await sb.from("marks").upsert(row, {onConflict:"user_id,item_type,item_id"}).select("*").single();
+        if (r.error){ if (latestMk.current[k] === cur) delete latestMk.current[k]; setMsg(markErr(r.error)); camp.loadMarks(); return; }
+        if (latestMk.current[k] === cur){ delete latestMk.current[k];
+          if (!empty && r.data) camp.setMarks(xs=>[...xs.filter(m=>!sameMk(m, t, id)), r.data]); } };
+      const pr = (mkChain.current[k] || Promise.resolve()).then(run).catch(e=>setMsg("Non salvato: "+e.message)); mkChain.current[k] = pr; return pr; },
+    addNote: (f) => markOps.save("nota", uid()+uid(), f.title, {note:f.note||"", tags:f.tags||[], shared:!!f.shared, star:!!f.star}),
+    remove: (t, id0) => { const id = String(id0); const k = mkKey(t, id); delete latestMk.current[k];
+      camp.setMarks(xs=>xs.filter(m=>!sameMk(m, t, id)));
+      const run = async () => { const {error:e} = await sb.from("marks").delete().eq("user_id", me.id).eq("item_type", t).eq("item_id", id); if (e){ setMsg(markErr(e)); camp.loadMarks(); } };
+      const pr = (mkChain.current[k] || Promise.resolve()).then(run).catch(()=>{}); mkChain.current[k] = pr; return pr; },
+  };
+  const tagsAll = tagCount(visMarks);
+  /* cerca ovunque e navigazione verso il risultato */
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(()=>{ const k = e => { const el = e.target; const tag = String(el?.tagName||"").toLowerCase(); const typing = tag==="input" || tag==="textarea" || tag==="select" || el?.isContentEditable;
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && String(e.key).toLowerCase()==="k"){ e.preventDefault(); setSearchOpen(true); }
+      else if (e.key==="/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); setSearchOpen(true); } };
+    window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  const [focus, setFocus] = useState(null);
+  useEffect(()=>{ if (!focus?.find) return; let n = 0;
+    const t = setInterval(()=>{ const el = document.querySelector(`[data-find="${CSS.escape(focus.find)}"]`);
+      if (el){ clearInterval(t); el.scrollIntoView({block:"center", behavior:"smooth"}); el.classList.remove("find-flash"); void el.offsetWidth; el.classList.add("find-flash"); setTimeout(()=>el.classList.remove("find-flash"), 2400); }
+      else if (++n > 25) clearInterval(t); }, 120);
+    return ()=>clearInterval(t); },[focus?.key]);
+  const goTo = (type, id, e) => { const key = Date.now();
+    if (type==="handout"){ const h = camp.handouts.find(x=>x.id===id); if (h) setHoOpen(h); return; }
+    if (type==="scheda"){ if (!chars.some(c=>c.id===id)) return; setBackView(view==="scheda" ? backView : ["gruppo","tavolo","schede"].includes(view) ? view : (me.isMaster ? "schede" : "gruppo"));
+      setOpenId(id); setView("scheda"); window.scrollTo(0,0); return; }
+    if (type==="png"){ setView("gruppo"); setOpenId(null); setFocus({key, find:"png:"+id}); return; }
+    if (type==="segnaposto"){ setView("mappa"); setOpenId(null); setFocus({key, pin:id, plane:e?.plane}); return; }
+    const tab = {codex:"codex", diario:"diario", mappa:"mappe", ricetta:"ricette", nota:"indizi"}[type]; if (!tab) return;
+    setView("cronache"); setOpenId(null); setFocus({key, tab, id, kind:e?.kind, find:type+":"+id}); };
   const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
   const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
   const meetNpc = me.isMaster ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
@@ -5277,12 +5684,14 @@ function Main({sb, me, onSignOut}){
   const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],[me.isMaster ? "schede" : "scheda", me.isMaster ? "Schede" : "La mia scheda"],["mappa", PLANES.length>1?"Mappe":"Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
-  return html`<${SpellsCtx.Provider} value=${book}><div>
+  return html`<${SpellsCtx.Provider} value=${book}><${MarksCtx.Provider} value=${markOps}><div>
+    <datalist id="mk-tags">${tagsAll.map(([t])=>html`<option key=${t} value=${t}/>`)}</datalist>
     <header className="bar"><div className="bar-in">
       <div className="brand"><${Mark} size=${26}/><span>${CFG.name}</span></div>
       <nav className="nav">${nav.map(([k,l])=>html`<button type="button" key=${k} aria-current=${(view===k && (k!=="scheda" || (mine && openId===mine.id))) || (k==="schede" && view==="scheda" && backView==="schede")}
         onClick=${()=> k==="scheda" ? goMine() : (setView(k), setOpenId(null))}>${l}${k==="tavolo" && combat.active ? html` <span className="live" aria-label="scontro in corso"></span>` : null}</button>`)}</nav>
       <${AudioControl} sb=${sb} me=${me} sounds=${camp.sounds} audio=${camp.audio} world=${camp.world}/>
+      <button type="button" className="btn small so-open" title="Cerca ovunque (Ctrl+K oppure /)" aria-label="Cerca ovunque" onClick=${()=>setSearchOpen(true)}>🔎${me.isMaster ? null : html`<span className="so-lbl"> Cerca</span>`}</button>
       <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
         ${me.isMaster && html`<button type="button" className="btn small" aria-pressed=${view==="campagna"} title="Impostazioni della campagna" onClick=${()=>{ setView("campagna"); setOpenId(null); }}>⚙ Campagna</button>`}
         <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
@@ -5299,7 +5708,7 @@ function Main({sb, me, onSignOut}){
           session=${me.isMaster ? (CFG.session || []) : []} sessionOps=${me.isMaster ? sessionOps : null} goSheets=${me.isMaster ? ()=>{ setView("schede"); setOpenId(null); } : null}
           onOpen=${id=>{setBackView("gruppo"); setOpenId(id); setView("scheda");}} onCreate=${()=>create(false)} onCreateNpc=${()=>create(true)} goMap=${()=>setView("mappa")}/>`}
       ${view==="campagna" && (me.isMaster ? html`<${CampaignSettings} sb=${sb} me=${me} config=${camp.config} setConfig=${camp.setConfig}/>` : html`<p className="muted">Solo il master può cambiare le impostazioni.</p>`)}
-      ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)}/>`}
+      ${view==="cronache" && html`<${Chronicles} sb=${sb} me=${me} camp=${camp} names=${names} hoUrls=${hoUrls} archiveOps=${archiveOps} archiveFolder=${archiveFolder} onOpenHandout=${h=>setHoOpen(h)} focus=${focus} onGo=${goTo}/>`}
       ${view==="tavolo" && html`<${TableView} sb=${sb} me=${me} chars=${chars} names=${names} camp=${camp} onFree=${onFree} act=${act} adjustHp=${adjustHp} clockOps=${clockOps} foeUrls=${portraits} onMini=${openMini} onOpen=${openFromTable} sessionOps=${sessionOps}/>`}
       ${view==="schede" && me.isMaster && html`<div>
         <div className="party-head"><div><div className="eyebrow">Dietro lo schermo</div><h2>Schede</h2></div><span className="spacer"></span>
@@ -5314,8 +5723,9 @@ function Main({sb, me, onSignOut}){
           : html`<div className="empty"><h3>Scheda non trovata</h3><p className="muted">Forse è stata eliminata.</p><button className="btn" onClick=${()=>setView("gruppo")}>Torna al gruppo</button></div>`)}
       ${view==="mappa" && html`<${MapView} me=${me} party=${party} mapUrls=${urls} portraits=${portraits} foes=${camp.foes} masterUrls=${masterUrls}
           onUploadMaster=${me.isMaster ? onUploadMaster : null} onRemoveMaster=${me.isMaster ? onRemoveMaster : null} archiveOps=${camp.archiveErr || !me.isMaster ? null : archiveOps} archiveFolder=${archiveFolder} names=${names} onMove=${onMove} onClearTrail=${onClearTrail} onUpload=${onUpload} pins=${camp.pins} pinOps=${pinOps} cfgOps=${cfgOps}
-          scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat}/>`}
+          scenes=${camp.scenes} sceneStates=${camp.sceneStates} tokens=${camp.tokens} areas=${camp.areas} sceneOps=${sceneOps} chars=${chars} fighters=${fighters} combat=${combat} focus=${focus}/>`}
     </main>
+    ${searchOpen && html`<${SearchOverlay} camp=${camp} me=${me} chars=${chars} names=${names} onGo=${goTo} onClose=${()=>setSearchOpen(false)}/>`}
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
     ${!hoOpen && meetNpc && html`<${NpcMeetModal} key=${meetNpc.id} n=${meetNpc} url=${portraits[meetNpc.id]} onLater=${()=>markNpcSeen(meetNpc.id)}
         onMini=${()=>openMini("npc:"+meetNpc.id)} onSave=${async()=>{ markNpcSeen(meetNpc.id); const m = await npcOps.save(meetNpc.id, true); if (m) setMsg(m); }}/>`}
@@ -5325,7 +5735,7 @@ function Main({sb, me, onSignOut}){
       const c = (isFoe || isNpc) ? null : chars.find(x=>x.id===id);
       return (foe || c) ? html`<${MiniWindow} key=${id} c=${c} foe=${foe} url=${portraits[fid]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
-  </div><//>`;
+  </div><//><//>`;
 }
 
 function App(){
