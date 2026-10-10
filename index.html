@@ -853,6 +853,15 @@ kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--lin
 .cx-imgbtn{border:0;padding:0;background:none;cursor:zoom-in;display:block}
 .cx-img{width:100%;max-height:220px;object-fit:cover;border-radius:8px;display:block}
 .cx-big{max-width:min(96vw,1400px);max-height:92vh;border-radius:8px;box-shadow:0 18px 50px rgb(0 0 0/.4)}
+/* vista giocatore */
+.pv-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 16px;background:color-mix(in srgb,var(--gold) 22%,var(--surface));border-top:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));border-bottom:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));font-size:.9rem}
+.pv-sub{color:var(--muted);font-size:.85rem}
+.modal-back.pv-back{place-items:start center;padding-top:9vh}
+.pv-pop{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgb(0 0 0/.35);width:min(520px,100%);padding:14px;display:grid;gap:6px}
+.pv-opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 12px;cursor:pointer;color:inherit;font:inherit}
+.pv-opt:hover{border-color:var(--accent)}.pv-opt.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 14%,var(--bg))}
+.pv-note{margin:0 2px 4px;font-size:.82rem}
+.pv-pop hr{border:0;border-top:1px solid var(--line);margin:6px 0;width:100%}
 </style>
 </head>
 <body>
@@ -1061,7 +1070,8 @@ function ago(t){ if(!t) return ""; const s = (t-Date.now())/1000;
   const a = Math.abs(s); if (a<60) return "adesso"; if (a<3600) return rtf.format(Math.round(s/60),"minute");
   if (a<86400) return rtf.format(Math.round(s/3600),"hour"); return rtf.format(Math.round(s/86400),"day"); }
 
-const LSP = (()=>{ try { return "taccuino:"+new URL(SUPABASE_URL).hostname.split(".")[0]+":"; } catch(e){ return "taccuino:"; } })();
+const GUEST = (()=>{ try { return new URLSearchParams(location.search).has("ospite"); } catch(e){ return false; } })();   // finestra ospite: un giocatore accede qui senza scollegare il master
+const LSP = (()=>{ try { return "taccuino:"+new URL(SUPABASE_URL).hostname.split(".")[0]+":"+(GUEST ? "ospite:" : ""); } catch(e){ return "taccuino:"; } })();
 function lsGet(k,def){ try{ let v = localStorage.getItem(LSP+k); if (v==null) v = localStorage.getItem("taccuino:"+k); return v==null?def:JSON.parse(v);}catch(e){return def} }
 function lsSet(k,v){ try{ localStorage.setItem(LSP+k,JSON.stringify(v)) }catch(e){} }
 
@@ -3181,6 +3191,7 @@ function Login({sb}){
     setBusy(false); };
   return html`<${Gate}>
     <div className="gate-card">
+      ${GUEST && html`<p className="notice" style=${{margin:0}}>Finestra ospite: l’accesso vale solo in questa finestra e si chiude con lei. Il master resta collegato nelle altre.</p>`}
       <div className="gate-tabs" role="group" aria-label="Accesso">
         <button type="button" aria-pressed=${mode==="in"} onClick=${()=>{setMode("in"); setErr("");}}>Accedi</button>
         <button type="button" aria-pressed=${mode==="up"} onClick=${()=>{setMode("up"); setErr("");}}>Registrati</button>
@@ -4268,7 +4279,7 @@ function MarkBar({type, id, title, noNote=false, showOthers=true, className=""})
   const ctx = useContext(MarksCtx);
   const [adding, setAdding] = useState(false); const [tagIn, setTagIn] = useState("");
   const [noteOpen, setNoteOpen] = useState(false); const [nv, setNv] = useState("");
-  if (!ctx || id == null || ctx.off) return null;
+  if (!ctx || id == null || ctx.off || ctx.ro) return null;
   const key = String(id);
   const m = ctx.mine(type, key) || {star:false, tags:[], note:"", shared:false};
   const others = showOthers ? ctx.others(type, key) : [];
@@ -4397,7 +4408,7 @@ function Annotations({type, id, title}){
   const save = () => { const t = txt.trim(); if (!t) return; ctx.addNote({title:firstLine(t).slice(0,80), note:t.slice(0,8000), section:"indizio", links:[key], shared:sh}); setTxt(""); setSh(false); setAdding(false); };
   return html`<div className="an-wrap" onClick=${e=>e.stopPropagation()}>
     <div className="an-h"><span className="eyebrow">💬 Annotazioni${list.length ? " · "+list.length : ""}</span><span className="spacer"></span>
-      ${!adding ? html`<button type="button" className="mk-btn" onClick=${()=>setAdding(true)}>＋ Annota</button>` : null}</div>
+      ${!adding && !ctx.ro ? html`<button type="button" className="mk-btn" onClick=${()=>setAdding(true)}>＋ Annota</button>` : null}</div>
     ${list.map(m=>{ const mine = m.user_id===ctx.me; const ann = String(m.title||"").trim() === firstLine(m.note);
       return html`<div key=${m.item_id} className=${"an-item"+(mine?"":" other")}>
         <div className="an-meta"><b>${mine ? "Tu" : (ctx.names[m.user_id] || "Qualcuno")}</b> <span className="muted">${m.shared ? "· 👥 condivisa" : "· 🔒 privata"}${m.created_at ? " · "+ago(Date.parse(m.created_at)) : ""}</span></div>
@@ -4414,7 +4425,7 @@ function Annotations({type, id, title}){
     ${adding ? html`<div className="an-new"><textarea className="field" maxLength="8000" autoFocus aria-label=${"Annotazione su "+(title||"handout")} placeholder="Cosa noti? Sospetti, collegamenti, domande…" value=${txt} onChange=${e=>setTxt(e.target.value)}></textarea>
         <div className="row" style=${{gap:8}}><label className="row" style=${{gap:6,fontSize:".86rem"}}><input type="checkbox" checked=${sh} onChange=${e=>setSh(e.target.checked)}/>Condividi con il gruppo</label><span className="spacer"></span>
           <button type="button" className="btn small" onClick=${()=>{ setAdding(false); setTxt(""); }}>Annulla</button><button type="button" className="btn small primary" disabled=${!txt.trim()} onClick=${save}>Salva</button></div></div>` : null}
-    ${!list.length && !adding ? html`<p className="muted an-empty">Le annotazioni sono tue: restano private finché non le condividi e le ritrovi nel taccuino.</p>` : null}
+    ${!list.length && !adding && !ctx.ro ? html`<p className="muted an-empty">Le annotazioni sono tue: restano private finché non le condividi e le ritrovi nel taccuino.</p>` : null}
   </div>`;
 }
 
@@ -4464,11 +4475,11 @@ function NotebookTab({me, camp, names, onGo, focus}){
       ${x.mine && !isNote ? html`<${MarkBar} type=${t} id=${m.item_id} title=${x.title} showOthers=${false} noNote=${t==="handout"}/>` : null}
       <div className="row cl-act">
         ${!isNote && !x.gone ? html`<button type="button" className="btn small primary" onClick=${()=>onGo(t, m.item_id, x.r)}>Apri</button>` : null}
-        ${x.mine && isNote ? html`<button type="button" className=${"mk-star"+(m.star?" on":"")} aria-pressed=${!!m.star} aria-label="Importante" onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({star:!cur.star}))}>${m.star ? "★" : "☆"}</button>
+        ${x.mine && isNote && !ctx.ro ? html`<button type="button" className=${"mk-star"+(m.star?" on":"")} aria-pressed=${!!m.star} aria-label="Importante" onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({star:!cur.star}))}>${m.star ? "★" : "☆"}</button>
           <button type="button" className="btn small" onClick=${()=>setEditing({...m, section:s, tagsTxt:(m.tags||[]).join(", ")})}>✎ Modifica</button>
           <button type="button" className=${"mk-btn"+(m.shared?" on":"")} onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({shared:!cur.shared}))}>${m.shared ? "👥 condivisa" : "🔒 privata"}</button>` : null}
         <span className="spacer"></span>
-        ${x.mine ? (confirmDel===m.id ? html`<span className="confirm">${isNote ? "Eliminare la voce?" : "Togliere stella ed etichette?"}<button type="button" className="btn small danger" onClick=${()=>{ setConfirmDel(null); ctx.remove(t, m.item_id); }}>${isNote ? "Elimina" : "Togli"}</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
+        ${x.mine && !ctx.ro ? (confirmDel===m.id ? html`<span className="confirm">${isNote ? "Eliminare la voce?" : "Togliere stella ed etichette?"}<button type="button" className="btn small danger" onClick=${()=>{ setConfirmDel(null); ctx.remove(t, m.item_id); }}>${isNote ? "Elimina" : "Togli"}</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
           : html`<button type="button" className="btn small" onClick=${()=>setConfirmDel(m.id)}>${isNote ? "Elimina" : "Togli dai segnati"}</button>`) : null}
       </div>
     </article>`; };
@@ -4476,6 +4487,7 @@ function NotebookTab({me, camp, names, onGo, focus}){
       ["", vis.filter(x=>!(x.m.tags||[]).length)]].filter(g=>g[1].length) : null;
   const cnt = k => k==="segnati" ? marked.length : k ? notes.filter(m=>noteSec(m)===k).length : notes.length + marked.length;
   return html`<div className="cl-wrap">
+    ${ctx.ro && html`<p className="notice" style=${{margin:0}}>Vista giocatore: qui vedi solo le voci condivise con il gruppo. Le sue voci private restano sue.</p>`}
     <p className="muted" style=${{margin:0,fontSize:".9rem"}}>${M ? "Il tuo taccuino di appunti, più le voci che i giocatori decidono di condividere con il gruppo. Le loro voci private non le vedi." : "Il tuo taccuino: personaggi, luoghi, fazioni, indizi e appunti scritti da te, più quello che segni con ★ o 🏷 su handout, mappe, personaggi conosciuti e segnaposti. È privato: con 👥 condividi una voce con il gruppo, e qui vedi anche quello che hanno condiviso gli altri."}</p>
     <div className="planes nb-secs" role="group" aria-label="Sezione">${[["","Tutto","🗒"], ...NOTE_SECTIONS, ["segnati","Segnati","★"]].map(([k,n,i])=>html`<button type="button" key=${k || "_all"} aria-pressed=${sec===k} onClick=${()=>setSec(k)}><span aria-hidden="true">${i}</span> ${n} <span className="muted">${cnt(k)}</span></button>`)}</div>
     <div className="row cl-tools">
@@ -4484,7 +4496,7 @@ function NotebookTab({me, camp, names, onGo, focus}){
       <button type="button" className=${"mk-btn"+(starOnly?" on":"")} aria-pressed=${starOnly} title="Solo quelle con la stella" onClick=${()=>setStarOnly(!starOnly)}>★ importanti</button>
       <label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="cl-group" type="checkbox" checked=${group} onChange=${e=>setGroup(e.target.checked)}/>Raggruppa per etichetta</label>
       <span className="spacer"></span>
-      <button type="button" className="btn primary" onClick=${()=>setEditing({section: sec && sec!=="segnati" ? sec : "indizio", title: sec==="appunti" ? "Sessione "+(lastNo+1) : ""})}>+ Nuova voce</button>
+      ${ctx.ro ? html`<span className="chip" title=${PV_RO}>vista giocatore: sola lettura</span>` : html`<button type="button" className="btn primary" onClick=${()=>setEditing({section: sec && sec!=="segnati" ? sec : "indizio", title: sec==="appunti" ? "Sessione "+(lastNo+1) : ""})}>+ Nuova voce</button>`}
     </div>
     ${cloud.length > 0 ? html`<div className="cl-cloud" role="group" aria-label="Filtra per etichetta">${cloud.map(([t,n])=>html`<${TagChip} key=${t} t=${t} n=${n} on=${tags.includes(t)} onClick=${()=>togTag(t)}/>`)}
       ${filtered ? html`<button type="button" className="btn small" onClick=${()=>{ setQ(""); setTags([]); setStarOnly(false); }}>Azzera filtri</button>` : null}</div>` : null}
@@ -5414,8 +5426,55 @@ function TableView({sb, me, chars, names, camp, onFree, act, adjustHp, clockOps,
 }
 
 /* ---------- app ---------- */
-function Main({sb, me, onSignOut}){
-  const camp = useCampaign(sb, true);
+/* ---------- vista giocatore (il master vede l'app come un giocatore) ---------- */
+/* Simula sul dispositivo del master quello che il database mostrerebbe a quel giocatore.
+   La prova definitiva resta l'accesso con il suo account (finestra ospite). */
+const PV_RO = "In vista giocatore questo non si salva: serve l’accesso con il suo account (👁 → Fai accedere un giocatore).";
+function usePreviewCamp(raw, on, pid){
+  const m = (deps, fn) => useMemo(()=> on ? fn() : null, [on, pid, ...deps]);   // sempre le stesse chiamate a useMemo, in ordine fisso
+  const chars = m([raw.chars], ()=>raw.chars.filter(c=>!c.hidden));
+  const handouts = m([raw.handouts], ()=>raw.handouts.filter(h=>h.revealed && (!(h.audience||[]).length || h.audience.includes(pid))));
+  const journal = m([raw.journal], ()=>raw.journal.filter(j=>j.visible || j.author===pid));
+  const pins = m([raw.pins], ()=>raw.pins.filter(p=>!p.hidden));
+  const archive = m([raw.archive], ()=>raw.archive.filter(a=>a.visible || a.created_by===pid));
+  const foes = m([raw.foes], ()=>raw.foes.filter(f=>f.visible));
+  const npcs = m([raw.npcs], ()=>raw.npcs.filter(n=>(n.audience||[]).includes(pid)));
+  const npcSaves = m([raw.npcSaves], ()=>raw.npcSaves.filter(s=>s.user_id===pid));
+  const clocks = m([raw.clocks], ()=>raw.clocks.filter(k=>k.visible));
+  const fighters = m([raw.fighters], ()=>raw.fighters.filter(f=>!f.hidden));
+  const rolls = m([raw.rolls], ()=>raw.rolls.filter(r=>!r.hidden));
+  const recipes = m([raw.recipes], ()=>raw.recipes.filter(r=>r.revealed));
+  const marks = m([raw.marks], ()=>raw.marks.filter(x=>x.shared));
+  const tokens = m([raw.tokens], ()=>raw.tokens.filter(t=>!t.hidden));
+  const empty = m([], ()=>({codex:[], codexSecrets:{}, secrets:{}, mmaps:{}}));
+  if (!on) return raw;
+  return {...raw, chars, handouts, journal, pins, archive, foes, npcs, npcSaves, clocks, fighters, rolls, recipes, marks, tokens, ...empty};
+}
+function PreviewMenu({players, names, chars, current, onPick, onStop, onClose}){
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  const charOf = id => chars.find(c=>c.owner===id);
+  const guest = () => { window.open(location.pathname + "?ospite", "_blank"); onClose(); };
+  return html`<div className="modal-back pv-back" role="dialog" aria-modal="true" aria-label="Vista giocatore" onClick=${e=>{ if (e.target===e.currentTarget) onClose(); }}>
+    <div className="pv-pop">
+      <div className="eyebrow">Vedi l’app come…</div>
+      ${players.map(p=>{ const c = charOf(p.user_id); return html`<button type="button" key=${p.user_id} className=${"pv-opt"+(current?.id===p.user_id ? " on" : "")} onClick=${()=>onPick({id:p.user_id, name:p.name || names[p.user_id] || "Giocatore"})}>
+        <span aria-hidden="true">👤</span> <b>${p.name || names[p.user_id] || "Giocatore"}</b>${c ? html` <span className="muted">· ${norm(c).name || "scheda senza nome"}</span>` : html` <span className="muted">· nessuna scheda</span>`}</button>`; })}
+      <button type="button" className=${"pv-opt"+(current && !current.id ? " on" : "")} onClick=${()=>onPick({id:"", name:"Un giocatore"})}><span aria-hidden="true">👁</span> <b>Un giocatore qualsiasi</b> <span className="muted">· per controllare cosa è nascosto</span></button>
+      <p className="muted pv-note">È una simulazione sul tuo dispositivo: vedi solo quello che vede lui (handout per lui, personaggi che conosce, niente segreti). Scheda, tiri, pedine e diario funzionano davvero; taccuino, stelle e raccolta dei personaggi non si salvano, e le sue voci private restano invisibili.</p>
+      <hr/>
+      <button type="button" className="pv-opt" onClick=${guest}><span aria-hidden="true">↗</span> <b>Fai accedere un giocatore</b> <span className="muted">· nuova finestra</span></button>
+      <p className="muted pv-note">Apre il Taccuino in una finestra separata dove il giocatore accede con la sua email e password: è lui a tutti gli effetti (anche taccuino e tiri a suo nome) e tu resti collegato nelle altre finestre. Chiudendo la finestra esce.</p>
+      <div className="row">${current ? html`<button type="button" className="btn small primary" onClick=${onStop}>Torna master</button>` : null}<span className="spacer"></span><button type="button" className="btn small" onClick=${onClose}>Chiudi</button></div>
+    </div>
+  </div>`;
+}
+
+function Main({sb, me: meReal, onSignOut}){
+  const [pv, setPv] = useState(()=>{ const v = meReal.isMaster ? lsGet("preview", null) : null; return v && typeof v === "object" ? v : null; });
+  const me = useMemo(()=> pv && meReal.isMaster ? {...meReal, id: pv.id || "anteprima", isMaster:false, preview:true, realId:meReal.id} : meReal, [pv, meReal]);
+  const campRaw = useCampaign(sb, true);
+  const camp = usePreviewCamp(campRaw, !!me.preview, me.id);
+  const [pvMenu, setPvMenu] = useState(false);
   applyCfg(camp.config);
   useEffect(()=>{ document.title = CFG.name; BRAND = CFG.name; },[CFG.name]);
   const book = useSpellBook(camp.spellsCustom);
@@ -5436,7 +5495,7 @@ function Main({sb, me, onSignOut}){
       const {error} = await sb.from("tokens").update({...patch, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Non salvato: "+error.message; } return ""; },
     deleteToken: async (id) => { camp.setTokens(x=>x.filter(t=>t.id!==id)); const {error} = await sb.from("tokens").delete().eq("id", id); if (error){ camp.loadTokens(); return error.message; } return ""; },
     moveToken: async (id, x, y) => { camp.setTokens(xs=>xs.map(t=>t.id===id ? {...t, x, y} : t));
-      if (me.isMaster){ const {error} = await sb.from("tokens").update({x, y, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Pedina non spostata: "+error.message; } return ""; }
+      if (meReal.isMaster){ const {error} = await sb.from("tokens").update({x, y, updated_at:new Date().toISOString()}).eq("id", id); if (error){ camp.loadTokens(); return "Pedina non spostata: "+error.message; } return ""; }
       const {data, error} = await sb.rpc("move_token", {p_id:id, p_x:x, p_y:y}); if (error || !data){ camp.loadTokens(); return "Pedina non spostata"+(error?": "+error.message:": puoi muovere solo la tua."); } return ""; },
     addArea: async (plane, row) => { const {data, error} = await sb.from("areas").insert({...row, plane, created_by:me.id}).select("*").maybeSingle();
       if (error) return "Area non salvata"+(/relation|does not exist/.test(error.message) ? ": esegui fase9.sql" : ": "+error.message);
@@ -5450,7 +5509,7 @@ function Main({sb, me, onSignOut}){
     markExplored: async (plane, cells) => { const {error} = await sb.rpc("mark_explored", {p_plane:plane, p_cells:cells}); return error ? error.message : ""; },
     toggleDoor: async (plane, idx) => { const {data, error} = await sb.rpc("toggle_door", {p_plane:plane, p_idx:idx}); if (error || !data) return "Porta non aggiornata"+(error?": "+error.message:": è chiusa a chiave.");
       camp.setSceneStates(x=>{ const s0 = x[plane]; if (!s0) return x; const d = {...(s0.doors||{})}; d[idx] = !d[idx]; return {...x, [plane]: {...s0, doors:d}}; }); return ""; },
-  }),[sb, me.isMaster]);
+  }),[sb, me.isMaster, meReal.isMaster]);
   const cfgOps = useMemo(()=> me.isMaster ? {
     addPlane: async (name, dark) => { let key = ""; const r = await saveCfg(c=>{ key = slugKey(name, new Set(c.planes.map(p=>p.k))); c.planes.push({k:key, name, dark:!!dark});
         if (dark){ c.modules.buio = true; if (!c.pinKinds.some(k=>k.light)) c.pinKinds.push({k:slugKey("luce", new Set(c.pinKinds.map(p=>p.k))), name:"Fonte di luce", done:"Accesa", icon:"luce", light:true}); } });
@@ -5568,6 +5627,7 @@ function Main({sb, me, onSignOut}){
     note: (cardId, note) => saveMine(cardId, {note: String(note||"").slice(0,500)}),
   };
   async function saveMine(cardId, patch){
+    if (me.preview) return PV_RO;
     const cur = camp.npcSaves.find(s=>s.card_id===cardId && s.user_id===me.id); const now = new Date().toISOString();
     camp.setNpcSaves(x=> cur ? x.map(s=>(s.card_id===cardId && s.user_id===me.id) ? {...s, ...patch, updated_at:now} : s) : [...x, {card_id:cardId, user_id:me.id, saved:true, note:"", created_at:now, updated_at:now, ...patch}]);
     const {error:e} = cur ? await sb.from("npc_saves").update({...patch, updated_at:now}).eq("card_id", cardId).eq("user_id", me.id)
@@ -5589,12 +5649,12 @@ function Main({sb, me, onSignOut}){
   const sameMk = (m, t, id) => m.user_id===me.id && m.item_type===t && m.item_id===id;
   const visMarks = camp.marks.filter(m=>m.user_id===me.id || m.shared);
   const markOps = {
-    off: marksOff, names, me: me.id,
+    off: marksOff, ro: !!me.preview, names, me: me.id,
     notesLinking: (k) => camp.marks.filter(m=>m.item_type==="nota" && (m.user_id===me.id || m.shared) && (m.links||[]).includes(k)).sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))),
     mine: (t, id) => marksMine[mkKey(t, String(id))],
     others: (t, id) => camp.marks.filter(m=>m.user_id!==me.id && m.shared && m.item_type===t && m.item_id===String(id)),
     tagsFor: (t) => tagCount(visMarks.filter(m=>m.item_type===t)),
-    save: (t, id0, title, patch) => { const id = String(id0); const k = mkKey(t, id);
+    save: (t, id0, title, patch) => { if (me.preview){ setMsg(PV_RO); return Promise.resolve(); } const id = String(id0); const k = mkKey(t, id);
       const base = latestMk.current[k] || marksMine[k] || {user_id:me.id, item_type:t, item_id:id, title:"", tags:[], star:false, note:"", shared:false};
       const p = typeof patch === "function" ? patch(base) : patch;
       const next = {...base, ...p, title: String(title ?? base.title ?? "").slice(0,120), updated_at:new Date().toISOString()};
@@ -5612,13 +5672,14 @@ function Main({sb, me, onSignOut}){
           if (!empty && r.data) camp.setMarks(xs=>[...xs.filter(m=>!sameMk(m, t, id)), r.data]); } };
       const pr = (mkChain.current[k] || Promise.resolve()).then(run).catch(e=>setMsg("Non salvato: "+e.message)); mkChain.current[k] = pr; return pr; },
     addNote: (f) => markOps.save("nota", uid()+uid(), f.title, {note:f.note||"", tags:f.tags||[], shared:!!f.shared, star:!!f.star, section:f.section||"indizio", links:f.links||[]}),
-    remove: (t, id0) => { const id = String(id0); const k = mkKey(t, id); delete latestMk.current[k];
+    remove: (t, id0) => { if (me.preview){ setMsg(PV_RO); return Promise.resolve(); } const id = String(id0); const k = mkKey(t, id); delete latestMk.current[k];
       camp.setMarks(xs=>xs.filter(m=>!sameMk(m, t, id)));
       const run = async () => { const {error:e} = await sb.from("marks").delete().eq("user_id", me.id).eq("item_type", t).eq("item_id", id); if (e){ setMsg(markErr(e)); camp.loadMarks(); } };
       const pr = (mkChain.current[k] || Promise.resolve()).then(run).catch(()=>{}); mkChain.current[k] = pr; return pr; },
   };
   const tagsAll = tagCount(visMarks);
   /* cerca ovunque e navigazione verso il risultato */
+  const pvSet = (v) => { setPv(v); lsSet("preview", v); setView("gruppo"); setOpenId(null); setHoOpen(null); setMsg(""); window.scrollTo(0,0); };
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(()=>{ const k = e => { const el = e.target; const tag = String(el?.tagName||"").toLowerCase(); const typing = tag==="input" || tag==="textarea" || tag==="select" || el?.isContentEditable;
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && String(e.key).toLowerCase()==="k"){ e.preventDefault(); setSearchOpen(true); }
@@ -5640,7 +5701,7 @@ function Main({sb, me, onSignOut}){
     setView("cronache"); setOpenId(null); setFocus({key, tab, id, kind:e?.kind, find:type+":"+id}); };
   const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
   const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
-  const meetNpc = me.isMaster ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
+  const meetNpc = me.isMaster || me.preview ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
   /* schede della sessione (plancia del master): salvate nelle impostazioni della campagna */
   const [backView, setBackView] = useState("gruppo");
   const sessionOps = {
@@ -5832,10 +5893,13 @@ function Main({sb, me, onSignOut}){
         onClick=${()=> k==="scheda" ? goMine() : (setView(k), setOpenId(null))}>${l}${k==="tavolo" && combat.active ? html` <span className="live" aria-label="scontro in corso"></span>` : null}</button>`)}</nav>
       <${AudioControl} sb=${sb} me=${me} sounds=${camp.sounds} audio=${camp.audio} world=${camp.world}/>
       <button type="button" className="btn small so-open" title="Cerca ovunque (Ctrl+K oppure /)" aria-label="Cerca ovunque" onClick=${()=>setSearchOpen(true)}>🔎${me.isMaster ? null : html`<span className="so-lbl"> Cerca</span>`}</button>
-      <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||me.email}/><span>${names[me.id]||me.email}${me.isMaster?" · master":""}</span>
+      <div className="userbox"><${Who} id=${me.id} name=${names[me.id]||pv?.name||me.email}/><span title=${me.isMaster ? "Master" : ""}>${names[me.id]||pv?.name||me.email}${me.isMaster ? html` <span className="muted" aria-label="master">★</span>` : null}${GUEST ? html` <span className="chip gold" title="Accesso solo in questa finestra: chiudendola esci">ospite</span>` : null}</span>
+        ${meReal.isMaster && html`<button type="button" className=${"btn small"+(me.preview ? " primary" : "")} aria-pressed=${!!me.preview} title="Vista giocatore: vedi l’app come un giocatore, o fai accedere un giocatore in un’altra finestra" aria-label="Vista giocatore" onClick=${()=>setPvMenu(true)}>👁</button>`}
         ${me.isMaster && html`<button type="button" className="btn small" aria-pressed=${view==="campagna"} title="Impostazioni della campagna" onClick=${()=>{ setView("campagna"); setOpenId(null); }}>⚙ Campagna</button>`}
         <button type="button" className="btn small" onClick=${onSignOut}>Esci</button></div>
     </div>
+    ${me.preview && html`<div className="pv-bar" role="status"><span>👁 <b>Vista giocatore: ${pv?.name || "un giocatore"}</b> <span className="pv-sub">— vedi quello che vede lui; scheda, tiri, pedine e diario funzionano davvero, taccuino e stelle no.</span></span>
+      <span className="spacer"></span><button type="button" className="btn small" onClick=${()=>setPvMenu(true)}>Cambia</button><button type="button" className="btn small primary" onClick=${()=>pvSet(null)}>Torna master</button></div>`}
     <${WorldStrip} world=${camp.world} chars=${chars} me=${me}/>
     <${ClocksBar} clocks=${camp.clocks} me=${me} ops=${clockOps}/>
     <${TurnBanner} combat=${combat} fighters=${fighters} chars=${chars} me=${me} onEndTurn=${endMyTurn} onNext=${endMyTurn}
@@ -5875,12 +5939,13 @@ function Main({sb, me, onSignOut}){
       const c = (isFoe || isNpc) ? null : chars.find(x=>x.id===id);
       return (foe || c) ? html`<${MiniWindow} key=${id} c=${c} foe=${foe} url=${portraits[fid]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
+    ${pvMenu && html`<${PreviewMenu} players=${members.filter(m=>m.user_id!==meReal.id)} names=${names} chars=${campRaw.chars} current=${pv} onPick=${v=>{ pvSet(v); setPvMenu(false); }} onStop=${()=>{ pvSet(null); setPvMenu(false); }} onClose=${()=>setPvMenu(false)}/>`}
   </div><//><//>`;
 }
 
 function App(){
   const configured = typeof SUPABASE_URL==="string" && /^https:\/\/.+/.test(SUPABASE_URL) && !SUPABASE_URL.includes("IL-TUO-PROGETTO") && !String(SUPABASE_KEY).startsWith("LA-TUA");
-  const sb = useMemo(()=> configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null, [configured]);
+  const sb = useMemo(()=> configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, GUEST ? {auth:{storage: window.sessionStorage, storageKey:"taccuino-ospite", persistSession:true}} : undefined) : null, [configured]);
   const [session, setSession] = useState(undefined);
   const [me, setMe] = useState(null);
   const [member, setMember] = useState(null);
@@ -5908,7 +5973,7 @@ function App(){
   if (session===undefined || (session && member===null)) return html`<${Gate}><p className="muted" style=${{textAlign:"center"}}>Apertura del taccuino…</p><//>`;
   if (!session) return html`<${Login} sb=${sb}/>`;
   if (!member) return html`<${Join} sb=${sb} user=${session.user} onJoined=${checkMember}/>`;
-  return html`<${Main} sb=${sb} me=${me} onSignOut=${()=>sb.auth.signOut()}/>`;
+  return html`<${Main} sb=${sb} me=${me} onSignOut=${()=> GUEST ? sb.auth.signOut({scope:"local"}) : sb.auth.signOut()}/>`;
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(html`<${App}/>`);
