@@ -821,6 +821,38 @@ button.mk-tag.on{background:hsl(var(--th) 55% 45% / .42);border-color:hsl(var(--
 .so-hint{margin:10px;font-size:.9rem}
 kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--sunk)}
 @media (max-width:640px){.modal-back.so-back{padding:0}.so-box{max-height:100vh;height:100%;border-radius:0;border:0}.so-lbl{display:none}}
+/* taccuino personale e annotazioni (fase 19) */
+.nb-secs button{padding:5px 11px}
+.cl-card.nb-personaggio{border-left:4px solid hsl(210 45% 50%)}
+.cl-card.nb-luogo{border-left:4px solid hsl(140 35% 42%)}
+.cl-card.nb-fazione{border-left:4px solid hsl(0 45% 50%)}
+.cl-card.nb-indizio{border-left:4px solid var(--gold)}
+.cl-card.nb-appunti{border-left:4px solid hsl(270 30% 55%)}
+.nb-clamp{display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
+.nb-more{justify-self:start;font-size:.85rem}
+.nb-rel{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:.82rem}
+.nb-link{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:2px 9px;font-size:.8rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nb-link .linkish{font-size:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-link.gone{opacity:.6;font-style:italic}
+.nb-pick{position:relative;display:grid;gap:4px}
+.nb-cands{display:grid;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;box-shadow:0 8px 22px rgb(0 0 0/.15)}
+.nb-cand{border:0;border-bottom:1px solid var(--line);background:none;text-align:left;padding:7px 10px;cursor:pointer;color:inherit;font:inherit;font-size:.88rem;overflow-wrap:anywhere}
+.nb-cand:last-child{border-bottom:0}.nb-cand:hover,.nb-cand:focus{background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.an-wrap{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:8px;min-width:0}
+.an-h{display:flex;align-items:center;gap:8px}
+.an-item{background:var(--sunk);border-radius:8px;padding:7px 10px;display:grid;gap:3px;min-width:0}
+.an-item.other{background:color-mix(in srgb,var(--gold) 11%,var(--sunk))}
+.an-meta{font-size:.8rem}
+.an-title{font-weight:600;font-size:.88rem}
+.an-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.9rem}
+.an-act{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:.8rem}
+.an-act .linkish,.nb-more{font-size:.8rem;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.an-new{display:grid;gap:6px}.an-new textarea{min-height:80px}
+.an-empty{margin:0;font-size:.8rem}
+.modal.handout .an-wrap{margin-top:4px}
+.cx-imgbtn{border:0;padding:0;background:none;cursor:zoom-in;display:block}
+.cx-img{width:100%;max-height:220px;object-fit:cover;border-radius:8px;display:block}
+.cx-big{max-width:min(96vw,1400px);max-height:92vh;border-radius:8px;box-shadow:0 18px 50px rgb(0 0 0/.4)}
 </style>
 </head>
 <body>
@@ -3639,7 +3671,8 @@ function HandoutModal({h, url, onClose}){
       <h2>${h.title || "Senza titolo"}</h2>
       ${url && html`<img className="ho-img" src=${url} alt=${h.title}/>`}
       ${h.body && html`<div className="ho-body">${h.body}</div>`}
-      <${MarkBar} type="handout" id=${h.id} title=${h.title}/>
+      <${MarkBar} type="handout" id=${h.id} title=${h.title} noNote=${true}/>
+      <${Annotations} type="handout" id=${h.id} title=${h.title}/>
       <div className="row"><span className="spacer"></span><button type="button" className="btn primary" onClick=${onClose} autoFocus>Chiudi</button></div>
     </div>
   </div>`;
@@ -3671,7 +3704,9 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
   const names = Object.fromEntries(members.map(m=>[m.user_id, m.name]));
   const list = [...handouts].sort((a,b)=> (b.revealed_at||b.created_at).localeCompare(a.revealed_at||a.created_at));
   const F = useMarkFilter("handout", {id:"ho-q", placeholder:"Cerca negli handout…"}); const [hst, setHst] = useState("tutti");
-  const shown = list.filter(h=>(hst==="tutti" || (hst==="bozze" ? !h.revealed : h.revealed)) && F.test(h.id, (h.title||"")+" "+(h.body||"")));
+  const mctx = useContext(MarksCtx);
+  const annTxt = (id) => mctx && !mctx.off ? mctx.notesLinking("handout:"+id).map(m=>m.note).join(" ") : "";
+  const shown = list.filter(h=>(hst==="tutti" || (hst==="bozze" ? !h.revealed : h.revealed)) && F.test(h.id, (h.title||"")+" "+(h.body||"")+" "+annTxt(h.id)));
   const save = async (f) => { setBusy(true); setErr("");
     try {
       let image_path = editing?.image_path || null;
@@ -3709,7 +3744,8 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
         <h3><button type="button" className="linkish" onClick=${()=>onOpen(h)}>${h.title||"Senza titolo"}</button></h3>
         ${h.body && html`<p className="muted clamp">${h.body}</p>`}
       </div>
-      <${MarkBar} type="handout" id=${h.id} title=${h.title}/>
+      <${MarkBar} type="handout" id=${h.id} title=${h.title} noNote=${true}/>
+      <${Annotations} type="handout" id=${h.id} title=${h.title}/>
       ${M && html`<div className="row">
         ${h.revealed ? html`<button type="button" className="btn small" onClick=${()=>reveal(h,false)}>Nascondi</button>`
           : html`<button type="button" className="btn small primary" onClick=${()=>reveal(h,true)}>Rivela</button>`}
@@ -3727,78 +3763,90 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
 function CodexTab({sb, me, codex, secrets, reload, focus}){
   const M = me.isMaster;
   const [kind, setKind] = useState(()=>lsGet("codexKind","fazione"));
-  const [editing, setEditing] = useState(null); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
-  const [notes, setNotes] = useState({});
+  const [editing, setEditing] = useState(null); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false); const [big, setBig] = useState(null);
   const F = useMarkFilter("codex", {id:"cx-q", placeholder:"Cerca in tutto il codex…"});
   useEffect(()=>lsSet("codexKind",kind),[kind]);
   useEffect(()=>{ if (focusFresh(focus) && focus.tab==="codex" && focus.kind){ F.clear(); setKind(focus.kind); } },[focus?.key]);
-  const list = codex.filter(c=>(F.active || c.kind===kind) && F.test(c.id, [c.name, c.summary, c.party_notes, M ? secrets[c.id]?.notes : ""].filter(Boolean).join(" ")))
-    .sort((a,b)=> (b.revealed - a.revealed) || a.name.localeCompare(b.name));
+  const imgs = useSignedUrls(sb, useMemo(()=>Object.fromEntries(codex.filter(c=>c.image).map(c=>[c.id, c.image])), [codex]));
+  if (!M) return html`<p className="muted">Il codex è del master. Tieni le tue scoperte in “Il mio taccuino”.</p>`;
+  const list = codex.filter(c=>(F.active || c.kind===kind) && F.test(c.id, [c.name, c.summary, c.party_notes, secrets[c.id]?.notes].filter(Boolean).join(" ")))
+    .sort((a,b)=> a.name.localeCompare(b.name));
   const save = async (f) => { setBusy(true); setErr("");
-    const row = {kind:f.kind, name:f.name.trim(), summary:f.summary, reputation:f.reputation, revealed:f.revealed, updated_at:new Date().toISOString()};
-    let id = f.id, r;
-    if (id) r = await sb.from("codex").update(row).eq("id", id);
-    else { r = await sb.from("codex").insert(row).select("id").single(); id = r.data?.id; }
-    if (!r.error && id) r = await sb.from("codex_secrets").upsert({id, notes:f.secret||""});
-    setBusy(false); if (r.error) { setErr("Non salvato: "+r.error.message); return; }
-    setEditing(null); reload(); };
+    try {
+      let image = f.image || null; const old = f.image || null;
+      if (f.removeImage) image = null;
+      if (f.file){ const file = await compressImage(f.file); const ext = (file.type==="image/jpeg" ? "jpg" : (file.type||"image/jpeg").split("/")[1]).replace(/[^a-z0-9]/g,"") || "jpg";
+        const path = `master/codex/${Date.now()}-${uid()}.${ext}`;
+        const up = await sb.storage.from("mappe").upload(path, file, {contentType:file.type||"image/jpeg", upsert:false, cacheControl:LONG_CACHE});
+        if (up.error) throw new Error("immagine: "+up.error.message); image = path; }
+      const row = {kind:f.kind, name:f.name.trim(), summary:f.summary, reputation:f.reputation, updated_at:new Date().toISOString(), ...(image !== old ? {image} : {})};
+      let id = f.id, r;
+      if (id) r = await sb.from("codex").update(row).eq("id", id);
+      else { r = await sb.from("codex").insert(row).select("id").single(); id = r.data?.id; }
+      if (r.error){ if (image && image !== old) sb.storage.from("mappe").remove([image]); throw new Error(r.error.message+(/image|schema cache|column/i.test(r.error.message) ? " (esegui fase19.sql)" : "")); }
+      if (id){ const r2 = await sb.from("codex_secrets").upsert({id, notes:f.secret||""}); if (r2.error) throw new Error(r2.error.message); }
+      if (old && old !== image) sb.storage.from("mappe").remove([old]);
+      setEditing(null); reload();
+    } catch(e){ setErr("Non salvato: "+e.message); }
+    setBusy(false); };
   const quick = async (c, patch) => { const {error} = await sb.from("codex").update({...patch, updated_at:new Date().toISOString()}).eq("id", c.id); if (error) setErr(error.message); reload(); };
-  const saveNote = async (c) => { const t = notes[c.id]; if (t===undefined) return;
-    const {data, error} = await sb.rpc("set_codex_note", {p_id:c.id, p_text:t}); if (error || !data) setErr("Nota non salvata"+(error?": "+error.message:""));
-    else { setNotes(x=>{ const y={...x}; delete y[c.id]; return y; }); reload(); } };
-  const del = async (c) => { const {error} = await sb.from("codex").delete().eq("id", c.id); if (error) setErr(error.message); setEditing(null); reload(); };
+  const del = async (c) => { const {error} = await sb.from("codex").delete().eq("id", c.id); if (error) setErr(error.message); else if (c.image) sb.storage.from("mappe").remove([c.image]); setEditing(null); reload(); };
 
-  if (editing) return html`<${CodexForm} initial=${editing} busy=${busy} onSave=${save} onCancel=${()=>setEditing(null)} onDelete=${editing.id ? ()=>del(editing) : null}/>`;
+  if (editing) return html`<${CodexForm} initial=${editing} url=${imgs[editing.id]} busy=${busy} err=${err} onSave=${save} onCancel=${()=>{ setEditing(null); setErr(""); }} onDelete=${editing.id ? ()=>del(editing) : null}/>`;
   return html`<div style=${{display:"grid",gap:12}}>
+    <p className="muted" style=${{margin:0,fontSize:".88rem"}}>Il codex è solo tuo: i giocatori non lo vedono. Loro tengono le loro scoperte nel proprio taccuino; quello che vuoi far sapere lo dai come handout.</p>
     <div className="row">
       <div className="planes" role="group" aria-label="Sezione del codex">${CODEX_KINDS.map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${!F.active && kind===k} onClick=${()=>{ F.clear(); setKind(k); }}>${n} <span className="muted">${codex.filter(c=>c.kind===k).length}</span></button>`)}</div>
       ${F.bar}
-      ${M && html`<button type="button" className="btn primary" onClick=${()=>setEditing({kind, name:"", summary:"", reputation:0, revealed:false, secret:""})}>+ Nuova voce</button>`}
+      <button type="button" className="btn primary" onClick=${()=>setEditing({kind, name:"", summary:"", reputation:0, secret:"", image:null})}>+ Nuova voce</button>
     </div>
     ${F.active && html`<p className="muted" style=${{margin:0,fontSize:".88rem"}}>${list.length} ${list.length===1 ? "voce trovata" : "voci trovate"} in tutte le sezioni.</p>`}
-    ${list.length===0 && !F.active && html`<div className="empty"><p className="muted">${M ? `Nessuna voce in “${CODEX_KINDS.find(k=>k[0]===kind)[1]}”. Le voci nuove restano nascoste finché non le riveli.` : "Ancora niente qui: le voci compaiono quando il gruppo le scopre."}</p></div>`}
-    <div className="cx-grid">${list.map(c=>html`<article key=${c.id} data-find=${"codex:"+c.id} className=${"cx-card"+(c.revealed?"":" draft")}>
+    ${list.length===0 && !F.active && html`<div className="empty"><p className="muted">Nessuna voce in “${CODEX_KINDS.find(k=>k[0]===kind)[1]}”.</p></div>`}
+    <div className="cx-grid">${list.map(c=>html`<article key=${c.id} data-find=${"codex:"+c.id} className="cx-card">
+      ${imgs[c.id] ? html`<button type="button" className="cx-imgbtn" onClick=${()=>setBig(c.id)} aria-label=${"Ingrandisci l’immagine di "+(c.name||"")}><img className="cx-img" src=${imgs[c.id]} alt="" loading="lazy"/></button>` : null}
       <div className="row" style=${{alignItems:"baseline"}}>
         <h3 style=${{flex:"1 1 auto"}}>${c.name||"Senza nome"}</h3>
         ${F.active && html`<span className="chip">${CODEX_ONE[c.kind]||c.kind}</span>`}
-        ${!c.revealed && html`<span className="chip">nascosta</span>`}
       </div>
       ${c.kind==="fazione" && html`<div className="rep" aria-label=${"Reputazione: "+REP[c.reputation]}>
         <div className="rep-bar">${[-3,-2,-1,0,1,2,3].map(v=>html`<span key=${v} className=${"rep-seg"+(v===c.reputation?" on":"")+(v<0?" neg":v>0?" pos":"")}></span>`)}</div>
         <span className=${"chip"+(c.reputation<0?" bad":c.reputation>0?" gold":"")}>${REP[c.reputation]}</span>
-        ${M && html`<span className="row" style=${{gap:4}}><button type="button" className="iconbtn" aria-label="Peggiora la reputazione" disabled=${c.reputation<=-3} onClick=${()=>quick(c,{reputation:c.reputation-1})}>−</button><button type="button" className="iconbtn" aria-label="Migliora la reputazione" disabled=${c.reputation>=3} onClick=${()=>quick(c,{reputation:c.reputation+1})}>+</button></span>`}
+        <span className="row" style=${{gap:4}}><button type="button" className="iconbtn" aria-label="Peggiora la reputazione" disabled=${c.reputation<=-3} onClick=${()=>quick(c,{reputation:c.reputation-1})}>−</button><button type="button" className="iconbtn" aria-label="Migliora la reputazione" disabled=${c.reputation>=3} onClick=${()=>quick(c,{reputation:c.reputation+1})}>+</button></span>
       </div>`}
       ${c.summary && html`<p style=${{margin:0,whiteSpace:"pre-wrap"}}>${c.summary}</p>`}
-      ${M && secrets[c.id]?.notes && html`<div className="secret"><span className="eyebrow">Solo per te</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${secrets[c.id].notes}</p></div>`}
-      ${c.revealed && html`<label className="lab">Note del gruppo
-        <textarea className="field" style=${{minHeight:60}} value=${notes[c.id] ?? c.party_notes} placeholder="Cosa sappiamo, cosa ci hanno promesso…" onChange=${e=>setNotes(x=>({...x,[c.id]:e.target.value}))} onBlur=${()=>saveNote(c)}></textarea></label>`}
+      ${secrets[c.id]?.notes && html`<div className="secret"><span className="eyebrow">Note riservate</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${secrets[c.id].notes}</p></div>`}
+      ${c.party_notes && html`<div className="secret"><span className="eyebrow">Vecchie note del gruppo</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${c.party_notes}</p></div>`}
       <${MarkBar} type="codex" id=${c.id} title=${c.name}/>
-      ${M && html`<div className="row">
-        <button type="button" className="btn small" onClick=${()=>quick(c,{revealed:!c.revealed})}>${c.revealed?"Nascondi":"Rivela al gruppo"}</button>
-        <button type="button" className="btn small" onClick=${()=>setEditing({...c, secret:secrets[c.id]?.notes||""})}>Modifica</button></div>`}
+      <div className="row"><button type="button" className="btn small" onClick=${()=>setEditing({...c, secret:secrets[c.id]?.notes||""})}>Modifica</button></div>
     </article>`)}</div>
     ${err && html`<p className="err" role="alert">${err}</p>`}
+    ${big && imgs[big] && html`<div className="modal-back" role="dialog" aria-modal="true" aria-label="Immagine" onClick=${()=>setBig(null)}><img className="cx-big" src=${imgs[big]} alt=""/></div>`}
   </div>`;
 }
 
-function CodexForm({initial, onSave, onCancel, onDelete, busy}){
-  const [f, setF] = useState(initial); const [confirmDel, setConfirmDel] = useState(false);
+function CodexForm({initial, url, onSave, onCancel, onDelete, busy, err}){
+  const [f, setF] = useState(()=>({file:null, removeImage:false, ...initial})); const [confirmDel, setConfirmDel] = useState(false);
   return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (f.name.trim()) onSave(f);}}>
     <h3>${f.id ? "Modifica voce" : "Nuova voce del codex"}</h3>
     <div className="pf-row">
       <label className="lab">Tipo<select id="cx-kind" className="field" value=${f.kind} onChange=${e=>setF({...f,kind:e.target.value})}>${CODEX_KINDS.map(([k])=>html`<option key=${k} value=${k}>${CODEX_ONE[k]}</option>`)}</select></label>
       <label className="lab grow">Nome<input id="cx-name" className="field" value=${f.name} onChange=${e=>setF({...f,name:e.target.value})} autoFocus/></label>
     </div>
-    <label className="lab">Cosa sa il gruppo<textarea id="cx-sum" className="field" value=${f.summary} placeholder="Il testo che vedranno i giocatori quando riveli la voce" onChange=${e=>setF({...f,summary:e.target.value})}></textarea></label>
-    <label className="lab">Note segrete (solo tu)<textarea id="cx-sec" className="field" value=${f.secret} placeholder="Obiettivi nascosti, legami, cosa succede se…" onChange=${e=>setF({...f,secret:e.target.value})}></textarea></label>
+    <label className="lab">Descrizione<textarea id="cx-sum" className="field" value=${f.summary} placeholder="Chi è, com’è fatto il luogo, cosa vuole la fazione…" onChange=${e=>setF({...f,summary:e.target.value})}></textarea></label>
+    <label className="lab">Note riservate<textarea id="cx-sec" className="field" value=${f.secret} placeholder="Obiettivi nascosti, legami, cosa succede se…" onChange=${e=>setF({...f,secret:e.target.value})}></textarea></label>
     ${f.kind==="fazione" && html`<label className="lab" style=${{maxWidth:240}}>Reputazione del gruppo<select id="cx-rep" className="field" value=${f.reputation} onChange=${e=>setF({...f,reputation:Number(e.target.value)})}>
       ${[3,2,1,0,-1,-2,-3].map(v=>html`<option key=${v} value=${v}>${(v>0?"+":"")+v} · ${REP[v]}</option>`)}</select></label>`}
-    <label className="row" style=${{gap:6}}><input id="cx-rev" type="checkbox" checked=${f.revealed} onChange=${e=>setF({...f,revealed:e.target.checked})}/>Visibile al gruppo</label>
+    <div className="lab">Immagine (facoltativa, solo per te)
+      ${url && !f.file && !f.removeImage ? html`<img className="cx-img" src=${url} alt="" style=${{maxWidth:260}}/>` : null}
+      <input id="cx-file" type="file" accept="image/png,image/jpeg,image/webp" onChange=${e=>setF({...f, file:e.target.files[0]||null, removeImage:false})}/>
+      ${f.image && !f.file ? html`<label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="cx-rmimg" type="checkbox" checked=${f.removeImage} onChange=${e=>setF({...f, removeImage:e.target.checked})}/>Togli l’immagine</label>` : null}
+    </div>
     <div className="row">
       ${onDelete && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
         : html`<span className="confirm">Eliminare la voce?<button type="button" className="btn small danger" onClick=${onDelete}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
-      <span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button>
+      <span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>${busy ? "Salvataggio…" : "Salva"}</button>
     </div>
+    ${err && html`<p className="err" role="alert">${err}</p>`}
   </form>`;
 }
 
@@ -4199,7 +4247,7 @@ function CampaignSettings({sb, me, config, setConfig}){
 }
 
 /* ---------- organizzazione: ★, etichette, note personali, indizi e ricerca (fase 18) ---------- */
-const MARK_TYPES = {handout:"Handout", codex:"Codex", diario:"Diario", mappa:"Mappa", png:"Personaggio", segnaposto:"Segnaposto", nota:"Indizio"};
+const MARK_TYPES = {handout:"Handout", codex:"Codex", diario:"Diario", mappa:"Mappa", png:"Personaggio", segnaposto:"Segnaposto", nota:"Taccuino"};
 const MarksCtx = React.createContext(null);
 const normTag = t => String(t||"").replace(/^#+/,"").replace(/[,;#]+/g," ").replace(/\s+/g," ").trim().toLowerCase().slice(0,30);
 const splitTags = s => [...new Set(String(s||"").split(/[,;\n]+|(?=#)/).map(normTag).filter(Boolean))];
@@ -4270,7 +4318,15 @@ function useMarkFilter(type, {id, placeholder="Cerca…"}={}){
   return {q, words, star, tag, test, active, clear, bar};
 }
 
-/* ---------- bacheca degli indizi (Cronache → Indizi) ---------- */
+/* ---------- taccuino personale (Cronache → Taccuino, fase 19) ---------- */
+const NOTE_SECTIONS = [["personaggio","Personaggi","👤"],["luogo","Luoghi","📍"],["fazione","Fazioni","⚑"],["indizio","Indizi","🔎"],["appunti","Appunti","📝"]];
+const NOTE_ONE = {personaggio:"Personaggio", luogo:"Luogo", fazione:"Fazione", indizio:"Indizio", appunti:"Appunti"};
+const NOTE_ICON = Object.fromEntries(NOTE_SECTIONS.map(([k,,i])=>[k,i]));
+const noteSec = m => NOTE_ONE[m?.section] ? m.section : "indizio";
+const TYPE_ONE = {scheda:"Scheda", png:"Personaggio conosciuto", codex:"Codex", handout:"Handout", diario:"Diario", mappa:"Mappa", segnaposto:"Segnaposto", ricetta:"Ricetta", nota:"Taccuino"};
+const TYPE_ICON = {scheda:"🧾", png:"✦", codex:"📚", handout:"📜", diario:"📖", mappa:"🗺", segnaposto:"📌", ricetta:"🍲", nota:"🗒"};
+const firstLine = s => String(s||"").trim().split("\n")[0].trim();
+
 function resolveMark(m, camp){
   const id = m.item_id;
   switch (m.item_type){
@@ -4280,92 +4336,169 @@ function resolveMark(m, camp){
     case "mappa": { const a = camp.archive.find(x=>x.id===id); return a ? {title:a.title||"Mappa", sub:a.folder||"Mappa", text:a.note} : null; }
     case "png": { const n = camp.npcs.find(x=>x.id===id); return n ? {title:n.name||"Sconosciuto", sub:n.kind||"Personaggio", text:n.blurb} : null; }
     case "segnaposto": { const p = camp.pins.find(x=>x.id===id); return p ? {title:p.label||PIN_NAME[p.kind]||"Segnaposto", sub:[PIN_NAME[p.kind], PLANE_NAME[p.plane]].filter(Boolean).join(" · "), text:p.note, plane:p.plane} : null; }
-    case "nota": return {title:m.title||"Indizio", sub:"", text:m.note};
+    case "nota": return {title:m.title||"Voce", sub:NOTE_ONE[noteSec(m)], text:m.note};
   }
   return null;
 }
-function ClueForm({initial, onSave, onCancel}){
-  const [f, setF] = useState(()=>({title:"", note:"", tagsTxt:"", shared:false, ...initial}));
+/* indice di tutto ciò a cui si può collegare una voce: lo stesso della ricerca */
+function useLinkIndex(camp, me, names){
+  return useMemo(()=>{ const idx = buildIndex(camp, me, camp.chars, names).map(e=>({...e, key:e.type+":"+e.id}));
+    return {idx, byKey:Object.fromEntries(idx.map(e=>[e.key, e]))}; },
+    [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, camp.chars, names]);
+}
+function LinkChip({k, byKey, onGo, onRemove}){
+  const e = byKey[k]; const t = k.split(":")[0];
+  const label = html`<span aria-hidden="true">${TYPE_ICON[t]||"•"}</span> ${e ? e.title : "voce non disponibile"}`;
+  return html`<span className=${"nb-link"+(e?"":" gone")} title=${(TYPE_ONE[t]||"")+(e?.sub ? " · "+e.sub : "")}>
+    ${onGo && e ? html`<button type="button" className="linkish" onClick=${()=>onGo(e.type, e.id, e)}>${label}</button>` : label}
+    ${onRemove ? html`<button type="button" className="mk-x" aria-label="Togli il collegamento" onClick=${onRemove}>×</button>` : null}</span>`;
+}
+function NoteForm({initial, idx, byKey, onSave, onCancel}){
+  const [f, setF] = useState(()=>({section:"indizio", title:"", note:"", tagsTxt:"", links:[], shared:false, ...initial, links:[...(initial?.links||[])]}));
+  const [lq, setLq] = useState("");
+  const self = initial?.item_id ? "nota:"+initial.item_id : "";
+  const lw = fold(lq).split(" ").filter(Boolean);
+  const cands = lw.length ? idx.filter(e=>e.key!==self && !f.links.includes(e.key) && lw.every(w=>fold(e.title+" "+e.sub).includes(w))).slice(0,8) : [];
+  const add = k => { setF(x=>({...x, links:[...x.links, k].slice(0,30)})); setLq(""); };
   const ok = f.title.trim() || f.note.trim();
   return html`<form className="panel cl-form" onSubmit=${e=>{ e.preventDefault(); if (!ok) return;
-      onSave({title:(f.title.trim() || f.note.trim().split("\n")[0]).slice(0,120), note:f.note.trim().slice(0,2000), tags:splitTags(f.tagsTxt).slice(0,20), shared:!!f.shared}); }}>
-    <h3>${initial?.id ? "Modifica indizio" : "Nuovo indizio"}</h3>
-    <label className="lab">Titolo<input id="cl-title" className="field" maxLength="120" autoFocus value=${f.title} placeholder="es. Il simbolo sull’anello del mercante" onChange=${e=>setF({...f, title:e.target.value})}/></label>
-    <label className="lab">Cosa sappiamo<textarea id="cl-note" className="field" maxLength="2000" style=${{minHeight:110}} value=${f.note} placeholder="Collegamenti, sospetti, domande aperte, chi l’ha detto…" onChange=${e=>setF({...f, note:e.target.value})}></textarea></label>
-    <label className="lab">Etichette, separate da virgola<input id="cl-tags" className="field" list="mk-tags" value=${f.tagsTxt} placeholder="es. sospetti, castello, da chiedere" onChange=${e=>setF({...f, tagsTxt:e.target.value})}/></label>
-    <label className="row" style=${{gap:6}}><input id="cl-shared" type="checkbox" checked=${f.shared} onChange=${e=>setF({...f, shared:e.target.checked})}/>Condividi con il gruppo (lo vedono tutti, lo modifichi solo tu)</label>
+      onSave({section:f.section, title:(f.title.trim() || firstLine(f.note)).slice(0,120), note:f.note.trim().slice(0,8000), tags:splitTags(f.tagsTxt).slice(0,20), links:f.links, shared:!!f.shared}); }}>
+    <h3>${initial?.item_id ? "Modifica la voce" : "Nuova voce del taccuino"}</h3>
+    <div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 170px"}}>Sezione<select id="nb-sec" className="field" value=${f.section} onChange=${e=>setF({...f, section:e.target.value})}>${NOTE_SECTIONS.map(([k,n,i])=>html`<option key=${k} value=${k}>${i} ${NOTE_ONE[k]}</option>`)}</select></label>
+      <label className="lab grow">Titolo<input id="nb-title" className="field" maxLength="120" autoFocus value=${f.title}
+        placeholder=${f.section==="personaggio" ? "es. Il mercante con l’anello" : f.section==="luogo" ? "es. Il ponte vecchio" : f.section==="fazione" ? "es. La Compagnia delle Stalle" : f.section==="appunti" ? "es. Sessione 4" : "es. Il simbolo sull’anello"} onChange=${e=>setF({...f, title:e.target.value})}/></label>
+    </div>
+    <label className="lab">Testo<textarea id="nb-note" className="field" maxLength="8000" style=${{minHeight:150}} value=${f.note}
+      placeholder="Cosa sappiamo, cosa sospetti, chi l’ha detto, cosa resta da chiedere…" onChange=${e=>setF({...f, note:e.target.value})}></textarea></label>
+    <label className="lab">Etichette, separate da virgola<input id="nb-tags" className="field" list="mk-tags" value=${f.tagsTxt} placeholder="es. sospetti, castello, da chiedere" onChange=${e=>setF({...f, tagsTxt:e.target.value})}/></label>
+    <div className="lab">Collegamenti
+      ${f.links.length > 0 ? html`<div className="chips">${f.links.map(k=>html`<${LinkChip} key=${k} k=${k} byKey=${byKey} onRemove=${()=>setF(x=>({...x, links:x.links.filter(y=>y!==k)}))}/>`)}</div>` : null}
+      <div className="nb-pick">
+        <input id="nb-lq" className="field" autoComplete="off" value=${lq} placeholder="Collega: scrivi il nome di un personaggio conosciuto, handout, mappa, segnaposto, sessione o altra voce…"
+          onChange=${e=>setLq(e.target.value)} onKeyDown=${e=>{ if (e.key==="Enter"){ e.preventDefault(); if (cands[0]) add(cands[0].key); } else if (e.key==="Escape") setLq(""); }}/>
+        ${cands.length > 0 ? html`<div className="nb-cands" role="listbox">${cands.map(e=>html`<button type="button" key=${e.key} role="option" className="nb-cand" onClick=${()=>add(e.key)}>
+            <span aria-hidden="true">${TYPE_ICON[e.type]}</span> <b>${e.title}</b> <span className="muted">· ${TYPE_ONE[e.type]}${e.sub ? " · "+e.sub : ""}</span></button>`)}</div>`
+          : lw.length ? html`<p className="muted" style=${{margin:"4px 0 0",fontSize:".82rem"}}>Niente da collegare con “${lq}”.</p>` : null}
+      </div></div>
+    <label className="row" style=${{gap:6}}><input id="nb-shared" type="checkbox" checked=${f.shared} onChange=${e=>setF({...f, shared:e.target.checked})}/>Condividi con il gruppo (la vedono tutti, la modifichi solo tu)</label>
     <div className="row"><span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${!ok}>Salva</button></div>
   </form>`;
 }
-function CluesTab({me, camp, names, onGo, focus}){
+
+/* annotazioni sotto un handout: voci del taccuino collegate a quell'handout */
+function Annotations({type, id, title}){
   const ctx = useContext(MarksCtx);
-  const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [starOnly, setStarOnly] = useState(false);
-  const [scope, setScope] = useState(()=>lsGet("clueScope","tutti")); const [type, setType] = useState("");
-  const [group, setGroup] = useState(()=>!!lsGet("clueGroup", false));
-  const [editing, setEditing] = useState(null); const [confirmDel, setConfirmDel] = useState(null);
-  useEffect(()=>lsSet("clueScope", scope),[scope]); useEffect(()=>lsSet("clueGroup", group),[group]);
-  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="indizi"){ setQ(""); setTags([]); setStarOnly(false); setScope("tutti"); setType(""); } },[focus?.key]);
+  const [adding, setAdding] = useState(false); const [txt, setTxt] = useState(""); const [sh, setSh] = useState(false);
+  const [edit, setEdit] = useState(null); const [etxt, setEtxt] = useState(""); const [del, setDel] = useState(null);
+  if (!ctx || ctx.off || id == null) return null;
+  const key = type+":"+id;
+  const list = ctx.notesLinking(key);
+  const save = () => { const t = txt.trim(); if (!t) return; ctx.addNote({title:firstLine(t).slice(0,80), note:t.slice(0,8000), section:"indizio", links:[key], shared:sh}); setTxt(""); setSh(false); setAdding(false); };
+  return html`<div className="an-wrap" onClick=${e=>e.stopPropagation()}>
+    <div className="an-h"><span className="eyebrow">💬 Annotazioni${list.length ? " · "+list.length : ""}</span><span className="spacer"></span>
+      ${!adding ? html`<button type="button" className="mk-btn" onClick=${()=>setAdding(true)}>＋ Annota</button>` : null}</div>
+    ${list.map(m=>{ const mine = m.user_id===ctx.me; const ann = String(m.title||"").trim() === firstLine(m.note);
+      return html`<div key=${m.item_id} className=${"an-item"+(mine?"":" other")}>
+        <div className="an-meta"><b>${mine ? "Tu" : (ctx.names[m.user_id] || "Qualcuno")}</b> <span className="muted">${m.shared ? "· 👥 condivisa" : "· 🔒 privata"}${m.created_at ? " · "+ago(Date.parse(m.created_at)) : ""}</span></div>
+        ${!ann && m.title ? html`<div className="an-title">${NOTE_ICON[noteSec(m)]} ${m.title}</div>` : null}
+        ${edit===m.item_id ? html`<div className="mk-edit"><textarea className="field" maxLength="8000" autoFocus aria-label="Modifica l’annotazione" value=${etxt} onChange=${e=>setEtxt(e.target.value)}></textarea>
+            <div className="aud-btns"><button type="button" className="btn small primary" onClick=${()=>{ const t = etxt.trim(); if (t) ctx.save("nota", m.item_id, ann || !m.title ? firstLine(t).slice(0,80) : m.title, {note:t}); setEdit(null); }}>Salva</button><button type="button" className="btn small" onClick=${()=>setEdit(null)}>Annulla</button></div></div>`
+          : html`<p className="an-text">${m.note}</p>`}
+        ${mine && edit!==m.item_id ? html`<div className="an-act">
+          <button type="button" className="linkish" onClick=${()=>{ setEtxt(m.note||""); setEdit(m.item_id); }}>✎ Modifica</button>
+          <button type="button" className="linkish" onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({shared:!cur.shared}))}>${m.shared ? "🔒 Rendi privata" : "👥 Condividi"}</button>
+          ${del===m.item_id ? html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>{ setDel(null); ctx.remove("nota", m.item_id); }}>Elimina</button><button type="button" className="btn small" onClick=${()=>setDel(null)}>No</button></span>`
+            : html`<button type="button" className="linkish" onClick=${()=>setDel(m.item_id)}>Elimina</button>`}</div>` : null}
+      </div>`; })}
+    ${adding ? html`<div className="an-new"><textarea className="field" maxLength="8000" autoFocus aria-label=${"Annotazione su "+(title||"handout")} placeholder="Cosa noti? Sospetti, collegamenti, domande…" value=${txt} onChange=${e=>setTxt(e.target.value)}></textarea>
+        <div className="row" style=${{gap:8}}><label className="row" style=${{gap:6,fontSize:".86rem"}}><input type="checkbox" checked=${sh} onChange=${e=>setSh(e.target.checked)}/>Condividi con il gruppo</label><span className="spacer"></span>
+          <button type="button" className="btn small" onClick=${()=>{ setAdding(false); setTxt(""); }}>Annulla</button><button type="button" className="btn small primary" disabled=${!txt.trim()} onClick=${save}>Salva</button></div></div>` : null}
+    ${!list.length && !adding ? html`<p className="muted an-empty">Le annotazioni sono tue: restano private finché non le condividi e le ritrovi nel taccuino.</p>` : null}
+  </div>`;
+}
+
+function NotebookTab({me, camp, names, onGo, focus}){
+  const ctx = useContext(MarksCtx); const M = me.isMaster;
+  const [sec, setSec] = useState(()=>lsGet("nbSec","")); const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [starOnly, setStarOnly] = useState(false);
+  const [scope, setScope] = useState(()=>lsGet("clueScope","tutti")); const [group, setGroup] = useState(()=>!!lsGet("clueGroup", false));
+  const [editing, setEditing] = useState(null); const [confirmDel, setConfirmDel] = useState(null); const [openIds, setOpenIds] = useState(()=>new Set());
+  useEffect(()=>lsSet("nbSec", sec),[sec]); useEffect(()=>lsSet("clueScope", scope),[scope]); useEffect(()=>lsSet("clueGroup", group),[group]);
+  useEffect(()=>{ if (focusFresh(focus) && focus.tab==="taccuino"){ setQ(""); setTags([]); setStarOnly(false); setScope("tutti"); setSec(""); setEditing(null); if (focus.id) setOpenIds(s=>new Set([...s, focus.id])); } },[focus?.key]);
+  const {idx, byKey} = useLinkIndex(camp, me, names);
   if (!ctx) return null;
-  if (ctx.off) return html`<p className="muted">${me.isMaster ? "Esegui fase18.sql su Supabase per attivare indizi, etichette e note personali." : "La bacheca degli indizi non è ancora attiva: il master deve aggiornare il database."}</p>`;
+  if (ctx.off) return html`<p className="muted">${M ? "Esegui fase18.sql e fase19.sql su Supabase per attivare il taccuino." : "Il taccuino non è ancora attivo: il master deve aggiornare il database."}</p>`;
   const rows = camp.marks.filter(m => m.user_id===me.id ? (scope!=="gruppo" || m.shared) : (m.shared && scope!=="mie"));
-  const items = rows.map(m=>{ const r = resolveMark(m, camp); return {m, r, mine: m.user_id===me.id, title: r?.title || m.title || MARK_TYPES[m.item_type] || "Voce", gone: !r}; });
+  const notes = rows.filter(m=>m.item_type==="nota"), marked = rows.filter(m=>m.item_type!=="nota");
   const words = fold(q).split(" ").filter(Boolean);
-  const vis = items.filter(x=>(!type || x.m.item_type===type) && (!starOnly || x.m.star) && tags.every(t=>(x.m.tags||[]).includes(t))
-      && (!words.length || words.every(w=>fold([x.title, x.r?.sub, x.r?.text, x.m.note, (x.m.tags||[]).map(t=>"#"+t).join(" "), x.mine ? "" : names[x.m.user_id]].join(" ")).includes(w))))
+  const textOf = (x) => [x.title, x.r?.sub, x.r?.text, x.m.note, (x.m.tags||[]).map(t=>"#"+t).join(" "), x.mine ? "" : names[x.m.user_id], x.m.item_type==="nota" ? NOTE_ONE[noteSec(x.m)] : "",
+    (x.m.links||[]).map(k=>byKey[k]?.title||"").join(" ")].join(" ");
+  const base = (sec==="segnati" ? marked : sec ? notes.filter(m=>noteSec(m)===sec) : [...notes, ...marked])
+    .map(m=>{ const r = resolveMark(m, camp); return {m, r, mine: m.user_id===me.id, title: r?.title || m.title || MARK_TYPES[m.item_type] || "Voce", gone: !r}; });
+  const vis = base.filter(x=>(!starOnly || x.m.star) && tags.every(t=>(x.m.tags||[]).includes(t)) && (!words.length || words.every(w=>fold(textOf(x)).includes(w))))
     .sort((a,b)=>(Number(!!b.m.star) - Number(!!a.m.star)) || String(b.m.updated_at||"").localeCompare(String(a.m.updated_at||"")));
-  const cloud = tagCount(rows);
-  const typesHere = Object.keys(MARK_TYPES).filter(k=>rows.some(m=>m.item_type===k));
+  const cloud = tagCount(base.map(x=>x.m));
   const togTag = t => setTags(x=> x.includes(t) ? x.filter(y=>y!==t) : [...x, t]);
-  const filtered = !!(words.length || tags.length || starOnly || type);
+  const filtered = !!(words.length || tags.length || starOnly);
+  const lastNo = (camp.journal||[]).reduce((n,j)=>Math.max(n, j.session_no||0), 0);
+  const backOf = (k) => camp.marks.filter(m=>m.item_type==="nota" && (m.user_id===me.id || m.shared) && (m.links||[]).includes(k));
   const saveForm = async (f) => { const ed = editing; setEditing(null);
-    if (ed?.id) await ctx.save("nota", ed.item_id, f.title, {note:f.note, tags:f.tags, shared:f.shared});
+    if (ed?.item_id) await ctx.save("nota", ed.item_id, f.title, {section:f.section, note:f.note, tags:f.tags, links:f.links, shared:f.shared});
     else await ctx.addNote(f); };
-  const card = (x) => { const m = x.m; const t = m.item_type; const isNote = t === "nota";
-    return html`<article key=${m.id} className=${"cl-card"+(m.star?" star":"")+(x.mine?"":" other")} data-find=${isNote ? "nota:"+m.id : null}>
-      <div className="cl-h"><span className="chip">${MARK_TYPES[t] || t}</span>${x.r?.sub && !isNote ? html`<span className="muted cl-sub">${x.r.sub}</span>` : null}<span className="spacer"></span>
-        ${x.mine ? (m.shared ? html`<span className="chip gold" title="Lo vede tutto il gruppo">👥 condiviso</span>` : html`<span className="chip" title="Lo vedi solo tu">🔒 privato</span>`)
-          : html`<span className="chip gold" title="Condiviso da">👥 ${names[m.user_id] || "Qualcuno"}</span>`}</div>
+  const card = (x) => { const m = x.m; const t = m.item_type; const isNote = t === "nota"; const s = noteSec(m);
+    const fk = isNote ? "nota:"+m.item_id : null; const open = openIds.has(m.item_id);
+    const body = isNote ? (firstLine(m.note) && String(m.title||"").trim() === firstLine(m.note) ? String(m.note).trim().split("\n").slice(1).join("\n").trim() : String(m.note||"")) : "";
+    const long = body.length > 420;
+    const back = backOf(isNote ? "nota:"+m.item_id : t+":"+m.item_id).filter(b=>b.item_id!==m.item_id);
+    return html`<article key=${m.id} className=${"cl-card"+(isNote ? " nb-"+s : "")+(m.star?" star":"")+(x.mine?"":" other")} data-find=${fk}>
+      <div className="cl-h"><span className="chip">${isNote ? NOTE_ICON[s]+" "+NOTE_ONE[s] : (TYPE_ICON[t]||"★")+" "+(MARK_TYPES[t]||t)}</span>${x.r?.sub && !isNote ? html`<span className="muted cl-sub">${x.r.sub}</span>` : null}<span className="spacer"></span>
+        ${x.mine ? (m.shared ? html`<span className="chip gold" title="La vede tutto il gruppo">👥 condivisa</span>` : html`<span className="chip" title="La vedi solo tu">🔒 privata</span>`)
+          : html`<span className="chip gold" title="Condivisa da">👥 ${names[m.user_id] || "Qualcuno"}</span>`}</div>
       <h3>${m.star ? html`<span className="mk-starmini" aria-label="importante">★ </span>` : null}${x.title}${x.gone && !isNote ? html` <span className="muted cl-gone">(non disponibile)</span>` : null}</h3>
-      ${isNote ? (m.note ? html`<p className="cl-text">${m.note}</p>` : null) : (x.r?.text ? html`<p className="muted clamp">${x.r.text}</p>` : null)}
+      ${isNote ? (body ? html`<p className=${"cl-text"+(long && !open ? " nb-clamp" : "")}>${body}</p>` : null) : (x.r?.text ? html`<p className="muted clamp">${x.r.text}</p>` : null)}
+      ${long ? html`<button type="button" className="linkish nb-more" onClick=${()=>setOpenIds(o=>{ const n = new Set(o); n.has(m.item_id) ? n.delete(m.item_id) : n.add(m.item_id); return n; })}>${open ? "Riduci" : "Leggi tutto"}</button>` : null}
       ${!x.mine && !isNote && m.note ? html`<p className="mk-note other">📝 ${m.note}</p>` : null}
+      ${isNote && (m.links||[]).length ? html`<div className="nb-rel"><span className="muted">Collegata a</span>${m.links.map(k=>html`<${LinkChip} key=${k} k=${k} byKey=${byKey} onGo=${onGo}/>`)}</div>` : null}
+      ${back.length ? html`<div className="nb-rel"><span className="muted">Citata in</span>${back.map(b=>html`<${LinkChip} key=${b.item_id} k=${"nota:"+b.item_id} byKey=${byKey} onGo=${onGo}/>`)}</div>` : null}
       ${(!x.mine || isNote) && (m.tags||[]).length > 0 ? html`<div className="chips">${m.tags.map(tg=>html`<${TagChip} key=${tg} t=${tg} on=${tags.includes(tg)} onClick=${()=>togTag(tg)}/>`)}</div>` : null}
-      ${x.mine && !isNote ? html`<${MarkBar} type=${t} id=${m.item_id} title=${x.title} showOthers=${false}/>` : null}
+      ${x.mine && !isNote ? html`<${MarkBar} type=${t} id=${m.item_id} title=${x.title} showOthers=${false} noNote=${t==="handout"}/>` : null}
       <div className="row cl-act">
         ${!isNote && !x.gone ? html`<button type="button" className="btn small primary" onClick=${()=>onGo(t, m.item_id, x.r)}>Apri</button>` : null}
         ${x.mine && isNote ? html`<button type="button" className=${"mk-star"+(m.star?" on":"")} aria-pressed=${!!m.star} aria-label="Importante" onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({star:!cur.star}))}>${m.star ? "★" : "☆"}</button>
-          <button type="button" className="btn small" onClick=${()=>setEditing({...m, tagsTxt:(m.tags||[]).join(", ")})}>✎ Modifica</button>
-          <button type="button" className=${"mk-btn"+(m.shared?" on":"")} onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({shared:!cur.shared}))}>${m.shared ? "👥 condiviso" : "🔒 privato"}</button>` : null}
+          <button type="button" className="btn small" onClick=${()=>setEditing({...m, section:s, tagsTxt:(m.tags||[]).join(", ")})}>✎ Modifica</button>
+          <button type="button" className=${"mk-btn"+(m.shared?" on":"")} onClick=${()=>ctx.save("nota", m.item_id, m.title, cur=>({shared:!cur.shared}))}>${m.shared ? "👥 condivisa" : "🔒 privata"}</button>` : null}
         <span className="spacer"></span>
-        ${x.mine ? (confirmDel===m.id ? html`<span className="confirm">${isNote ? "Eliminare l’indizio?" : "Togliere stella, etichette e nota?"}<button type="button" className="btn small danger" onClick=${()=>{ setConfirmDel(null); ctx.remove(t, m.item_id); }}>${isNote ? "Elimina" : "Togli"}</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
-          : html`<button type="button" className="btn small" onClick=${()=>setConfirmDel(m.id)}>${isNote ? "Elimina" : "Togli dalla bacheca"}</button>`) : null}
+        ${x.mine ? (confirmDel===m.id ? html`<span className="confirm">${isNote ? "Eliminare la voce?" : "Togliere stella ed etichette?"}<button type="button" className="btn small danger" onClick=${()=>{ setConfirmDel(null); ctx.remove(t, m.item_id); }}>${isNote ? "Elimina" : "Togli"}</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(null)}>No</button></span>`
+          : html`<button type="button" className="btn small" onClick=${()=>setConfirmDel(m.id)}>${isNote ? "Elimina" : "Togli dai segnati"}</button>`) : null}
       </div>
     </article>`; };
-  const tagOrder = cloud.map(c=>c[0]);
-  const grouped = group ? [...tagOrder.filter(tg=>vis.some(x=>(x.m.tags||[]).includes(tg))).map(tg=>[tg, vis.filter(x=>(x.m.tags||[]).includes(tg))]),
+  const grouped = group ? [...cloud.map(c=>c[0]).filter(tg=>vis.some(x=>(x.m.tags||[]).includes(tg))).map(tg=>[tg, vis.filter(x=>(x.m.tags||[]).includes(tg))]),
       ["", vis.filter(x=>!(x.m.tags||[]).length)]].filter(g=>g[1].length) : null;
+  const cnt = k => k==="segnati" ? marked.length : k ? notes.filter(m=>noteSec(m)===k).length : notes.length + marked.length;
   return html`<div className="cl-wrap">
-    <p className="muted" style=${{margin:0,fontSize:".9rem"}}>Qui finisce tutto quello che segni con ★, 🏷 etichette o 📝 nota (su handout, codex, diario, mappe, personaggi conosciuti e segnaposti), più gli indizi che scrivi a mano. È privato: con 👥 lo condividi con il gruppo, e qui vedi anche quello che hanno condiviso gli altri.</p>
+    <p className="muted" style=${{margin:0,fontSize:".9rem"}}>${M ? "Il tuo taccuino di appunti, più le voci che i giocatori decidono di condividere con il gruppo. Le loro voci private non le vedi." : "Il tuo taccuino: personaggi, luoghi, fazioni, indizi e appunti scritti da te, più quello che segni con ★ o 🏷 su handout, mappe, personaggi conosciuti e segnaposti. È privato: con 👥 condividi una voce con il gruppo, e qui vedi anche quello che hanno condiviso gli altri."}</p>
+    <div className="planes nb-secs" role="group" aria-label="Sezione">${[["","Tutto","🗒"], ...NOTE_SECTIONS, ["segnati","Segnati","★"]].map(([k,n,i])=>html`<button type="button" key=${k || "_all"} aria-pressed=${sec===k} onClick=${()=>setSec(k)}><span aria-hidden="true">${i}</span> ${n} <span className="muted">${cnt(k)}</span></button>`)}</div>
     <div className="row cl-tools">
-      <input id="cl-q" className="field" type="search" placeholder="Cerca negli indizi…" aria-label="Cerca negli indizi" value=${q} onChange=${e=>setQ(e.target.value)}/>
-      <div className="planes" role="group" aria-label="Di chi">${[["tutti","Tutti"],["mie","Solo miei"],["gruppo","Condivisi"]].map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${scope===k} onClick=${()=>setScope(k)}>${n}</button>`)}</div>
-      <button type="button" className=${"mk-btn"+(starOnly?" on":"")} aria-pressed=${starOnly} title="Solo quelli con la stella" onClick=${()=>setStarOnly(!starOnly)}>★ importanti</button>
-      ${typesHere.length > 1 ? html`<select id="cl-type" className="field" style=${{width:"auto"}} aria-label="Tipo" value=${type} onChange=${e=>setType(e.target.value)}><option value="">Tutti i tipi</option>${typesHere.map(k=>html`<option key=${k} value=${k}>${MARK_TYPES[k]}</option>`)}</select>` : null}
+      <input id="cl-q" className="field" type="search" placeholder="Cerca nel taccuino…" aria-label="Cerca nel taccuino" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <div className="planes" role="group" aria-label="Di chi">${[["tutti","Tutti"],["mie","Solo mie"],["gruppo","Condivise"]].map(([k,n])=>html`<button type="button" key=${k} aria-pressed=${scope===k} onClick=${()=>setScope(k)}>${n}</button>`)}</div>
+      <button type="button" className=${"mk-btn"+(starOnly?" on":"")} aria-pressed=${starOnly} title="Solo quelle con la stella" onClick=${()=>setStarOnly(!starOnly)}>★ importanti</button>
       <label className="row" style=${{gap:6,fontSize:".88rem"}}><input id="cl-group" type="checkbox" checked=${group} onChange=${e=>setGroup(e.target.checked)}/>Raggruppa per etichetta</label>
       <span className="spacer"></span>
-      <button type="button" className="btn primary" onClick=${()=>setEditing({})}>+ Nuovo indizio</button>
+      <button type="button" className="btn primary" onClick=${()=>setEditing({section: sec && sec!=="segnati" ? sec : "indizio", title: sec==="appunti" ? "Sessione "+(lastNo+1) : ""})}>+ Nuova voce</button>
     </div>
     ${cloud.length > 0 ? html`<div className="cl-cloud" role="group" aria-label="Filtra per etichetta">${cloud.map(([t,n])=>html`<${TagChip} key=${t} t=${t} n=${n} on=${tags.includes(t)} onClick=${()=>togTag(t)}/>`)}
-      ${filtered ? html`<button type="button" className="btn small" onClick=${()=>{ setQ(""); setTags([]); setStarOnly(false); setType(""); }}>Azzera filtri</button>` : null}</div>` : null}
-    ${editing ? html`<${ClueForm} key=${editing.id || "new"} initial=${editing} onCancel=${()=>setEditing(null)} onSave=${saveForm}/>` : null}
-    ${rows.length === 0 ? html`<div className="empty"><h3>Bacheca vuota</h3><p className="muted">${scope==="mie" ? "Non hai ancora segnato niente." : scope==="gruppo" ? "Nessuno ha ancora condiviso indizi con il gruppo." : "Segna con ★ o con un’etichetta un handout, una voce del codex, una sessione del diario, una mappa, un personaggio o un segnaposto, oppure scrivi un indizio con “+ Nuovo indizio”."}</p></div>`
-      : vis.length === 0 ? html`<p className="muted">Nessun indizio corrisponde ai filtri.</p>`
+      ${filtered ? html`<button type="button" className="btn small" onClick=${()=>{ setQ(""); setTags([]); setStarOnly(false); }}>Azzera filtri</button>` : null}</div>` : null}
+    ${editing ? html`<${NoteForm} key=${editing.item_id || "new"} initial=${editing} idx=${idx} byKey=${byKey} onCancel=${()=>setEditing(null)} onSave=${saveForm}/>` : null}
+    ${base.length === 0 ? html`<div className="empty"><h3>${sec==="segnati" ? "Niente di segnato" : "Ancora niente qui"}</h3><p className="muted">${sec==="segnati" ? "Metti ★ o un’etichetta su un handout, una mappa, un personaggio conosciuto o un segnaposto e lo ritrovi qui."
+          : scope==="gruppo" ? "Nessuno ha ancora condiviso voci in questa sezione." : "Scrivi la prima voce con “+ Nuova voce”: chi avete incontrato, dove siete stati, cosa sospettate."}</p></div>`
+      : vis.length === 0 ? html`<p className="muted">Nessuna voce corrisponde ai filtri.</p>`
       : grouped ? grouped.map(([tg, l])=>html`<section key=${tg || "_none"} className="cl-group"><h3 className="cl-gt">${tg ? html`<${TagChip} t=${tg}/>` : "Senza etichetta"} <span className="muted" style=${{fontSize:".85rem",fontWeight:400}}>${l.length}</span></h3><div className="cl-grid">${l.map(card)}</div></section>`)
       : html`<div className="cl-grid">${vis.map(card)}</div>`}
   </div>`;
 }
 
 /* ---------- cerca ovunque (🔎 / Ctrl+K) ---------- */
-const SEARCH_GROUPS = [["scheda","Schede"],["png","Personaggi conosciuti"],["codex","Codex"],["handout","Handout"],["diario","Diario"],["mappa","Mappe"],["segnaposto","Segnaposti"],["ricetta","Ricette"],["nota","Indizi"]];
+const SEARCH_GROUPS = [["scheda","Schede"],["png","Personaggi conosciuti"],["codex","Codex"],["handout","Handout"],["diario","Diario"],["mappa","Mappe"],["segnaposto","Segnaposti"],["ricetta","Ricette"],["nota","Taccuino"]];
 function snippetAt(text, words, n=120){
   const t = String(text||"").replace(/\s+/g," ").trim(); if (!t) return "";
   const f = fold(t); let i = -1;
@@ -4396,14 +4529,14 @@ function buildIndex(camp, me, chars, names){
     if (M){ add("png", n.id, n.name, n.kind || "Personaggio", n.blurb); continue; }
     if (!(n.audience||[]).includes(me.id)) continue; const sv = camp.npcSaves.find(s=>s.card_id===n.id && s.user_id===me.id); if (sv && !sv.saved) continue;
     add("png", n.id, n.name, n.kind || "Personaggio", [n.blurb, sv?.note].filter(Boolean).join(" · ")); }
-  for (const c of camp.codex) add("codex", c.id, c.name, (CODEX_ONE[c.kind]||"Codex")+(c.revealed ? "" : " · nascosta"), [c.summary, c.party_notes, M ? camp.codexSecrets[c.id]?.notes : ""].filter(Boolean).join(" · "), {kind:c.kind});
+  for (const c of camp.codex) add("codex", c.id, c.name, CODEX_ONE[c.kind]||"Codex", [c.summary, c.party_notes, M ? camp.codexSecrets[c.id]?.notes : ""].filter(Boolean).join(" · "), {kind:c.kind});
   for (const h of camp.handouts) add("handout", h.id, h.title, h.revealed ? "rivelato"+(h.revealed_at ? " il "+fmtDate(h.revealed_at) : "") : "bozza", h.body);
   for (const j of camp.journal) add("diario", j.id, j.title || "Senza titolo", [j.session_no ? "Sessione "+j.session_no : "", j.played_on ? fmtDate(j.played_on) : "", j.visible ? "" : "bozza"].filter(Boolean).join(" · "), j.body);
   for (const a of camp.archive) add("mappa", a.id, a.title || "Mappa", (a.folder || "Senza cartella")+(a.visible ? "" : " · nascosta"), a.note);
   for (const p of camp.pins) if (M || !p.hidden) add("segnaposto", p.id, p.label || PIN_NAME[p.kind] || "Segnaposto", [PIN_NAME[p.kind], PLANE_NAME[p.plane], p.hidden ? "nascosto" : ""].filter(Boolean).join(" · "), p.note, {plane:p.plane});
   if (CFG.modules.cucina) for (const r of camp.recipes) if (M || r.revealed) add("ricetta", r.id, r.name, [r.region, r.revealed ? "" : "nascosta"].filter(Boolean).join(" · "), [r.ingredients, r.effect].filter(Boolean).join(" · "));
   for (const m of vm) if (m.item_type==="nota"){ const tg = (m.tags||[]).map(t=>"#"+t).join(" ");
-    out.push({type:"nota", id:m.id, title:m.title || "Indizio", sub: m.user_id===me.id ? (m.shared ? "tuo · condiviso" : "tuo") : "di "+(names[m.user_id] || "qualcuno"), text: m.note || "", mtxt: tg,
+    out.push({type:"nota", id:m.item_id, title:m.title || "Voce", sub: NOTE_ONE[noteSec(m)]+" · "+(m.user_id===me.id ? (m.shared ? "tua, condivisa" : "tua") : "di "+(names[m.user_id] || "qualcuno")), text: m.note || "", mtxt: tg,
       star: m.user_id===me.id && m.star, hay: fold([m.title, m.note, tg, m.user_id===me.id ? "" : names[m.user_id]].join(" "))}); }
   return out;
 }
@@ -4440,7 +4573,7 @@ function SearchOverlay({camp, me, chars, names, onGo, onClose}){
       <div className="so-types planes" role="group" aria-label="Cerca solo in">${[["","Tutto"], ...typesIn].map(([k,n])=>{ const c = k ? all.filter(e=>e.type===k).length : all.length;
         return html`<button type="button" key=${k || "_all"} aria-pressed=${only===k} disabled=${!!(words.length && k && !c)} onClick=${()=>setOnly(k)}>${n}${words.length ? html` <span className="muted">${c}</span>` : null}</button>`; })}</div>
       <div className="so-res" id="so-list" role="listbox" aria-label="Risultati">
-        ${!words.length ? html`<p className="muted so-hint">Scrivi una o più parole: cerco in schede, personaggi conosciuti, codex, handout, diario, mappe, segnaposti${CFG.modules.cucina ? ", ricette" : ""} e indizi, comprese le tue etichette e note. Con <b>#nome</b> cerchi un’etichetta. Scorciatoie: <kbd>Ctrl</kbd>+<kbd>K</kbd> oppure <kbd>/</kbd>; frecce e Invio per scegliere.</p>`
+        ${!words.length ? html`<p className="muted so-hint">Scrivi una o più parole: cerco in schede, personaggi conosciuti, ${me.isMaster ? "codex, " : ""}handout, diario, mappe, segnaposti${CFG.modules.cucina ? ", ricette" : ""} e taccuino, comprese le tue etichette e note. Con <b>#nome</b> cerchi un’etichetta. Scorciatoie: <kbd>Ctrl</kbd>+<kbd>K</kbd> oppure <kbd>/</kbd>; frecce e Invio per scegliere.</p>`
           : !flat.length ? html`<p className="muted so-hint">Nessun risultato per “${q}”.</p>`
           : groups.map(([k, n, l])=>html`<section key=${k} className="so-g"><div className="eyebrow">${n} · ${l.length}</div>
               ${l.slice(0, LIM).map(e=>{ i++; const ii = i; const inBody = words.every(w=>fold(e.title+" "+e.sub+" "+e.text).includes(w));
@@ -4460,14 +4593,16 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
   const [tab, setTab] = useState(()=>lsGet("chronTab","diario"));
   useEffect(()=>lsSet("chronTab",tab),[tab]);
   useEffect(()=>{ if (focusFresh(focus) && focus.tab) setTab(focus.tab); },[focus?.key]);
-  const tabs = [["diario","Diario"],["codex","Codex"],["handout","Handout"],["indizi","Indizi"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
-  const cur = tabs.some(t=>t[0]===tab) ? tab : "diario";
+  const M = me.isMaster;
+  const tabs = [["diario","Diario"],...(M ? [["codex","Codex"]] : []),["taccuino", M ? "Taccuino" : "Il mio taccuino"],["handout","Handout"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
+  const tab1 = tab==="indizi" ? "taccuino" : tab;
+  const cur = tabs.some(t=>t[0]===tab1) ? tab1 : "diario";
   return html`<div>
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${cur===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron} focus=${focus}/>`}
     ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron} focus=${focus}/>`}
-    ${cur==="indizi" && html`<${CluesTab} me=${me} camp=${camp} names=${names} onGo=${onGo} focus=${focus}/>`}
+    ${cur==="taccuino" && html`<${NotebookTab} me=${me} camp=${camp} names=${names} onGo=${onGo} focus=${focus}/>`}
     ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names} focus=${focus}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
     ${cur==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
@@ -5450,11 +5585,12 @@ function Main({sb, me, onSignOut}){
   const mkKey = (t, id) => t+":"+id;
   const marksOff = !!(camp.marksErr && /marks|relation|does not exist|schema cache/i.test(camp.marksErr));
   const marksMine = useMemo(()=>{ const o = {}; for (const m of camp.marks) if (m.user_id===me.id) o[mkKey(m.item_type, m.item_id)] = m; return o; },[camp.marks, me.id]);
-  const markErr = (e) => "Non salvato: "+e.message+(/marks|schema cache|relation|does not exist/i.test(e.message) ? " (va eseguito fase18.sql)" : "");
+  const markErr = (e) => "Non salvato: "+e.message+(/section|links/i.test(e.message) ? " (va eseguito fase19.sql)" : /marks|schema cache|relation|does not exist/i.test(e.message) ? " (va eseguito fase18.sql)" : "");
   const sameMk = (m, t, id) => m.user_id===me.id && m.item_type===t && m.item_id===id;
   const visMarks = camp.marks.filter(m=>m.user_id===me.id || m.shared);
   const markOps = {
-    off: marksOff, names,
+    off: marksOff, names, me: me.id,
+    notesLinking: (k) => camp.marks.filter(m=>m.item_type==="nota" && (m.user_id===me.id || m.shared) && (m.links||[]).includes(k)).sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))),
     mine: (t, id) => marksMine[mkKey(t, String(id))],
     others: (t, id) => camp.marks.filter(m=>m.user_id!==me.id && m.shared && m.item_type===t && m.item_id===String(id)),
     tagsFor: (t) => tagCount(visMarks.filter(m=>m.item_type===t)),
@@ -5467,14 +5603,15 @@ function Main({sb, me, onSignOut}){
       camp.setMarks(xs=>{ const rest = xs.filter(m=>!sameMk(m, t, id)); return drop ? rest : [...rest, {created_at: next.updated_at, ...next, id: base.id || "tmp-"+uid()}]; });
       const run = async () => { const cur = latestMk.current[k]; if (!cur) return;
         const empty = t !== "nota" && markEmpty(cur);
-        const row = {user_id:me.id, item_type:t, item_id:id, title:String(cur.title||"").slice(0,120), tags:(cur.tags||[]).slice(0,20), star:!!cur.star, note:String(cur.note||"").slice(0,2000), shared:!!cur.shared, updated_at:cur.updated_at};
+        const row = {user_id:me.id, item_type:t, item_id:id, title:String(cur.title||"").slice(0,120), tags:(cur.tags||[]).slice(0,20), star:!!cur.star, note:String(cur.note||"").slice(0,8000), shared:!!cur.shared, updated_at:cur.updated_at,
+          ...(t==="nota" ? {section: NOTE_ONE[cur.section] ? cur.section : "indizio", links:(cur.links||[]).slice(0,30)} : {})};
         const r = empty ? await sb.from("marks").delete().eq("user_id", me.id).eq("item_type", t).eq("item_id", id)
           : await sb.from("marks").upsert(row, {onConflict:"user_id,item_type,item_id"}).select("*").single();
         if (r.error){ if (latestMk.current[k] === cur) delete latestMk.current[k]; setMsg(markErr(r.error)); camp.loadMarks(); return; }
         if (latestMk.current[k] === cur){ delete latestMk.current[k];
           if (!empty && r.data) camp.setMarks(xs=>[...xs.filter(m=>!sameMk(m, t, id)), r.data]); } };
       const pr = (mkChain.current[k] || Promise.resolve()).then(run).catch(e=>setMsg("Non salvato: "+e.message)); mkChain.current[k] = pr; return pr; },
-    addNote: (f) => markOps.save("nota", uid()+uid(), f.title, {note:f.note||"", tags:f.tags||[], shared:!!f.shared, star:!!f.star}),
+    addNote: (f) => markOps.save("nota", uid()+uid(), f.title, {note:f.note||"", tags:f.tags||[], shared:!!f.shared, star:!!f.star, section:f.section||"indizio", links:f.links||[]}),
     remove: (t, id0) => { const id = String(id0); const k = mkKey(t, id); delete latestMk.current[k];
       camp.setMarks(xs=>xs.filter(m=>!sameMk(m, t, id)));
       const run = async () => { const {error:e} = await sb.from("marks").delete().eq("user_id", me.id).eq("item_type", t).eq("item_id", id); if (e){ setMsg(markErr(e)); camp.loadMarks(); } };
@@ -5499,7 +5636,7 @@ function Main({sb, me, onSignOut}){
       setOpenId(id); setView("scheda"); window.scrollTo(0,0); return; }
     if (type==="png"){ setView("gruppo"); setOpenId(null); setFocus({key, find:"png:"+id}); return; }
     if (type==="segnaposto"){ setView("mappa"); setOpenId(null); setFocus({key, pin:id, plane:e?.plane}); return; }
-    const tab = {codex:"codex", diario:"diario", mappa:"mappe", ricetta:"ricette", nota:"indizi"}[type]; if (!tab) return;
+    const tab = {codex:"codex", diario:"diario", mappa:"mappe", ricetta:"ricette", nota:"taccuino"}[type]; if (!tab) return;
     setView("cronache"); setOpenId(null); setFocus({key, tab, id, kind:e?.kind, find:type+":"+id}); };
   const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
   const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
