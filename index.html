@@ -883,6 +883,9 @@ kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--lin
 .cxs-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid var(--line);padding-top:6px}
 .cxs-row:first-of-type{border-top:0;padding-top:0}
 .cxs-n{min-width:0;overflow-wrap:anywhere}
+.kn-tog{display:inline-flex;align-items:baseline;gap:6px;font-size:inherit;font-family:inherit;font-weight:inherit;color:inherit}
+.kn-tog:hover{color:var(--accent)}.kn-arr{display:inline-block;width:1em;font-size:.8em}.kn-n{font-size:.9rem;font-weight:400}
+.kn-head{align-items:flex-end;gap:10px}.kn-new{cursor:pointer;border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -2251,11 +2254,19 @@ const byNameN = (a,b) => String(a.name||"").localeCompare(String(b.name||""));
 function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
   const M = me.isMaster;
   const [pick, setPick] = useState(null); const [showIgn, setShowIgn] = useState(false); const [err, setErr] = useState("");
+  /* sezione apribile e richiudibile; la scelta resta salvata sul dispositivo */
+  const [open, setOpen] = useState(()=>lsGet("knownOpen", true) !== false);
+  useEffect(()=>{ const f = () => { setOpen(true); lsSet("knownOpen", true); }; window.addEventListener("taccuino:known", f); return ()=>window.removeEventListener("taccuino:known", f); },[]);
+  const tog = () => setOpen(o=>{ lsSet("knownOpen", !o); return !o; });
+  const head = (eyebrow, n, extra) => html`<div className="party-head kn-head"><div><div className="eyebrow">${eyebrow}</div>
+    <h2><button type="button" className="linkish kn-tog" aria-expanded=${open} onClick=${tog} title=${open ? "Chiudi la sezione" : "Apri la sezione"}><span className="kn-arr" aria-hidden="true">${open ? "▾" : "▸"}</span> Personaggi conosciuti <span className="muted kn-n">${n}</span></button></h2></div>
+    ${!open && extra ? extra : null}</div>`;
   const run = async (fn) => { setErr(""); const m = await fn(); if (m) setErr(m); };
   if (M){
     if (!npcs.length) return null;
     return html`<section className="known-sec">
-      <div className="party-head"><div><div className="eyebrow">Condivisi con chi li conosce</div><h2>Personaggi conosciuti</h2></div></div>
+      ${head("Condivisi con chi li conosce", npcs.length)}
+      ${open && html`<div>
       <div className="cards tcards">${[...npcs].sort(byNameN).map(n=>{ const aud = n.audience || [];
         const who = aud.length ? aud.map(u=>(names[u] || "?")+(saves.some(s=>s.card_id===n.id && s.user_id===u && s.saved) ? " ★" : "")).join(", ") : "Nessuno";
         return html`<div key=${n.id} data-find=${"png:"+n.id} className=${"tcard-wrap"+(aud.length ? "" : " tc-secret")}><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who=${"Lo conoscono: "+who}/>
@@ -2265,7 +2276,7 @@ function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
             : html`<button type="button" className="btn small" onClick=${()=>setPick(n.id)}>👁 Chi lo conosce</button>`}
           ${!aud.length && html`<button type="button" className="btn small" onClick=${()=>run(()=>ops.remove(n.id))} title="Nessuno lo conosce: la carta pubblica si può eliminare (la scheda resta)">Elimina la carta</button>`}
         </div>`; })}</div>
-      <p className="muted" style=${{fontSize:".85rem",margin:"8px 0 0"}}>★ = l'ha salvato nella sua raccolta. Nome, tipo, descrizione e ritratto seguono la scheda (Scheda → Carta).</p>
+      <p className="muted" style=${{fontSize:".85rem",margin:"8px 0 0"}}>★ = l'ha salvato nella sua raccolta. Nome, tipo, descrizione e ritratto seguono la scheda (Scheda → Carta).</p></div>`}
       ${err && html`<p className="notice err" role="alert">${err}</p>`}
     </section>`;
   }
@@ -2274,7 +2285,8 @@ function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
   const fresh = mine.filter(n=>!sv[n.id]), saved = mine.filter(n=>sv[n.id]?.saved), ign = mine.filter(n=>sv[n.id] && !sv[n.id].saved);
   const note = (n) => sv[n.id]?.note ? html`<div className="tc-note">📝 ${sv[n.id].note}</div>` : null;
   return html`<section className="known-sec">
-    <div className="party-head"><div><div className="eyebrow">La tua raccolta</div><h2>Personaggi conosciuti</h2></div></div>
+    ${head("La tua raccolta", saved.length, fresh.length ? html`<button type="button" className="chip gold kn-new" onClick=${tog}>${fresh.length === 1 ? "1 nuovo incontro" : fresh.length+" nuovi incontri"}</button>` : null)}
+    ${open && html`<div>
     ${fresh.length > 0 && html`<div className="known-new"><div className="eyebrow">Nuovi incontri</div>
       <div className="cards tcards">${fresh.map(n=>html`<div key=${n.id} data-find=${"png:"+n.id} className="tcard-wrap"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Nuovo incontro"/>
         <button type="button" className="btn small primary" onClick=${()=>run(()=>ops.save(n.id, true))}>★ Salva tra i conosciuti</button>
@@ -2289,6 +2301,7 @@ function KnownSection({me, players, names, npcs, saves, urls, onMini, ops}){
     ${ign.length > 0 && html`<div className="known-ign"><button type="button" className="btn small" aria-expanded=${showIgn} onClick=${()=>setShowIgn(!showIgn)}>${showIgn ? "Nascondi" : "Mostra"} gli ignorati (${ign.length})</button>
       ${showIgn && html`<div className="cards tcards">${ign.map(n=>html`<div key=${n.id} className="tcard-wrap tc-secret"><${PubCard} f=${n} url=${urls[n.id]} badge="✦" who="Ignorato"/>
         <button type="button" className="btn small" onClick=${()=>run(()=>ops.save(n.id, true))}>★ Salva tra i conosciuti</button></div>`)}</div>`}</div>`}
+    </div>`}
     ${err && html`<p className="notice err" role="alert">${err}</p>`}
   </section>`;
 }
@@ -5831,7 +5844,7 @@ function Main({sb, me: meReal, onSignOut}){
     if (type==="codex" && !me.isMaster){ if (camp.codexShares.some(x=>x.id===id)) setCxOpen(id); return; }
     if (type==="scheda"){ if (!chars.some(c=>c.id===id)) return; setBackView(view==="scheda" ? backView : ["gruppo","tavolo","schede"].includes(view) ? view : (me.isMaster ? "schede" : "gruppo"));
       setOpenId(id); setView("scheda"); window.scrollTo(0,0); return; }
-    if (type==="png"){ setView("gruppo"); setOpenId(null); setFocus({key, find:"png:"+id}); return; }
+    if (type==="png"){ setView("gruppo"); setOpenId(null); lsSet("knownOpen", true); setTimeout(()=>window.dispatchEvent(new Event("taccuino:known")), 0); setFocus({key, find:"png:"+id}); return; }
     if (type==="segnaposto"){ setView("mappa"); setOpenId(null); setFocus({key, pin:id, plane:e?.plane}); return; }
     const tab = {codex:"codex", diario:"diario", mappa:"mappe", ricetta:"ricette", nota:"taccuino"}[type]; if (!tab) return;
     setView("cronache"); setOpenId(null); setFocus({key, tab, id, kind:e?.kind, find:type+":"+id}); };
