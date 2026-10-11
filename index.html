@@ -886,6 +886,14 @@ kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--lin
 .kn-tog{display:inline-flex;align-items:baseline;gap:6px;font-size:inherit;font-family:inherit;font-weight:inherit;color:inherit}
 .kn-tog:hover{color:var(--accent)}.kn-arr{display:inline-block;width:1em;font-size:.8em}.kn-n{font-size:.9rem;font-weight:400}
 .kn-head{align-items:flex-end;gap:10px}.kn-new{cursor:pointer;border-color:var(--gold)}
+/* mappa a schermo intero */
+.mv-root.full{position:fixed;inset:0;z-index:70;background:var(--bg);overflow:auto;padding:6px 12px 12px;-webkit-overflow-scrolling:touch}
+.mv-root.full > .party-head{margin:0}
+.mv-root.full > .party-head h2{font-size:1.1rem}
+.mv-root.full > .party-head .eyebrow{display:none}
+.mv-root.full .mapbox{height:calc(100dvh - 64px);margin-top:6px}
+.mv-root.full .pincard{position:sticky;bottom:8px;z-index:6;box-shadow:0 10px 30px rgb(0 0 0/.35)}
+.mapctl .iconbtn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface))}
 </style>
 </head>
 <body>
@@ -2952,6 +2960,19 @@ function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUp
   const fit = () => { const v = vp.current, l = layer.current; if(!v||!l) return;
     const W = v.clientWidth, H = v.clientHeight, h = l.offsetHeight || 1; const s = Math.min(1, H/h);
     t.current = {s, x:(W - W*s)/2, y:(H - h*s)/2}; apply(); };
+  /* schermo intero: API del browser dove c'è, altrimenti (iPhone) la mappa copre la pagina */
+  const rootRef = useRef(null); const [full, setFull] = useState(false);
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const toggleFull = async () => { const el = rootRef.current; if (!el) return;
+    if (full){ setFull(false); if (fsEl()){ try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch(e){} } return; }
+    setFull(true);
+    try { if (el.requestFullscreen) await el.requestFullscreen({navigationUI:"hide"}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen(); } catch(e){} };
+  useEffect(()=>{ const onFs = () => { if (!fsEl()) setFull(false); };
+    const onKey = e => { if (e.key==="Escape" && !fsEl()) setFull(false); };
+    document.addEventListener("fullscreenchange", onFs); document.addEventListener("webkitfullscreenchange", onFs); window.addEventListener("keydown", onKey);
+    return ()=>{ document.removeEventListener("fullscreenchange", onFs); document.removeEventListener("webkitfullscreenchange", onFs); window.removeEventListener("keydown", onKey);
+      if (fsEl() === rootRef.current){ try { document.exitFullscreen && document.exitFullscreen(); } catch(e){} } }; },[]);
+  useEffect(()=>{ const id = setTimeout(()=>requestAnimationFrame(()=>fit()), 60); return ()=>clearTimeout(id); },[full]);
   const zoomAt = (f, px, py) => { const o = t.current; const s = clamp(o.s*f, 0.2, 10);
     t.current = {s, x: px - (px-o.x)*(s/o.s), y: py - (py-o.y)*(s/o.s)}; apply(); };
   const zoomBtn = f => { const v = vp.current; zoomAt(f, v.clientWidth/2, v.clientHeight/2); };
@@ -3030,7 +3051,7 @@ function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUp
   const deepLit = planePins.filter(p=>PIN_LIGHT.has(p.kind)&&p.done).length, deepAll = planePins.filter(p=>PIN_LIGHT.has(p.kind)).length;
   const setModeTo = m => { setMode(mode===m ? null : m); setPending(null); setDraft(null); };
 
-  return html`<div>
+  return html`<div ref=${rootRef} className=${"mv-root"+(full ? " full" : "")}>
     <div className="party-head">
       <div><div className="eyebrow">${CFG.name}</div><h2>${PLANES.length>1 ? "Mappe" : (PLANE_NAME[plane] && PLANE_NAME[plane]!=="Mondo" ? PLANE_NAME[plane] : "Mappa del mondo")}</h2></div>
       <span className="spacer"></span>
@@ -3086,7 +3107,8 @@ function MapView({me, party, mapUrls, portraits={}, foes=[], masterUrls={}, onUp
         <div className="mapctl">
           <button type="button" className="iconbtn" aria-label="Ingrandisci" onClick=${()=>zoomBtn(1.3)}>+</button>
           <button type="button" className="iconbtn" aria-label="Riduci" onClick=${()=>zoomBtn(1/1.3)}>−</button>
-          <button type="button" className="iconbtn" aria-label="Mostra tutta la mappa" title="Mostra tutta" onClick=${fit}>⤢</button>
+          <button type="button" className="iconbtn" aria-label="Mostra tutta la mappa" title="Mostra tutta la mappa" onClick=${fit}>▣</button>
+          <button type="button" className=${"iconbtn"+(full ? " on" : "")} aria-pressed=${full} aria-label=${full ? "Esci dallo schermo intero" : "Schermo intero"} title=${full ? "Esci dallo schermo intero (Esc)" : "Schermo intero"} onClick=${toggleFull}>${full ? "✕" : "⛶"}</button>
           ${here && html`<button type="button" className="iconbtn" aria-label="Centra sul gruppo" title="Centra sul gruppo" onClick=${()=>centerOn(party.x,party.y)}>◎</button>`}
         </div>
         ${battle && tool==="ruler" && html`<div className="maphint">Trascina sulla mappa per misurare.</div>`}
