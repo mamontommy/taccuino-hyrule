@@ -877,6 +877,12 @@ kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--lin
 .rb-row:first-of-type{border-top:0;padding-top:0}
 .rb-n{flex:0 1 220px;min-width:120px;font-weight:600;overflow-wrap:anywhere}.rb-sub{font-weight:400;font-size:.8rem}
 .rb-row .rg{flex:1 1 300px}
+/* voci del codex condivise (fase 21) */
+.cx-share{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:8px}
+.cxs{display:grid;gap:6px;padding:10px 12px;border-color:color-mix(in srgb,var(--gold) 55%,var(--line));background:color-mix(in srgb,var(--gold) 7%,var(--surface))}
+.cxs-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid var(--line);padding-top:6px}
+.cxs-row:first-of-type{border-top:0;padding-top:0}
+.cxs-n{min-width:0;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -3301,6 +3307,8 @@ function useCampaign(sb, active){
   const loadNpcs = useCallback(async()=>{ const [a, b] = await Promise.all([sb.from("npc_cards").select("*"), sb.from("npc_saves").select("*")]);
     if (!a.error) setNpcs(a.data); if (!b.error) setNpcSaves(b.data); },[sb]);
   const loadFoes = useCallback(async()=>{ const {data, error} = await sb.from("foes").select("*"); if (!error) setFoes(data); },[sb]);
+  const [codexShares, setCodexShares] = useState([]);
+  const loadShares = useCallback(async()=>{ const {data, error} = await sb.from("codex_shares").select("*"); if (!error) setCodexShares(data); },[sb]);
   const [marks, setMarks] = useState([]); const [marksErr, setMarksErr] = useState(""); const mkT = useRef(0);
   const loadMarks = useCallback(async()=>{ const {data, error} = await sb.from("marks").select("*"); if (error){ setMarksErr(error.message); return; } setMarksErr(""); setMarks(data); },[sb]);
   const loadMmaps = useCallback(async()=>{ const {data, error} = await sb.from("maps_master").select("plane,path"); if (!error) setMmaps(Object.fromEntries(data.map(x=>[x.plane,x.path]))); },[sb]);
@@ -3331,9 +3339,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs(), loadMarks()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs(), loadMarks(), loadShares()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs, loadMarks]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs, loadMarks, loadShares]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -3374,6 +3382,7 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"foes"}, ()=>loadFoes())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_cards"}, ()=>loadNpcs())
       .on("postgres_changes",{event:"*",schema:"public",table:"npc_saves"}, ()=>loadNpcs())
+      .on("postgres_changes",{event:"*",schema:"public",table:"codex_shares"}, ()=>loadShares())
       .on("postgres_changes",{event:"*",schema:"public",table:"marks"}, (pl)=>{   /* applico la riga ricevuta: niente ricarica completa (meno traffico) */
           if (pl.eventType==="DELETE"){ if (pl.old?.id) setMarks(x=>x.filter(m=>m.id!==pl.old.id)); return; }
           const n = pl.new; if (!n || !n.id || !n.item_type){ clearTimeout(mkT.current); mkT.current = setTimeout(loadMarks, 800); return; }
@@ -3384,14 +3393,14 @@ function useCampaign(sb, active){
     const onVis = () => { if (document.visibilityState==="visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
     /* un orologio o una scheda nascosti dal master non arrivano in tempo reale ai giocatori: ricontrollo ogni tanto */
-    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks(); loadFoes(); loadNpcs();
+    const clkT = setInterval(()=>{ if (document.visibilityState!=="visible") return; loadClocks(); loadFoes(); loadNpcs(); loadShares();
       sb.from("characters").select("id").then(({data, error})=>{ if (error || !data) return; const ids = new Set(data.map(r=>r.id)); setChars(x=> x.every(c=>ids.has(c.id)) ? x : x.filter(c=>ids.has(c.id))); }); }, 30000);
     return ()=>{ sb.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); clearInterval(clkT); };
   },[sb, active, loadAll]);
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs, marks, setMarks, loadMarks, marksErr};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs, marks, setMarks, loadMarks, marksErr, codexShares, setCodexShares, loadShares};
 }
 
 /* ---------- risparmio di spazio e traffico (piano gratuito di Supabase) ---------- */
@@ -3597,11 +3606,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares] = await Promise.all([
         q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[]), q("marks").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[]), q("marks").catch(()=>[]), q("codex_shares").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -3633,6 +3642,7 @@ function BackupPanel({sb, camp}){
     await up("handouts", b.handouts, "handout");
     await up("codex", b.codex, "codex");
     await up("codex_secrets", b.codex_secrets, "note segrete del codex");
+    await up("codex_shares", b.codex_shares, "voci del codex condivise");
     await up("journal", b.journal, "diario", r=>({...r, author:null}));
     await up("recipes", b.recipes, "ricettario");
     await up("sounds", b.sounds, "suoni");
@@ -3786,7 +3796,7 @@ function HandoutsTab({sb, me, handouts, members, urls, onOpen, reload}){
   </div>`;
 }
 
-function CodexTab({sb, me, codex, secrets, reload, focus}){
+function CodexTab({sb, me, codex, secrets, reload, focus, shares=[], reloadShares=()=>{}, names={}, players=[]}){
   const M = me.isMaster;
   const [kind, setKind] = useState(()=>lsGet("codexKind","fazione"));
   const [editing, setEditing] = useState(null); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false); const [big, setBig] = useState(null);
@@ -3794,7 +3804,7 @@ function CodexTab({sb, me, codex, secrets, reload, focus}){
   useEffect(()=>lsSet("codexKind",kind),[kind]);
   useEffect(()=>{ if (focusFresh(focus) && focus.tab==="codex" && focus.kind){ F.clear(); setKind(focus.kind); } },[focus?.key]);
   const imgs = useSignedUrls(sb, useMemo(()=>Object.fromEntries(codex.filter(c=>c.image).map(c=>[c.id, c.image])), [codex]));
-  const [stLocal, setStLocal] = useState({});
+  const [stLocal, setStLocal] = useState({}); const [pick, setPick] = useState(null);
   useEffect(()=>{ setStLocal(x=>{ const y = {...x}; for (const c of codex) if (y[c.id] === codexStanding(c)) delete y[c.id]; return y; }); },[codex]);
   if (!M) return html`<p className="muted">Il codex è del master. Tieni le tue scoperte in “Il mio taccuino”.</p>`;
   const list = codex.filter(c=>(F.active || c.kind===kind) && F.test(c.id, [c.name, c.summary, c.party_notes, secrets[c.id]?.notes].filter(Boolean).join(" ")))
@@ -3814,12 +3824,25 @@ function CodexTab({sb, me, codex, secrets, reload, focus}){
       if (r.error){ if (image && image !== old) sb.storage.from("mappe").remove([image]); throw new Error(r.error.message+(/image|schema cache|column/i.test(r.error.message) ? " (esegui fase19.sql)" : "")); }
       if (id){ const r2 = await sb.from("codex_secrets").upsert({id, notes:f.secret||""}); if (r2.error) throw new Error(r2.error.message); }
       if (old && old !== image) sb.storage.from("mappe").remove([old]);
+      const sh = id && shares.find(x=>x.id===id);   /* la copia condivisa segue nome, tipo e descrizione (mai le note riservate) */
+      if (sh){ await sb.from("codex_shares").update(shareRow({...f, id, name:f.name.trim()}, sh.standing != null ? {standing: f.kind==="fazione" ? codexStanding(f) : null} : {})).eq("id", id); reloadShares(); }
       setEditing(null); reload();
     } catch(e){ setErr("Non salvato: "+e.message); }
     setBusy(false); };
+  const shErr = (e) => e.message+(/codex_shares|schema cache|relation/i.test(e.message) ? " (esegui fase21.sql)" : "");
+  const shareRow = (c, extra={}) => ({id:c.id, kind:c.kind, name:String(c.name||"").slice(0,120), summary:String(c.summary||"").slice(0,8000), updated_at:new Date().toISOString(), ...extra});
+  const doShare = async (c, audience) => { setPick(null); setErr(""); const sh = shares.find(x=>x.id===c.id);
+    const r = !audience.length ? (sh ? await sb.from("codex_shares").delete().eq("id", c.id) : {error:null})
+      : await sb.from("codex_shares").upsert(shareRow(c, {audience, ...(sh ? {} : {standing:null, shared_at:new Date().toISOString()})}));
+    if (r.error) setErr("Non condivisa: "+shErr(r.error)); reloadShares(); };
+  const setShareRep = async (c, on) => { const {error} = await sb.from("codex_shares").update({standing: on ? (stLocal[c.id] ?? codexStanding(c)) : null, updated_at:new Date().toISOString()}).eq("id", c.id);
+    if (error) setErr("Non salvato: "+shErr(error)); reloadShares(); };
+  const stopShare = async (c) => { const {error} = await sb.from("codex_shares").delete().eq("id", c.id); if (error) setErr("Non salvato: "+shErr(error)); reloadShares(); };
   const setStanding = async (c, v) => { setStLocal(x=>({...x, [c.id]:v}));
     const {error} = await sb.from("codex").update({standing:v, updated_at:new Date().toISOString()}).eq("id", c.id);
-    if (error){ setErr("Non salvato: "+error.message+(/standing/i.test(error.message) ? " (esegui fase20.sql)" : "")); setStLocal(x=>{ const y = {...x}; delete y[c.id]; return y; }); } else reload(); };
+    if (error){ setErr("Non salvato: "+error.message+(/standing/i.test(error.message) ? " (esegui fase20.sql)" : "")); setStLocal(x=>{ const y = {...x}; delete y[c.id]; return y; }); return; }
+    const sh = shares.find(x=>x.id===c.id); if (sh && sh.standing != null){ await sb.from("codex_shares").update({standing:v, updated_at:new Date().toISOString()}).eq("id", c.id); reloadShares(); }
+    reload(); };
   const quick = async (c, patch) => { const {error} = await sb.from("codex").update({...patch, updated_at:new Date().toISOString()}).eq("id", c.id); if (error) setErr(error.message); reload(); };
   const del = async (c) => { const {error} = await sb.from("codex").delete().eq("id", c.id); if (error) setErr(error.message); else if (c.image) sb.storage.from("mappe").remove([c.image]); setEditing(null); reload(); };
 
@@ -3846,6 +3869,15 @@ function CodexTab({sb, me, codex, secrets, reload, focus}){
       ${secrets[c.id]?.notes && html`<div className="secret"><span className="eyebrow">Note riservate</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${secrets[c.id].notes}</p></div>`}
       ${c.party_notes && html`<div className="secret"><span className="eyebrow">Vecchie note del gruppo</span><p style=${{margin:0,whiteSpace:"pre-wrap"}}>${c.party_notes}</p></div>`}
       <${MarkBar} type="codex" id=${c.id} title=${c.name}/>
+      ${(()=>{ const sh = shares.find(x=>x.id===c.id);
+        return html`<div className="cx-share">
+          ${pick===c.id ? html`<${AudiencePicker} initial=${sh?.audience || []} players=${players} names=${names} onCancel=${()=>setPick(null)} onSave=${a=>doShare(c, a)}/>`
+            : html`<div className="row" style=${{gap:6}}>
+              <button type="button" className=${"btn small"+(sh ? " primary" : "")} onClick=${()=>setPick(c.id)} title="Scegli a quali giocatori far conoscere questa voce: vedranno nome, tipo e descrizione, mai le note riservate">👁 ${sh ? "Condivisa con "+sh.audience.length : "Fai conoscere…"}</button>
+              ${sh && c.kind==="fazione" ? html`<label className="row" style=${{gap:5,fontSize:".82rem"}}><input type="checkbox" checked=${sh.standing != null} onChange=${e=>setShareRep(c, e.target.checked)}/>mostra la reputazione</label>` : null}
+              ${sh ? html`<button type="button" className="btn small" onClick=${()=>stopShare(c)} title="I giocatori non la vedono più; le copie già salvate nel loro taccuino restano loro">Smetti di condividere</button>` : null}</div>`}
+          ${sh && pick!==c.id ? html`<p className="muted" style=${{margin:0,fontSize:".8rem"}}>La conoscono: ${sh.audience.map(u=>names[u] || "?").join(", ")}. Vedono nome, tipo e descrizione${sh.standing != null ? " e la reputazione" : ""}; mai le note riservate. Se modifichi la voce, la loro versione si aggiorna (le copie già salvate nel taccuino no, ma possono ricopiarla).</p>` : null}
+        </div>`; })()}
       <div className="row"><button type="button" className="btn small" onClick=${()=>setEditing({...c, secret:secrets[c.id]?.notes||""})}>Modifica</button></div>
     </article>`)}</div>
     ${err && html`<p className="err" role="alert">${err}</p>`}
@@ -4400,7 +4432,7 @@ function resolveMark(m, camp){
 function useLinkIndex(camp, me, names){
   return useMemo(()=>{ const idx = buildIndex(camp, me, camp.chars, names).map(e=>({...e, key:e.type+":"+e.id}));
     return {idx, byKey:Object.fromEntries(idx.map(e=>[e.key, e]))}; },
-    [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, camp.chars, names]);
+    [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.codexShares, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, camp.chars, names]);
 }
 function LinkChip({k, byKey, onGo, onRemove}){
   const e = byKey[k]; const t = k.split(":")[0];
@@ -4477,6 +4509,52 @@ function Annotations({type, id, title}){
   </div>`;
 }
 
+/* ---------- voci del codex condivise dal master (fase 21) ---------- */
+const CX_SEC = {fazione:"fazione", personaggio:"personaggio", luogo:"luogo", scoperta:"indizio"};
+const cxNoteId = id => "cx-"+id;
+const shareToNote = (s) => ({section: CX_SEC[s.kind] || "indizio", note: String(s.summary||"").slice(0,8000), links:["codex:"+s.id], tags:[], shared:false, rep: s.kind==="fazione" ? (s.standing ?? 10) : null});
+function ShareModal({s, saved, ro, fresh, onSave, onRefresh, onLater, onClose}){
+  const [conf, setConf] = useState(false);
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") (fresh && !saved ? onLater : onClose)(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[fresh, saved]);
+  return html`<div className="modal-back" role="dialog" aria-modal="true" aria-label=${s.name} onClick=${e=>{ if (e.target===e.currentTarget) (fresh && !saved ? onLater : onClose)(); }}>
+    <div className="modal handout">
+      <div className="eyebrow">${fresh ? "Nuova scoperta" : "Dal master"} · ${CODEX_ONE[s.kind] || "Codex"}</div>
+      <h2>${s.name || "Senza nome"}</h2>
+      ${s.summary ? html`<div className="ho-body">${s.summary}</div>` : html`<p className="muted">Nessuna descrizione.</p>`}
+      ${s.standing != null ? html`<div className="lab">Reputazione del gruppo<${RepGauge} value=${s.standing} label=${"Reputazione con "+s.name}/></div>` : null}
+      ${!saved && !ro ? html`<p className="muted" style=${{margin:0,fontSize:".85rem"}}>Salvandola diventa una voce del tuo taccuino (${NOTE_ONE[CX_SEC[s.kind]] || "Indizio"}): la puoi completare, collegare e, se è una fazione, aggiornare la reputazione come pensi tu.</p>` : null}
+      <div className="row">
+        ${saved ? html`<span className="chip gold">✓ Nel tuo taccuino</span>` : null}
+        ${saved && !ro && onRefresh ? (conf ? html`<span className="confirm">Sostituire il testo della tua voce con questa descrizione?<button type="button" className="btn small danger" onClick=${()=>{ setConf(false); onRefresh(); }}>Sostituisci</button><button type="button" className="btn small" onClick=${()=>setConf(false)}>No</button></span>`
+          : html`<button type="button" className="btn small" onClick=${()=>setConf(true)} title="Ricopia nel taccuino la descrizione attuale del master">↻ Ricopia la descrizione</button>`) : null}
+        <span className="spacer"></span>
+        ${fresh && !saved ? html`<button type="button" className="btn" onClick=${onLater}>Più tardi</button>` : html`<button type="button" className="btn" onClick=${onClose}>Chiudi</button>`}
+        ${!saved && !ro ? html`<button type="button" className="btn primary" onClick=${onSave} autoFocus>🗒 Salva nel taccuino</button>` : null}
+      </div>
+    </div>
+  </div>`;
+}
+/* in cima al taccuino: le voci che il master ha fatto conoscere e che il giocatore non ha ancora salvato */
+function SharesPanel({shares, sec, ctx, onGo}){
+  const [ign, setIgn] = useState(()=>{ const v = lsGet("cxIgnored", []); return Array.isArray(v) ? v : []; }); const [showIgn, setShowIgn] = useState(false);
+  if (!shares.length || sec==="segnati") return null;
+  const pending = shares.filter(s=>!ctx.mine("nota", cxNoteId(s.id)) && (!sec || CX_SEC[s.kind]===sec));
+  const list = pending.filter(s=>!ign.includes(s.id)), ignored = pending.filter(s=>ign.includes(s.id));
+  if (!list.length && !ignored.length) return null;
+  const setI = v => { setIgn(v); lsSet("cxIgnored", v.slice(-300)); };
+  const row = (s, isIgn) => html`<div key=${s.id} className="cxs-row"><span className="cxs-n"><b>${s.name || "Senza nome"}</b> <span className="muted">· ${CODEX_ONE[s.kind] || "Codex"}</span></span>
+    <span className="spacer"></span>
+    <button type="button" className="btn small" onClick=${()=>onGo("codex", s.id)}>Leggi</button>
+    ${!ctx.ro ? html`<button type="button" className="btn small primary" onClick=${()=>ctx.save("nota", cxNoteId(s.id), s.name, shareToNote(s))}>🗒 Salva</button>
+      ${isIgn ? null : html`<button type="button" className="btn small" onClick=${()=>setI([...ign, s.id])}>Ignora</button>`}` : null}</div>`;
+  return html`<section className="panel cxs">
+    <div className="eyebrow">📜 Dal master · ${list.length ? (list.length===1 ? "1 voce da salvare" : list.length+" voci da salvare") : "voci ignorate"}</div>
+    ${list.map(s=>row(s, false))}
+    ${ignored.length ? html`<button type="button" className="linkish nb-more" onClick=${()=>setShowIgn(!showIgn)}>${showIgn ? "Nascondi" : "Mostra"} le ignorate (${ignored.length})</button>` : null}
+    ${showIgn ? ignored.map(s=>row(s, true)) : null}
+  </section>`;
+}
+
 function NotebookTab({me, camp, names, onGo, focus}){
   const ctx = useContext(MarksCtx); const M = me.isMaster;
   const [sec, setSec] = useState(()=>lsGet("nbSec","")); const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [starOnly, setStarOnly] = useState(false);
@@ -4549,6 +4627,7 @@ function NotebookTab({me, camp, names, onGo, focus}){
     </div>
     ${cloud.length > 0 ? html`<div className="cl-cloud" role="group" aria-label="Filtra per etichetta">${cloud.map(([t,n])=>html`<${TagChip} key=${t} t=${t} n=${n} on=${tags.includes(t)} onClick=${()=>togTag(t)}/>`)}
       ${filtered ? html`<button type="button" className="btn small" onClick=${()=>{ setQ(""); setTags([]); setStarOnly(false); }}>Azzera filtri</button>` : null}</div>` : null}
+    ${!editing && !M ? html`<${SharesPanel} shares=${camp.codexShares||[]} sec=${sec} ctx=${ctx} onGo=${onGo}/>` : null}
     ${sec==="fazione" && !editing ? html`<${RepBoard} rows=${vis.filter(x=>x.m.item_type==="nota" && x.m.rep != null).sort((a,b)=>b.m.rep - a.m.rep || a.title.localeCompare(b.title))
         .map(x=>({key:x.m.id, title:x.title, value:x.m.rep, sub: x.mine ? "" : "· "+(names[x.m.user_id] || "qualcuno"),
           onGo:()=>{ const el = document.querySelector(`[data-find="${CSS.escape("nota:"+x.m.item_id)}"]`); if (el){ el.scrollIntoView({block:"center", behavior:"smooth"}); el.classList.remove("find-flash"); void el.offsetWidth; el.classList.add("find-flash"); } },
@@ -4594,6 +4673,7 @@ function buildIndex(camp, me, chars, names){
     if (M){ add("png", n.id, n.name, n.kind || "Personaggio", n.blurb); continue; }
     if (!(n.audience||[]).includes(me.id)) continue; const sv = camp.npcSaves.find(s=>s.card_id===n.id && s.user_id===me.id); if (sv && !sv.saved) continue;
     add("png", n.id, n.name, n.kind || "Personaggio", [n.blurb, sv?.note].filter(Boolean).join(" · ")); }
+  if (!M) for (const x of (camp.codexShares||[])) add("codex", x.id, x.name, (CODEX_ONE[x.kind]||"Codex")+" · dal master", x.summary, {kind:x.kind});
   for (const c of camp.codex) add("codex", c.id, c.name, CODEX_ONE[c.kind]||"Codex", [c.summary, c.party_notes, M ? camp.codexSecrets[c.id]?.notes : ""].filter(Boolean).join(" · "), {kind:c.kind});
   for (const h of camp.handouts) add("handout", h.id, h.title, h.revealed ? "rivelato"+(h.revealed_at ? " il "+fmtDate(h.revealed_at) : "") : "bozza", h.body);
   for (const j of camp.journal) add("diario", j.id, j.title || "Senza titolo", [j.session_no ? "Sessione "+j.session_no : "", j.played_on ? fmtDate(j.played_on) : "", j.visible ? "" : "bozza"].filter(Boolean).join(" · "), j.body);
@@ -4607,7 +4687,7 @@ function buildIndex(camp, me, chars, names){
 }
 function SearchOverlay({camp, me, chars, names, onGo, onClose}){
   const [q, setQ] = useState(()=>lsGet("lastSearch","")); const [act, setAct] = useState(0); const [only, setOnly] = useState("");
-  const idx = useMemo(()=>buildIndex(camp, me, chars, names), [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.codexSecrets, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, chars, names]);
+  const idx = useMemo(()=>buildIndex(camp, me, chars, names), [camp.marks, camp.npcs, camp.npcSaves, camp.codex, camp.codexSecrets, camp.codexShares, camp.handouts, camp.journal, camp.archive, camp.pins, camp.recipes, chars, names]);
   const words = useMemo(()=>fold(q).split(" ").filter(Boolean), [q]);
   const all = useMemo(()=>{ if (!words.length) return [];
     const ft = e => fold(e.title);
@@ -4616,7 +4696,7 @@ function SearchOverlay({camp, me, chars, names, onGo, onClose}){
       .sort((a,b)=>b.sc-a.sc || natCmp(a.title, b.title)); }, [idx, words]);
   const res = only ? all.filter(e=>e.type===only) : all;
   const LIM = only ? 60 : 6;
-  const groups = SEARCH_GROUPS.map(([k,n])=>[k, n, res.filter(e=>e.type===k)]).filter(g=>g[2].length);
+  const groups = SEARCH_GROUPS.map(([k,n])=>[k, k==="codex" && !me.isMaster ? "Dal master" : n, res.filter(e=>e.type===k)]).filter(g=>g[2].length);
   const flat = groups.flatMap(g=>g[2].slice(0, LIM));
   const typesIn = SEARCH_GROUPS.filter(([k])=>idx.some(e=>e.type===k));
   useEffect(()=>{ setAct(0); },[q, only]);
@@ -4638,7 +4718,7 @@ function SearchOverlay({camp, me, chars, names, onGo, onClose}){
       <div className="so-types planes" role="group" aria-label="Cerca solo in">${[["","Tutto"], ...typesIn].map(([k,n])=>{ const c = k ? all.filter(e=>e.type===k).length : all.length;
         return html`<button type="button" key=${k || "_all"} aria-pressed=${only===k} disabled=${!!(words.length && k && !c)} onClick=${()=>setOnly(k)}>${n}${words.length ? html` <span className="muted">${c}</span>` : null}</button>`; })}</div>
       <div className="so-res" id="so-list" role="listbox" aria-label="Risultati">
-        ${!words.length ? html`<p className="muted so-hint">Scrivi una o più parole: cerco in schede, personaggi conosciuti, ${me.isMaster ? "codex, " : ""}handout, diario, mappe, segnaposti${CFG.modules.cucina ? ", ricette" : ""} e taccuino, comprese le tue etichette e note. Con <b>#nome</b> cerchi un’etichetta. Scorciatoie: <kbd>Ctrl</kbd>+<kbd>K</kbd> oppure <kbd>/</kbd>; frecce e Invio per scegliere.</p>`
+        ${!words.length ? html`<p className="muted so-hint">Scrivi una o più parole: cerco in schede, personaggi conosciuti, ${me.isMaster ? "codex, " : "voci condivise dal master, "}handout, diario, mappe, segnaposti${CFG.modules.cucina ? ", ricette" : ""} e taccuino, comprese le tue etichette e note. Con <b>#nome</b> cerchi un’etichetta. Scorciatoie: <kbd>Ctrl</kbd>+<kbd>K</kbd> oppure <kbd>/</kbd>; frecce e Invio per scegliere.</p>`
           : !flat.length ? html`<p className="muted so-hint">Nessun risultato per “${q}”.</p>`
           : groups.map(([k, n, l])=>html`<section key=${k} className="so-g"><div className="eyebrow">${n} · ${l.length}</div>
               ${l.slice(0, LIM).map(e=>{ i++; const ii = i; const inBody = words.every(w=>fold(e.title+" "+e.sub+" "+e.text).includes(w));
@@ -4666,7 +4746,8 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
     <div className="party-head"><div><div className="eyebrow">Memoria della campagna</div><h2>Cronache</h2></div></div>
     <div className="tabs" role="tablist">${tabs.map(([k,l])=>html`<button type="button" role="tab" key=${k} aria-selected=${cur===k} onClick=${()=>setTab(k)}>${l}</button>`)}</div>
     ${cur==="diario" && html`<${JournalTab} sb=${sb} me=${me} journal=${camp.journal} names=${names} reload=${camp.loadChron} focus=${focus}/>`}
-    ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron} focus=${focus}/>`}
+    ${cur==="codex" && html`<${CodexTab} sb=${sb} me=${me} codex=${camp.codex} secrets=${camp.codexSecrets} reload=${camp.loadChron} focus=${focus}
+        shares=${camp.codexShares||[]} reloadShares=${camp.loadShares} names=${names} players=${camp.members.filter(m=>m.user_id!==me.id)}/>`}
     ${cur==="taccuino" && html`<${NotebookTab} me=${me} camp=${camp} names=${names} onGo=${onGo} focus=${focus}/>`}
     ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names} focus=${focus}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
@@ -5492,6 +5573,7 @@ function usePreviewCamp(raw, on, pid){
   const archive = m([raw.archive], ()=>raw.archive.filter(a=>a.visible || a.created_by===pid));
   const foes = m([raw.foes], ()=>raw.foes.filter(f=>f.visible));
   const npcs = m([raw.npcs], ()=>raw.npcs.filter(n=>(n.audience||[]).includes(pid)));
+  const codexShares = m([raw.codexShares], ()=>raw.codexShares.filter(x=>(x.audience||[]).includes(pid)));
   const npcSaves = m([raw.npcSaves], ()=>raw.npcSaves.filter(s=>s.user_id===pid));
   const clocks = m([raw.clocks], ()=>raw.clocks.filter(k=>k.visible));
   const fighters = m([raw.fighters], ()=>raw.fighters.filter(f=>!f.hidden));
@@ -5501,7 +5583,7 @@ function usePreviewCamp(raw, on, pid){
   const tokens = m([raw.tokens], ()=>raw.tokens.filter(t=>!t.hidden));
   const empty = m([], ()=>({codex:[], codexSecrets:{}, secrets:{}, mmaps:{}}));
   if (!on) return raw;
-  return {...raw, chars, handouts, journal, pins, archive, foes, npcs, npcSaves, clocks, fighters, rolls, recipes, marks, tokens, ...empty};
+  return {...raw, codexShares, chars, handouts, journal, pins, archive, foes, npcs, npcSaves, clocks, fighters, rolls, recipes, marks, tokens, ...empty};
 }
 function PreviewMenu({players, names, chars, current, onPick, onStop, onClose}){
   useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
@@ -5746,6 +5828,7 @@ function Main({sb, me: meReal, onSignOut}){
     return ()=>clearInterval(t); },[focus?.key]);
   const goTo = (type, id, e) => { const key = Date.now();
     if (type==="handout"){ const h = camp.handouts.find(x=>x.id===id); if (h) setHoOpen(h); return; }
+    if (type==="codex" && !me.isMaster){ if (camp.codexShares.some(x=>x.id===id)) setCxOpen(id); return; }
     if (type==="scheda"){ if (!chars.some(c=>c.id===id)) return; setBackView(view==="scheda" ? backView : ["gruppo","tavolo","schede"].includes(view) ? view : (me.isMaster ? "schede" : "gruppo"));
       setOpenId(id); setView("scheda"); window.scrollTo(0,0); return; }
     if (type==="png"){ setView("gruppo"); setOpenId(null); setFocus({key, find:"png:"+id}); return; }
@@ -5753,6 +5836,9 @@ function Main({sb, me: meReal, onSignOut}){
     const tab = {codex:"codex", diario:"diario", mappa:"mappe", ricetta:"ricette", nota:"taccuino"}[type]; if (!tab) return;
     setView("cronache"); setOpenId(null); setFocus({key, tab, id, kind:e?.kind, find:type+":"+id}); };
   const [npcSeen, setNpcSeen] = useState(()=>{ const v = lsGet("npcSeen", []); return Array.isArray(v) ? v : []; });
+  const [cxSeen, setCxSeen] = useState(()=>{ const v = lsGet("cxSeen", []); return Array.isArray(v) ? v : []; });
+  const markCxSeen = (id) => setCxSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("cxSeen", n); return n; });
+  const [cxOpen, setCxOpen] = useState(null);
   const markNpcSeen = (id) => setNpcSeen(x=>{ const n = [...x.filter(y=>y!==id), id].slice(-300); lsSet("npcSeen", n); return n; });
   const meetNpc = me.isMaster || me.preview ? null : camp.npcs.find(n=>(n.audience||[]).includes(me.id) && !npcSeen.includes(n.id) && !camp.npcSaves.some(s=>s.card_id===n.id && s.user_id===me.id));
   /* schede della sessione (plancia del master): salvate nelle impostazioni della campagna */
@@ -5984,6 +6070,14 @@ function Main({sb, me: meReal, onSignOut}){
     </main>
     ${searchOpen && html`<${SearchOverlay} camp=${camp} me=${me} chars=${chars} names=${names} onGo=${goTo} onClose=${()=>setSearchOpen(false)}/>`}
     ${hoOpen && html`<${HandoutModal} h=${hoOpen} url=${hoUrls[hoOpen.id]} onClose=${closeHandout}/>`}
+    ${(()=>{ if (hoOpen || meetNpc || me.isMaster) return null;
+      const open = cxOpen && camp.codexShares.find(x=>x.id===cxOpen);
+      const fresh = !open && !me.preview && !marksOff ? camp.codexShares.find(x=>(x.audience||[]).includes(me.id) && !cxSeen.includes(x.id) && !marksMine[mkKey("nota", cxNoteId(x.id))]) : null;
+      const sx = open || fresh; if (!sx) return null;
+      return html`<${ShareModal} key=${sx.id} s=${sx} fresh=${!open} ro=${!!me.preview || marksOff} saved=${!!marksMine[mkKey("nota", cxNoteId(sx.id))]}
+        onSave=${()=>{ markCxSeen(sx.id); markOps.save("nota", cxNoteId(sx.id), sx.name, shareToNote(sx)); }}
+        onRefresh=${()=>markOps.save("nota", cxNoteId(sx.id), sx.name, {note:String(sx.summary||"").slice(0,8000)})}
+        onLater=${()=>markCxSeen(sx.id)} onClose=${()=>{ setCxOpen(null); markCxSeen(sx.id); }}/>`; })()}
     ${!hoOpen && meetNpc && html`<${NpcMeetModal} key=${meetNpc.id} n=${meetNpc} url=${portraits[meetNpc.id]} onLater=${()=>markNpcSeen(meetNpc.id)}
         onMini=${()=>openMini("npc:"+meetNpc.id)} onSave=${async()=>{ markNpcSeen(meetNpc.id); const m = await npcOps.save(meetNpc.id, true); if (m) setMsg(m); }}/>`}
     ${minis.map((id,i)=>{ const isFoe = id.startsWith("foe:"), isNpc = id.startsWith("npc:"); const fid = (isFoe || isNpc) ? id.slice(4) : id;
