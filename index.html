@@ -894,6 +894,19 @@ kbd{font-family:ui-monospace,monospace;font-size:.8em;border:1px solid var(--lin
 .mv-root.full .mapbox{height:calc(100dvh - 64px);margin-top:6px}
 .mv-root.full .pincard{position:sticky;bottom:8px;z-index:6;box-shadow:0 10px 30px rgb(0 0 0/.35)}
 .mapctl .iconbtn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface))}
+/* attacchi degli avversari (fase 22) */
+.mform .m-atk-wrap{grid-column:1/-1}
+.m-atk{display:grid;gap:6px}
+.m-atk-row{display:grid;grid-template-columns:minmax(0,1.3fr) auto minmax(0,1.6fr) auto;gap:6px;align-items:center}
+.m-atk-b{display:flex;align-items:center;gap:4px;font-size:.8rem;color:var(--muted)}.m-atk-b .num{width:58px}
+.m-atk-foot{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.m-atk-foot .field{flex:1 1 200px;min-width:0}
+@media (max-width:520px){.m-atk-row{grid-template-columns:minmax(0,1fr) auto auto}.m-atk-row > .field:nth-of-type(2){grid-column:1/-1;order:3}}
+.ir-atk{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:.85rem;padding-top:2px}
+.ir-atkb{font-size:.8rem;padding:3px 9px}
+.ir-note{font-size:.8rem}
+.ir-atk-ed{font-size:.8rem;color:var(--accent)}
+.m-atk-edit{display:grid;gap:6px;width:100%}
+.ir-hidroll{gap:5px;font-size:.8rem;color:var(--muted);margin-left:auto}
 </style>
 </head>
 <body>
@@ -5309,11 +5322,34 @@ function TurnBanner({combat, fighters, chars, me, onEndTurn, onRollInit, goTable
   </div></div>`;
 }
 
+/* ---------- attacchi degli avversari dell'iniziativa (fase 22) ---------- */
+const atkBlank = () => ({name:"", bonus:0, dmg:""});
+const splitDmg = (d) => { const t = String(d||"").trim(); const m = t.match(/^((?:\d*d\d+|\d+)(?:\s*[+\-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
+  return m ? {formula: m[1].replace(/\s+/g,"").toLowerCase(), kind: (m[2]||"").trim()} : {formula:"", kind:t}; };
+const atkLabel = a => `${a.name || "Attacco"} ${sg(Number(a.bonus)||0)}${a.dmg ? " · "+a.dmg : ""}`;
+const cleanAtk = (list) => (list||[]).map(a=>({name:String(a.name||"").trim().slice(0,40), bonus:clamp(Math.round(Number(a.bonus)||0), -5, 30), dmg:String(a.dmg||"").trim().slice(0,60)})).filter(a=>a.name || a.dmg).slice(0,8);
+function AtkEditor({attacks, notes, onChange}){
+  const list = attacks && attacks.length ? attacks : [atkBlank()];
+  const set = (i, patch) => onChange({attacks: list.map((a,j)=>j===i ? {...a, ...patch} : a), notes});
+  return html`<div className="m-atk">
+    ${list.map((a,i)=>html`<div key=${i} className="m-atk-row">
+      <input className="field" aria-label="Nome dell’attacco" placeholder="Attacco (es. Scimitarra)" maxLength="40" value=${a.name} onChange=${e=>set(i,{name:e.target.value})}/>
+      <label className="m-atk-b"><span>Colpire</span><${Num} value=${Number(a.bonus)||0} min=${-5} max=${30} label="Bonus per colpire" onChange=${v=>set(i,{bonus:v})}/></label>
+      <input className="field" aria-label="Danni" placeholder="Danni (es. 1d6+2 taglienti)" maxLength="60" value=${a.dmg} onChange=${e=>set(i,{dmg:e.target.value})}/>
+      <button type="button" className="iconbtn" aria-label="Togli l’attacco" onClick=${()=>onChange({attacks: list.filter((_,j)=>j!==i), notes})}>×</button>
+    </div>`)}
+    <div className="m-atk-foot">${list.length < 8 ? html`<button type="button" className="btn small" onClick=${()=>onChange({attacks:[...list, atkBlank()], notes})}>+ Attacco</button>` : null}
+      <input className="field" aria-label="Note dell’avversario" placeholder="Note (es. Multiattacco: 2 scimitarre · Fuga agile)" maxLength="300" value=${notes||""} onChange=${e=>onChange({attacks:list, notes:e.target.value})}/></div>
+  </div>`;
+}
+
 function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}, foes=[]}){
   const M = me.isMaster;
   const ordered = orderFighters(fighters);
   const charOf = id => chars.find(c=>c.id===id);
-  const [form, setForm] = useState({name:"", n:1, mod:0, hp:7, ac:12, hidden:false});
+  const [form, setForm] = useState({name:"", n:1, mod:0, hp:7, ac:12, hidden:false, attacks:[atkBlank()], notes:""});
+  const [editAtk, setEditAtk] = useState(null); const [ae, setAe] = useState({attacks:[], notes:""});
+  const [rollHid, setRollHid] = useState(()=>lsGet("foeRollsHidden", true) !== false);
   const [evf, setEvf] = useState({name:"", init:20, note:"", hidden:false}); const [evOpen, setEvOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false); const [picking, setPicking] = useState(false);
   const [err, setErr] = useState("");
@@ -5335,6 +5371,7 @@ function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}
 
   return html`<section className="panel">
     <div className="panel-h"><h3>Iniziativa</h3>
+      ${M ? html`<label className="row ir-hidroll" title="I tiri degli attacchi degli avversari: nascosti ai giocatori o visibili nel feed"><input type="checkbox" checked=${rollHid} onChange=${e=>{ setRollHid(e.target.checked); lsSet("foeRollsHidden", e.target.checked); }}/>tiri avversari nascosti</label>` : null}
       <span className="muted" style=${{fontSize:".85rem"}}>${combat.active ? `Round ${combat.round}` : fighters.length ? "In preparazione" : "Nessuno scontro"}</span></div>
 
     ${fighters.length===0 && html`<p className="muted" style=${{margin:0}}>${M ? "Aggiungi i personaggi e gli avversari, fai tirare l’iniziativa e avvia lo scontro." : "Quando il master prepara uno scontro, qui compare l’ordine dei turni."}</p>`}
@@ -5366,6 +5403,13 @@ function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}
               <option value="">+ cond.</option>${CONDS.filter(x=>!conds.includes(x)).map(x=>html`<option key=${x} value=${x}>${x}</option>`)}</select>`}
           ${M && html`<button type="button" className="iconbtn" aria-label=${"Togli "+((s&&s.name)||f.name)+" dallo scontro"} onClick=${()=>run(()=>act.remove(f))}>×</button>`}
         </div>
+          ${M && !s && sec ? html`<div className="ir-atk">
+            ${editAtk===f.id ? html`<div className="m-atk-edit"><${AtkEditor} attacks=${ae.attacks} notes=${ae.notes} onChange=${setAe}/>
+                <div className="row" style=${{gap:6}}><button type="button" className="btn small primary" onClick=${()=>run(async()=>{ const m = await act.setMonsterAtk(f, ae.attacks, ae.notes); if (!m) setEditAtk(null); return m; })}>Salva</button><button type="button" className="btn small" onClick=${()=>setEditAtk(null)}>Annulla</button></div></div>`
+              : html`${(sec.attacks||[]).map((a,i)=>html`<button key=${i} type="button" className="btn small ir-atkb" title=${"Tira per colpire"+(splitDmg(a.dmg).formula ? " e i danni" : "")+(rollHid ? " (nascosto ai giocatori)" : "")} onClick=${()=>run(()=>act.attack(f, a, rollHid))}>⚔ ${atkLabel(a)}</button>`)}
+                ${sec.notes ? html`<span className="muted ir-note">${sec.notes}</span>` : null}
+                <button type="button" className="linkish ir-atk-ed" title="Attacchi e note" onClick=${()=>{ setAe({attacks:(sec.attacks||[]).length ? sec.attacks : [atkBlank()], notes:sec.notes||""}); setEditAtk(f.id); }}>${(sec.attacks||[]).length || sec.notes ? "✎ attacchi" : "+ attacchi"}</button>`}
+          </div>` : null}
       </li>`;})}</ol>`}
 
     ${M && !combat.active && html`<div className="setup">
@@ -5373,12 +5417,13 @@ function Initiative({combat, fighters, secrets, chars, me, act, groups, names={}
           : html`<div className="row">${sesOut.length>0 && html`<button type="button" className="btn" onClick=${()=>addIds(sesOut.map(c=>c.id))} title=${sesOut.map(c=>norm(c).name).join(", ")}>Aggiungi la sessione (${sesOut.length})</button>`}
               ${pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>setPicking(true)}>+ Scegli dalle schede…</button>`}</div>`)
         : pcsOut.length>0 && html`<button type="button" className="btn" onClick=${()=>run(()=>act.addPCs(pcsOut))}>Aggiungi ${pcsOut.length===1?"1 personaggio":pcsOut.length+" personaggi"}</button>`}
-      <form className="mform" onSubmit=${e=>{e.preventDefault(); if(!form.name.trim()) return; run(async()=>{ const m = await act.addMonsters(form); if(!m) setForm({...form, name:""}); return m; });}}>
+      <form className="mform" onSubmit=${e=>{e.preventDefault(); if(!form.name.trim()) return; run(async()=>{ const m = await act.addMonsters(form); if(!m) setForm({...form, name:"", attacks:[atkBlank()], notes:""}); return m; });}}>
         <label className="lab nm">Avversario<input id="m-name" className="field" placeholder="es. Goblin" value=${form.name} onChange=${e=>setForm({...form,name:e.target.value})}/></label>
         <label className="lab">Quanti<${Num} id="m-n" value=${form.n} min=${1} max=${20} onChange=${v=>setForm(x=>({...x,n:v}))}/></label>
         <label className="lab">Bonus iniz.<${Num} id="m-mod" value=${form.mod} min=${-5} max=${15} onChange=${v=>setForm(x=>({...x,mod:v}))}/></label>
         <label className="lab">PF<${Num} id="m-hp" value=${form.hp} min=${1} onChange=${v=>setForm(x=>({...x,hp:v}))}/></label>
         <label className="lab">CA<${Num} id="m-ac" value=${form.ac} min=${0} onChange=${v=>setForm(x=>({...x,ac:v}))}/></label>
+        <div className="m-atk-wrap"><${AtkEditor} attacks=${form.attacks} notes=${form.notes} onChange=${v=>setForm(x=>({...x, ...v}))}/></div>
         <label className="row hidchk"><input id="m-hid" type="checkbox" checked=${form.hidden} onChange=${e=>setForm({...form,hidden:e.target.checked})}/>Nascosto ai giocatori</label>
         <button className="btn">+ Aggiungi</button>
       </form>
@@ -5915,7 +5960,10 @@ function Main({sb, me: meReal, onSignOut}){
       const rows = Array.from({length:n},(_,i)=>({name: n>1 ? `${f.name.trim()} ${i+1}` : f.name.trim(), init_mod:f.mod, dex:f.mod, hidden:!!f.hidden}));
       const {data, error:e} = await sb.from("combatants").insert(rows).select("id");
       if (e) return errText(e);
-      const {error:e2} = await sb.from("combatant_secrets").insert(data.map(r=>({id:r.id, hp:f.hp, max_hp:f.hp, ac:f.ac})));
+      const atk = cleanAtk(f.attacks), notes = String(f.notes||"").trim().slice(0,1000);
+      let {error:e2} = await sb.from("combatant_secrets").insert(data.map(r=>({id:r.id, hp:f.hp, max_hp:f.hp, ac:f.ac, notes, ...(atk.length ? {attacks:atk} : {})})));
+      if (e2 && /attacks|schema cache|column/i.test(e2.message)){ ({error:e2} = await sb.from("combatant_secrets").insert(data.map(r=>({id:r.id, hp:f.hp, max_hp:f.hp, ac:f.ac, notes}))));
+        if (!e2){ await camp.loadFighters(); return "Avversario aggiunto, ma gli attacchi non sono stati salvati: va eseguito fase22.sql"; } }
       await camp.loadFighters(); return errText(e2); },
     rollInit: async (f) => {
       let mod = f.init_mod||0, pen = 0;
@@ -5926,6 +5974,11 @@ function Main({sb, me: meReal, onSignOut}){
       await camp.loadFighters(); return ""; },
     setInit: async (f, v) => { await sb.from("combatants").update({init:v}).eq("id", f.id); camp.loadFighters(); },
     remove: async (f) => { const {error:e} = await sb.from("combatants").delete().eq("id", f.id); await camp.loadFighters(); return errText(e); },
+    setMonsterAtk: async (f, attacks, notes) => { const {error:e} = await sb.from("combatant_secrets").update({attacks: cleanAtk(attacks), notes: String(notes||"").trim().slice(0,1000)}).eq("id", f.id);
+      await camp.loadFighters(); return e ? "Non salvato: "+e.message+(/attacks|schema cache|column/i.test(e.message) ? " (esegui fase22.sql)" : "") : ""; },
+    attack: async (f, a, hidden=true) => { const {formula, kind} = splitDmg(a.dmg); const lab = `${f.name} · ${a.name || "Attacco"}`;
+      await onRoll({type:"d20", label: lab, mod: Number(a.bonus)||0, hidden});
+      if (formula) await onRoll({type:"formula", label: lab+" — danni"+(kind ? " ("+kind+")" : ""), formula, hidden}); return ""; },
     setMonsterHp: (f, hp) => { clearTimeout(hpTimers.current[f.id]);
       hpTimers.current[f.id] = setTimeout(async ()=>{ const sec = camp.secrets[f.id] || {};
         await sb.from("combatant_secrets").update({hp}).eq("id", f.id);
