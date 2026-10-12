@@ -4239,6 +4239,7 @@ function loadItems(){
   return ITEMS_PROMISE;
 }
 const RARITIES = ["comune","non comune","raro","molto raro","leggendario","manufatto"];
+const rarTok = r => String(r||"").split(/,| o /).map(t=>t.replace(/\(.*?\)/g,"").trim()).filter(Boolean);
 const ITEM_ICON = {arma:"⚔", armatura:"🛡", scudo:"◈", magico:"✦", consumabile:"⚗", attrezzatura:"🎒", tesoro:"💎", altro:"•"};
 const MASTERIES = ["Fendere","Graffiare","Intaccare","Spingere","Fiaccare","Rallentare","Rovesciare","Irritare"];
 const ITEM_DATA_KEYS = ["dmg","dt","ab","props","mastery","range","at","base","str","stealth","acBonus","bonus","chg","qty"];
@@ -4382,9 +4383,9 @@ function itemToSheet(it, x){
   const q = Number(it.qty)||0;
   if (it.wt != null) o.wt = q > 1 ? Math.round(it.wt/q*1000)/1000 : Number(it.wt)||0;
   if (q > 1 && (!x || !Number(x.qty) || Number(x.qty) === 1)) o.qty = q;
-  if (o.cat==="arma"){ o.dmg = it.dmg || "1d4"; o.dmgType = it.dt || ""; o.ability = it.ab || "for";
+  if (o.cat==="arma"){ o.dmg = it.dmg || x?.dmg || "1d4"; o.dmgType = it.dt || (it.dmg ? "" : x?.dmgType || ""); o.ability = it.ab || x?.ability || "for";
     o.props = [...(it.props||[]), it.mastery ? "Maestria: "+it.mastery : ""].filter(Boolean).join(", ").slice(0,120); }
-  if (o.cat==="armatura"){ o.armor = it.at || "leggera"; o.base = Number(it.base)||11; }
+  if (o.cat==="armatura"){ o.armor = it.at || x?.armor || "leggera"; o.base = Number(it.base) || Number(x?.base) || 11; }
   if (o.cat==="scudo") o.acBonus = Number(it.acBonus)||2;
   else if (it.acBonus && o.cat!=="armatura") o.acBonus = Number(it.acBonus);
   o.magic = Number(it.bonus)||0;
@@ -4464,7 +4465,7 @@ function ItemsTab({sb, me, names, reload}){
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [confirmDel, setConfirmDel] = useState(false);
   useEffect(()=>setLimit(60),[q, cat, rar, onlyCustom]);
   const t = fold(q);
-  const list = (book?.all||[]).filter(s=> (!cat || s.cat===cat) && (!rar || (rar==="mondano" ? !s.rarity : s.rarity===rar))
+  const list = (book?.all||[]).filter(s=> (!cat || s.cat===cat) && (!rar || (rar==="mondano" ? !s.rarity : rar==="magico" ? !!s.rarity : rarTok(s.rarity).includes(rar)))
     && (!onlyCustom || s.custom) && (!t || s.f.includes(t) || s.fe.includes(t)));
   const open = openKey && book?.byKey.get(openKey);
   const canEdit = s => s.custom && (M || s.created_by===me.id);
@@ -4482,7 +4483,7 @@ function ItemsTab({sb, me, names, reload}){
       <input id="itc-q" className="field" style=${{flex:"1 1 200px",maxWidth:280}} placeholder="Cerca (anche col nome inglese)…" value=${q} onChange=${e=>setQ(e.target.value)}/>
       <select id="itc-cat" className="field" aria-label="Categoria" value=${cat} onChange=${e=>setCat(e.target.value)}><option value="">Tutte le categorie</option>
         ${EQ_CATS.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select>
-      <select id="itc-rar" className="field" aria-label="Rarità" value=${rar} onChange=${e=>setRar(e.target.value)}><option value="">Tutte le rarità</option><option value="mondano">Non magici</option>
+      <select id="itc-rar" className="field" aria-label="Rarità" value=${rar} onChange=${e=>setRar(e.target.value)}><option value="">Tutte le rarità</option><option value="mondano">Non magici</option><option value="magico">Tutti i magici</option>
         ${RARITIES.map(r=>html`<option key=${r} value=${r}>${r}</option>`)}</select>
       <label className="row" style=${{gap:6,flexWrap:"nowrap"}}><input id="itc-own" type="checkbox" checked=${onlyCustom} onChange=${e=>setOnlyCustom(e.target.checked)}/>Solo del gruppo</label>
       <span className="spacer"></span>
