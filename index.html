@@ -697,6 +697,11 @@ button.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .sp-filters select.field{width:auto;max-width:100%}
 .sp-cls{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 14px}
 .sp-legal{font-size:.75rem;margin:0}
+.it-tip{display:inline-flex;align-items:center;gap:6px;max-width:100%}
+.it-tip .sp-info{width:19px;height:19px;font-size:.72rem}
+.it-rules p{font-size:.86rem;color:var(--muted)}
+.it-rules p b{color:var(--ink)}
+.it-desc p{margin:0 0 .45em}.it-desc p:last-child{margin:0}
 .ytbox{position:fixed;bottom:16px;z-index:55;width:256px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgb(0 0 0/.3);overflow:hidden;display:grid}
 .ytbox.right{right:16px} .ytbox.left{left:16px}
 .ytbar{display:flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;font-size:.8rem;border-bottom:1px solid var(--line)}
@@ -1376,6 +1381,7 @@ function eqAttack(x, D){
   return {bonus: sg(bonus).replace("−","-"), dmg: dice + (dmgMod ? (dmgMod>0 ? "+" : "-") + Math.abs(dmgMod) : ""), notes: [x.dmgType, x.props].filter(Boolean).join(" · ")};
 }
 function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen, openV}){
+  const ibook = useContext(ItemsCtx); const ref = ibook ? ibook.find(x) : null;
   const setEq = (on) => upd(p=>equipItem(p, x.id, on));
   const c = eqCat(x); const wear = eqWearable(c) || !!x.eq || !!slotFor([], x);
   const atk = (s.attacks||[]).find(a=>a.item===x.id);
@@ -1392,7 +1398,7 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     ${x.eq && SLOT_NAME[x.slot] && html`<span className="chip gold" title="Dove lo indossa">${SLOT_NAME[x.slot]}</span>`}`;
   const head = html`<summary className="tr-sum eq-sum">
       ${wear ? html`<button type="button" role="switch" className="eq-sw" aria-checked=${!!x.eq} aria-label=${"Equipaggiato: "+(x.name||"oggetto")} title=${x.eq ? "Equipaggiato: tocca per togliere" : "Non equipaggiato: tocca per equipaggiare"} onClick=${e=>{ e.preventDefault(); setEq(!x.eq); }}><span></span></button>` : null}
-      <span className="tr-n">${x.name || "Senza nome"}</span>${chips}
+      <span className="tr-n">${ref && !editing ? html`<${ItemTip} it=${ref}>${x.name || "Senza nome"}<//>` : (x.name || "Senza nome")}</span>${chips}
       ${Number(x.chg) > 0 && html`<span className="tr-uses" onClick=${e=>e.preventDefault()}><${Pips} n=${Math.min(20, Number(x.chg))} used=${Math.max(0, Number(x.chg) - (Number(x.used)||0))} label=${(x.name||"Oggetto")+" cariche"} onSet=${v=>patch({used: Number(x.chg) - v})}/></span>`}
       ${c==="consumabile" && !ro && Number(x.qty) > 0 && html`<button type="button" className="btn small" onClick=${e=>{ e.preventDefault(); patch({qty: Math.max(0, (Number(x.qty)||0) - 1)}); }} title="Usane uno">Usa 1</button>`}
       ${Number(x.wt) > 0 && html`<span className="muted eq-wt">${numIt((Number(x.wt)||0)*(Number(x.qty)||0))} kg</span>`}
@@ -1401,7 +1407,8 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     ${head}
     <div className="tr-body tr-form">
       <div className="tr-row">
-        <label className="lab grow">Nome<input className="field" id=${"eq-n-"+x.id} autoFocus=${!x.name} maxLength="80" value=${x.name||""} placeholder="es. Spada lunga, Pozione di guarigione" onChange=${e=>patch({name:e.target.value})}/></label>
+        <label className="lab grow">Nome<${ItemName} x=${x} autoFocus=${!x.name} onType=${v=>patch({name:v, ref:""})}
+          onPick=${it=>{ const o = itemToSheet(it, x); if (!eqWearable(o.cat) && eqWearable(c) && x.eq){ o.eq = false; o.slot = ""; } patch(o); }}/></label>
         <label className="lab">Categoria<select className="field" id=${"eq-c-"+x.id} value=${c} onChange=${e=>patch({cat:e.target.value})}>${EQ_CATS.map(([k])=>html`<option key=${k} value=${k}>${EQ_ONE[k]}</option>`)}</select></label>
       </div>
       <div className="tr-row">
@@ -1436,7 +1443,7 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
         ${Number(x.chg) > 0 && html`<label className="lab">Si ricaricano<select className="field" id=${"eq-r-"+x.id} value=${x.recharge||"lungo"} onChange=${e=>patch({recharge:e.target.value})}>
           <option value="lungo">Riposo lungo / all’alba</option><option value="breve">Riposo breve</option><option value="mai">Mai (a mano)</option></select></label>`}
       </div>
-      <label className="lab">Descrizione<textarea className="field tr-ta" id=${"eq-x-"+x.id} value=${x.notes||""} placeholder="Cosa fa, proprietà magiche, da dove viene…" onChange=${e=>patch({notes:e.target.value})}></textarea></label>
+      <label className="lab">${ref ? "Note tue (la descrizione del compendio resta nella “i”)" : "Descrizione"}<textarea className="field tr-ta" id=${"eq-x-"+x.id} value=${x.notes||""} placeholder=${ref ? "Da dove viene, a chi apparteneva, incisioni…" : "Cosa fa, proprietà magiche, da dove viene…"} onChange=${e=>patch({notes:e.target.value})}></textarea></label>
       <div className="tr-row"><span className="spacer"></span>
         <button type="button" className="btn small danger" onClick=${del}>Elimina</button>
         <button type="button" className="btn small primary" onClick=${onDone}>Fatto</button></div>
@@ -1446,8 +1453,9 @@ function EqItem({x, s, D, ro, editing, onEdit, onDone, patch, del, upd, keepOpen
     ${head}
     <div className="tr-body">
       ${x.notes ? html`<div className="tr-desc">${x.notes}</div>` : null}
+      ${!x.notes && ref?.desc ? html`<div className="tr-desc it-desc">${String(ref.desc).split("\n").filter(Boolean).map(itemPara)}</div>` : null}
       ${c==="arma" && html`<div className="muted" style=${{fontSize:".85rem"}}>${(()=>{ const a = eqAttack(x, D); return `Colpire ${a.bonus.replace("-","−")} · danni ${a.dmg}${x.dmgType ? " "+x.dmgType.toLowerCase() : ""}${x.props ? " · "+x.props : ""}`; })()}</div>`}
-      ${!x.notes && c!=="arma" && html`<p className="muted" style=${{margin:0}}>Nessuna descrizione.</p>`}
+      ${!x.notes && !ref?.desc && c!=="arma" && html`<p className="muted" style=${{margin:0}}>${ref ? "Dal compendio: tocca la “i” accanto al nome per i dettagli." : "Nessuna descrizione."}</p>`}
       ${!ro && html`<div className="tr-row"><span className="muted" style=${{fontSize:".8rem"}}>${EQ_ONE[c]} · ${(EQ_WHERE.find(w=>w[0]===(x.where||"zaino"))||[])[1]}</span><span className="spacer"></span>
         ${c==="arma" && html`<button type="button" className="btn small" onClick=${toAttacks} title="Crea o aggiorna l’attacco in Combattimento con bonus e danni calcolati">${atk ? "↻ Aggiorna l’attacco" : "⚔ Aggiungi agli attacchi"}</button>`}
         <button type="button" className="btn small" onClick=${onEdit}>✎ Modifica</button></div>`}
@@ -1783,7 +1791,8 @@ function SlotPicker({slot, s, ro, upd, onClose, onNew}){
 }
 
 function EquipTab({s, D, ro, upd, set}){
-  const items = s.items || [];
+  const items = s.items || []; const ibook = useContext(ItemsCtx);
+  useEffect(()=>{ if (items.length && ibook) ibook.need(); },[items.length > 0]);
   const [filter, setFilter] = useState(()=>lsGet("eqFilter","tutti"));
   const [editId, setEditId] = useState(null); const [lastId, setLastId] = useState(null); const [openV, setOpenV] = useState(0); const [newCat, setNewCat] = useState("arma");
   const [pick, setPick] = useState(null); const [doll, setDoll] = useState(()=>lsGet("eqDoll", true));
@@ -3324,7 +3333,7 @@ function useCampaign(sb, active){
   const [sounds, setSounds] = useState([]);
   const [audio, setAudio] = useState(null);
   const [recipes, setRecipes] = useState([]);
-  const [spellsCustom, setSpellsCustom] = useState([]);
+  const [spellsCustom, setSpellsCustom] = useState([]); const [itemsCustom, setItemsCustom] = useState([]);
   const [config, setConfig] = useState(undefined);
   const [scenes, setScenes] = useState({}); const [sceneStates, setSceneStates] = useState({}); const [tokens, setTokens] = useState([]); const [areas, setAreas] = useState([]);
   const [clocks, setClocks] = useState([]); const [clocksErr, setClocksErr] = useState("");
@@ -3338,6 +3347,7 @@ function useCampaign(sb, active){
   const tokT = useRef(0);
   const loadConfig = useCallback(async()=>{ const {data, error} = await sb.from("campaign").select("config").eq("id",1).maybeSingle(); if (!error) setConfig(data?.config || null); else setConfig(null); },[sb]);
   const loadSpells = useCallback(async()=>{ const {data, error} = await sb.from("spells_custom").select("*"); if (!error) setSpellsCustom(data); },[sb]);
+  const loadItemsC = useCallback(async()=>{ const {data, error} = await sb.from("items_custom").select("*"); if (!error) setItemsCustom(data||[]); },[sb]);
   const onNewRoll = useRef(null);
   const loadAudio = useCallback(async()=>{
     const [s, a, r] = await Promise.all([sb.from("sounds").select("*"), sb.from("audio_state").select("*").eq("id",1).maybeSingle(), sb.from("recipes").select("*")]);
@@ -3387,9 +3397,9 @@ function useCampaign(sb, active){
     if (!mb.error) setMembers(mb.data);
     if (!r.error) setRolls(r.data);
     if (!cb.error && cb.data) setCombat(cb.data);
-    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs(), loadMarks(), loadShares()]);
+    await Promise.all([loadFighters(), loadPins(), loadWorld(), loadChron(), loadAudio(), loadSpells(), loadItemsC(), loadConfig(), loadScenes(), loadClocks(), loadMmaps(), loadArchive(), loadFoes(), loadNpcs(), loadMarks(), loadShares()]);
     setReady(true);
-  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs, loadMarks, loadShares]);
+  },[sb, loadFighters, loadPins, loadWorld, loadChron, loadAudio, loadSpells, loadItemsC, loadConfig, loadScenes, loadClocks, loadMmaps, loadArchive, loadFoes, loadNpcs, loadMarks, loadShares]);
 
   useEffect(()=>{ if (!active) return;
     loadAll();
@@ -3413,6 +3423,7 @@ function useCampaign(sb, active){
       .on("postgres_changes",{event:"*",schema:"public",table:"sounds"}, ()=>loadAudio())
       .on("postgres_changes",{event:"*",schema:"public",table:"recipes"}, ()=>loadAudio())
       .on("postgres_changes",{event:"*",schema:"public",table:"spells_custom"}, ()=>loadSpells())
+      .on("postgres_changes",{event:"*",schema:"public",table:"items_custom"}, ()=>loadItemsC())
       .on("postgres_changes",{event:"*",schema:"public",table:"scenes"}, (pl)=>{ if (pl.eventType==="DELETE") setScenes(x=>{ const y={...x}; delete y[pl.old?.plane]; return y; });
           else if (pl.new && pl.new.plane && pl.new.walls !== undefined) setScenes(x=>({...x, [pl.new.plane]: pl.new})); else loadScenes(); })
       .on("postgres_changes",{event:"*",schema:"public",table:"scene_state"}, (pl)=>{ if (pl.eventType==="DELETE") setSceneStates(x=>{ const y={...x}; delete y[pl.old?.plane]; return y; });
@@ -3448,7 +3459,7 @@ function useCampaign(sb, active){
 
   return {chars, setChars, party, setParty, maps, members, ready, error, reload:loadAll,
     rolls, addRoll, onNewRoll, combat, setCombat, fighters, secrets, loadFighters,
-    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs, marks, setMarks, loadMarks, marksErr, codexShares, setCodexShares, loadShares};
+    pins, loadPins, world, setWorld, handouts, codex, codexSecrets, journal, loadChron, sounds, audio, recipes, loadAudio, spellsCustom, loadSpells, itemsCustom, loadItemsC, config, setConfig, scenes, setScenes, sceneStates, setSceneStates, tokens, setTokens, loadScenes, loadTokens, areas, setAreas, loadAreas, clocks, setClocks, loadClocks, clocksErr, mmaps, loadMmaps, archive, setArchive, loadArchive, archiveErr, foes, setFoes, loadFoes, npcs, setNpcs, npcSaves, setNpcSaves, loadNpcs, marks, setMarks, loadMarks, marksErr, codexShares, setCodexShares, loadShares};
 }
 
 /* ---------- risparmio di spazio e traffico (piano gratuito di Supabase) ---------- */
@@ -3654,11 +3665,11 @@ function BackupPanel({sb, camp}){
   const download = async () => { setErr(""); setMsg(""); setBusy(true);
     try {
       const q = async (t, sel="*") => { const {data, error} = await sb.from(t).select(sel); if (error) throw new Error(t+": "+error.message); return data; };
-      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares] = await Promise.all([
+      const [characters, party, maps, pins, world, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, campaign, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares, items_custom] = await Promise.all([
         q("characters","id,owner,data,updated_at,hidden").catch(()=>q("characters","id,owner,data,updated_at")), q("party","state"), q("maps","plane,path"), q("pins"), q("world"), q("members","user_id,name"),
-        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[]), q("marks").catch(()=>[]), q("codex_shares").catch(()=>[])]);
+        q("handouts"), q("codex"), q("codex_secrets"), q("journal"), q("recipes"), q("sounds"), q("spells_custom"), q("campaign","config"), q("scenes").catch(()=>[]), q("scene_state").catch(()=>[]), q("tokens").catch(()=>[]), q("areas").catch(()=>[]), q("clocks").catch(()=>[]), q("maps_master","plane,path").catch(()=>[]), q("map_archive").catch(()=>[]), q("foes").catch(()=>[]), q("npc_cards").catch(()=>[]), q("npc_saves").catch(()=>[]), q("marks").catch(()=>[]), q("codex_shares").catch(()=>[]), q("items_custom").catch(()=>[])]);
       const backup = {app:"taccuino", version:4, campaign: campaign[0]?.config || null, exported_at:new Date().toISOString(),
-        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares};
+        characters, party: party[0]?.state || null, maps, pins, world: world[0] || null, members, handouts, codex, codex_secrets, journal, recipes, sounds, spells_custom, scenes, scene_state, tokens, areas, clocks, maps_master, map_archive, foes, npc_cards, npc_saves, marks, codex_shares, items_custom};
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
       const d = new Date(); const name = `${slugKey(CFG.name, new Set())}-backup-${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -3695,6 +3706,7 @@ function BackupPanel({sb, camp}){
     await up("recipes", b.recipes, "ricettario");
     await up("sounds", b.sounds, "suoni");
     await up("spells_custom", b.spells_custom, "incantesimi del gruppo", r=>({...r, created_by:null}));
+    await up("items_custom", b.items_custom, "oggetti del gruppo", r=>({...r, created_by:null}));
     await up("scenes", b.scenes, "mappe da battaglia");
     await up("scene_state", b.scene_state, "nebbia delle mappe");
     await up("tokens", b.tokens, "pedine", r=>({...r, combatant_id:null}));
@@ -4214,6 +4226,284 @@ function SpellsTab({sb, me, names, reload}){
       ${canEdit(open) && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
         : html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>del(open)}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
       ${!open.custom && M && html`<button type="button" className="btn small" title="Crea una copia modificabile, ad esempio per una regola della casa" onClick=${()=>{ setOpenKey(null); setEditing(toForm(open)); }}>Copia come variante</button>`}
+    <//>`}
+  </div>`;
+}
+
+/* ---------- compendio oggetti: equipaggiamento e oggetti magici SRD 5.2 (items.json) + oggetti del gruppo (fase 23) ---------- */
+const ItemsCtx = React.createContext(null);
+let ITEMS_CACHE = null, ITEMS_PROMISE = null;
+function loadItems(){
+  if (!ITEMS_PROMISE) ITEMS_PROMISE = fetch("items.json").then(r=>{ if (!r.ok) throw new Error("errore "+r.status); return r.json(); })
+    .then(j=>(ITEMS_CACHE = Array.isArray(j) ? {items:j, rules:{}} : j)).catch(e=>{ ITEMS_PROMISE = null; throw e; });
+  return ITEMS_PROMISE;
+}
+const RARITIES = ["comune","non comune","raro","molto raro","leggendario","manufatto"];
+const ITEM_ICON = {arma:"⚔", armatura:"🛡", scudo:"◈", magico:"✦", consumabile:"⚗", attrezzatura:"🎒", tesoro:"💎", altro:"•"};
+const MASTERIES = ["Fendere","Graffiare","Intaccare","Spingere","Fiaccare","Rallentare","Rovesciare","Irritare"];
+const ITEM_DATA_KEYS = ["dmg","dt","ab","props","mastery","range","at","base","str","stealth","acBonus","bonus","chg","qty"];
+const customToItem = (r) => ({...(r.data||{}), id:r.id, name:r.name||"", cat: EQ_ONE[r.cat] ? r.cat : "altro", kind:r.kind||"", rarity:r.rarity||"", attune:r.attune||"",
+  cost:r.cost||"", wt:Number(r.weight)||0, desc:r.description||"", magic: !!r.rarity, created_by:r.created_by, custom:true});
+
+function useItemBook(customRows){
+  const [srd, setSrd] = useState(ITEMS_CACHE); const [err, setErr] = useState(""); const [want, setWant] = useState(!!ITEMS_CACHE);
+  useEffect(()=>{ if (srd || !want) return; let off = false;
+    loadItems().then(x=>{ if (!off){ setSrd(x); setErr(""); } }).catch(e=>{ if (!off) setErr("Compendio degli oggetti non disponibile: "+e.message); });
+    return ()=>{ off = true; }; },[want, srd]);
+  const need = useCallback(()=>setWant(true),[]);
+  return useMemo(()=>{
+    const base = (srd?.items||[]).map(s=>({...s, key:s.idx, f:fold(s.name), fe:fold(s.name_en)}));
+    const custom = (customRows||[]).map(r=>{ const s = customToItem(r); return {...s, key:"c:"+r.id, f:fold(s.name), fe:""}; });
+    const all = [...base, ...custom].sort((a,b)=>a.name.localeCompare(b.name,"it"));
+    const byKey = new Map(all.map(s=>[s.key,s])); const byName = new Map();
+    for (const s of [...base, ...custom]){ if (s.fe) byName.set(s.fe, s); byName.set(s.f, s); }
+    const find = (x) => (x && ((x.ref && byKey.get(x.ref)) || (x.name && byName.get(fold(x.name))))) || null;
+    const search = (q, n=8) => { const t = fold(q); if (!t) return [];
+      const score = s => s.f.startsWith(t) ? 0 : s.f.includes(" "+t) ? 1 : s.fe.startsWith(t) ? 2 : s.f.includes(t) ? 3 : s.fe.includes(t) ? 4 : 9;
+      return all.map(s=>[score(s),s]).filter(([k])=>k<9).sort((a,b)=>a[0]-b[0] || a[1].name.localeCompare(b[1].name,"it")).slice(0,n).map(x=>x[1]); };
+    return {all, find, search, byKey, rules: srd?.rules || {}, ready: !!srd, err, need};
+  },[srd, customRows, err, need]);
+}
+
+const itemHead = (it) => { let t = it.kind || EQ_ONE[it.cat] || "Oggetto";
+  if (it.rarity) t += ", " + it.rarity;
+  if (it.attune) t += " (" + (it.attune===true ? "richiede sintonia" : it.attune) + ")";
+  return t; };
+const itemAC = (it) => it.cat==="scudo" ? "+"+((Number(it.acBonus)||2)+(Number(it.bonus)||0))
+  : it.cat==="armatura" ? `${(Number(it.base)||10)+(Number(it.bonus)||0)}${it.at==="pesante" ? "" : it.at==="media" ? " + mod. Des (max 2)" : " + mod. Des"}` : "";
+const itemSummary = (it) => [it.cat==="arma" && it.dmg ? `${it.dmg}${it.bonus ? " +"+it.bonus : ""} ${String(it.dt||"").toLowerCase()}`.trim() : "",
+  itemAC(it) ? "CA "+itemAC(it) : "", it.rarity || "", it.attune ? "sintonia" : ""].filter(Boolean).join(" · ");
+const itemPara = (t, i) => { const m = /^([A-ZÀ-Ý0-9][^.:]{1,44})([.:]) (.+)$/s.exec(t);
+  return m && m[1].split(" ").length<=5 && m[1].length<=40 && (i>0 || /^[A-ZÀ-Ý]/.test(m[3])) ? html`<p key=${i}><b>${m[1]}${m[2]}</b> ${m[3]}</p>` : html`<p key=${i}>${t}</p>`; };
+
+function ItemBody({it, names, rules}){
+  const R = rules || {}; const meta = [];
+  if (it.cat==="arma"){ if (it.dmg) meta.push(["Danni", `${it.dmg}${it.bonus ? " +"+it.bonus : ""} ${it.dt||""}`.trim()]);
+    meta.push(["Proprietà", (it.props||[]).join(", ") || "—"]); if (it.mastery) meta.push(["Maestria", it.mastery]); if (it.range) meta.push(["Gittata", it.range]); }
+  if (it.cat==="armatura" || it.cat==="scudo") meta.push(["Classe Armatura", itemAC(it)]);
+  if (it.cat==="armatura"){ if (it.str) meta.push(["Forza", String(it.str)]); if (it.stealth) meta.push(["Furtività", "Svantaggio"]);
+    if (it.don) meta.push(["Indossare / togliere", it.don+" / "+(it.doff||"—")]); }
+  if (it.ability) meta.push(["Caratteristica", it.ability]);
+  if (it.chg) meta.push(["Cariche", String(it.chg)]);
+  if (it.cost) meta.push(["Costo", it.cost]); if (Number(it.wt) > 0) meta.push(["Peso", numIt(it.wt)+" kg"+(it.qty > 1 ? ` (${it.qty} pezzi)` : "")]);
+  const pr = it.cat==="arma" ? (it.props||[]).map(p=>String(p).split(" (")[0]).filter((p,i,a)=>R.props?.[p] && a.indexOf(p)===i) : [];
+  return html`<div className="sp-body">
+    <div className="eyebrow">${itemHead(it)}</div>
+    ${meta.length > 0 && html`<dl className="sp-meta">${meta.map(([k,v])=>html`<div key=${k}><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>`}
+    ${it.desc && html`<div className="sp-desc">${String(it.desc).split("\n").filter(Boolean).map(itemPara)}</div>`}
+    ${it.use?.length > 0 && html`<div className="sp-desc"><p><b>Usare (azione Usare).</b> ${it.use.join("; ")}.</p></div>`}
+    ${it.craft?.length > 0 && html`<div className="sp-desc"><p><b>Creare.</b> ${it.craft.join(", ")}.</p></div>`}
+    ${(pr.length > 0 || (it.mastery && R.mastery?.[it.mastery])) && html`<div className="sp-desc it-rules">
+      ${pr.map(p=>html`<p key=${p}><b>${p}.</b> ${R.props[p]}</p>`)}
+      ${it.mastery && R.mastery?.[it.mastery] && html`<p><b>Maestria: ${it.mastery}.</b> ${R.mastery[it.mastery]}</p>`}</div>`}
+    <div className="sp-foot"><span className="muted">${it.custom ? "Aggiunto dal gruppo"+(names?.[it.created_by] ? " · "+names[it.created_by] : "") : "SRD 5.2 · CC BY 4.0"}</span></div>
+  </div>`;
+}
+
+function ItemModal({it, onClose, names, children}){
+  const book = useContext(ItemsCtx);
+  useEffect(()=>{ const k = e => { if (e.key==="Escape") onClose(); }; window.addEventListener("keydown", k); return ()=>window.removeEventListener("keydown", k); },[]);
+  return ReactDOM.createPortal(html`<div className="modal-back" role="dialog" aria-modal="true" aria-label=${it.name} onClick=${e=>{ e.stopPropagation(); if (e.target===e.currentTarget) onClose(); }}>
+    <div className="modal sp-modal">
+      <div className="row" style=${{alignItems:"baseline"}}><h2 style=${{flex:"1 1 auto",margin:0}}>${it.name}</h2>
+        ${it.name_en && html`<span className="muted" style=${{fontSize:".85rem"}}>${it.name_en}</span>`}</div>
+      <${ItemBody} it=${it} names=${names} rules=${book?.rules}/>
+      <div className="row">${children}<span className="spacer"></span><button type="button" className="btn primary" onClick=${onClose} autoFocus>Chiudi</button></div>
+    </div></div>`, document.body);
+}
+
+/* popover al passaggio del mouse (solo dispositivi con puntatore) */
+function useHoverPop(wrap, skip){
+  const [pop, setPop] = useState(null); const tm = useRef(0);
+  const show = () => { if (!canHover()) return; clearTimeout(tm.current);
+    tm.current = setTimeout(()=>{ if (!wrap.current || (skip && skip())) return;
+      const r = wrap.current.getBoundingClientRect(); const w = Math.min(440, window.innerWidth-32);
+      const left = Math.max(16, Math.min(r.left, window.innerWidth - w - 16));
+      const below = window.innerHeight - r.bottom > 320 || r.top < window.innerHeight/2;
+      setPop(below ? {left, top:r.bottom+6, w} : {left, bottom:window.innerHeight - r.top + 6, w}); }, 350); };
+  const hide = () => { clearTimeout(tm.current); tm.current = setTimeout(()=>setPop(null), 180); };
+  const keep = () => clearTimeout(tm.current);
+  useEffect(()=>()=>clearTimeout(tm.current),[]);
+  return {pop, setPop, show, hide, keep};
+}
+function ItemPop({it, hp}){
+  const book = useContext(ItemsCtx);
+  return hp.pop && ReactDOM.createPortal(html`<div className="sp-pop" style=${{left:hp.pop.left, top:hp.pop.top, bottom:hp.pop.bottom, width:hp.pop.w}}
+    onMouseEnter=${hp.keep} onMouseLeave=${hp.hide} onClick=${e=>e.stopPropagation()}>
+    <h3 style=${{margin:0}}>${it.name}</h3><${ItemBody} it=${it} rules=${book?.rules}/></div>`, document.body);
+}
+const InfoDot = ({it, onOpen}) => html`<span role="button" tabIndex="0" className="sp-info" title="Cosa fa" aria-label=${"Descrizione di "+it.name}
+  onClick=${e=>{ e.preventDefault(); e.stopPropagation(); onOpen(); }} onKeyDown=${e=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); e.stopPropagation(); onOpen(); } }}>i</span>`;
+
+/* nome di un oggetto in sola lettura: passaggio del mouse e "i" mostrano cosa fa */
+function ItemTip({it, children}){
+  const wrap = useRef(null); const hp = useHoverPop(wrap); const [modal, setModal] = useState(false);
+  return html`<span className="it-tip" ref=${wrap} onMouseEnter=${hp.show} onMouseLeave=${hp.hide}>${children}
+    <${InfoDot} it=${it} onOpen=${()=>{ hp.setPop(null); setModal(true); }}/>
+    <${ItemPop} it=${it} hp=${hp}/>
+    ${modal && html`<${ItemModal} it=${it} onClose=${()=>setModal(false)}/>`}</span>`;
+}
+
+/* campo nome con suggerimenti dal compendio */
+function ItemName({x, onType, onPick, autoFocus}){
+  const book = useContext(ItemsCtx);
+  const [open, setOpen] = useState(false); const [hi, setHi] = useState(0); const [modal, setModal] = useState(false);
+  const wrap = useRef(null); const inp = useRef(null);
+  const hp = useHoverPop(wrap, ()=>document.activeElement===inp.current);
+  const match = book ? book.find(x) : null;
+  const rawSugg = open && book && String(x.name||"").trim().length>=2 ? book.search(x.name, 8) : [];
+  const sugg = (rawSugg.length===1 && x.ref && rawSugg[0].key===x.ref && fold(x.name)===rawSugg[0].f) ? [] : rawSugg;
+  const pick = (s) => { onPick(s); setOpen(false); };
+  const onKey = (e) => {
+    if (!sugg.length) return;
+    if (e.key==="ArrowDown"){ e.preventDefault(); setHi(h=>(h+1)%sugg.length); }
+    else if (e.key==="ArrowUp"){ e.preventDefault(); setHi(h=>(h-1+sugg.length)%sugg.length); }
+    else if (e.key==="Enter"){ e.preventDefault(); pick(sugg[Math.min(hi, sugg.length-1)]); }
+    else if (e.key==="Escape"){ setOpen(false); } };
+  const lid = "it-sug-"+x.id;
+  return html`<div className="sp-name" ref=${wrap} onMouseEnter=${()=>{ if (match) hp.show(); }} onMouseLeave=${hp.hide}>
+    <input ref=${inp} id=${"eq-n-"+x.id} className="field" value=${x.name||""} placeholder="Scrivi per cercare nel compendio, o un nome tuo" aria-label="Nome dell’oggetto"
+      maxLength="80" autoFocus=${autoFocus} role="combobox" aria-expanded=${sugg.length>0} aria-controls=${lid} aria-autocomplete="list" autoComplete="off"
+      onFocus=${()=>{ setOpen(true); hp.setPop(null); book?.need(); }} onBlur=${()=>setTimeout(()=>setOpen(false),120)} onKeyDown=${onKey}
+      onChange=${e=>{ onType(e.target.value); setOpen(true); setHi(0); }}/>
+    ${match && html`<${InfoDot} it=${match} onOpen=${()=>{ hp.setPop(null); setModal(true); }}/>`}
+    ${sugg.length>0 && html`<ul className="sp-sug" id=${lid} role="listbox">${sugg.map((s,k)=>html`<li key=${s.key} role="option" aria-selected=${k===hi}
+      onMouseDown=${e=>{ e.preventDefault(); pick(s); }} onMouseEnter=${()=>setHi(k)}>
+      <span className="sp-lv" aria-hidden="true">${ITEM_ICON[s.cat]||"•"}</span><span className="sp-sn"><b>${s.name}</b><span className="muted">${s.custom ? "del gruppo" : s.name_en} · ${s.rarity || s.kind || EQ_ONE[s.cat]}</span></span></li>`)}</ul>`}
+    ${match && html`<${ItemPop} it=${match} hp=${hp}/>`}
+    ${modal && match && html`<${ItemModal} it=${match} onClose=${()=>setModal(false)}/>`}
+  </div>`;
+}
+
+/* dati che passano dal compendio alla scheda (la descrizione resta nel compendio: la scheda tiene solo il riferimento) */
+function itemToSheet(it, x){
+  const o = {name: it.name, ref: it.key, cat: EQ_ONE[it.cat] ? it.cat : "altro", attune: !!it.attune};
+  if (!o.attune) o.attuned = false;
+  const q = Number(it.qty)||0;
+  if (it.wt != null) o.wt = q > 1 ? Math.round(it.wt/q*1000)/1000 : Number(it.wt)||0;
+  if (q > 1 && (!x || !Number(x.qty) || Number(x.qty) === 1)) o.qty = q;
+  if (o.cat==="arma"){ o.dmg = it.dmg || "1d4"; o.dmgType = it.dt || ""; o.ability = it.ab || "for";
+    o.props = [...(it.props||[]), it.mastery ? "Maestria: "+it.mastery : ""].filter(Boolean).join(", ").slice(0,120); }
+  if (o.cat==="armatura"){ o.armor = it.at || "leggera"; o.base = Number(it.base)||11; }
+  if (o.cat==="scudo") o.acBonus = Number(it.acBonus)||2;
+  else if (it.acBonus && o.cat!=="armatura") o.acBonus = Number(it.acBonus);
+  o.magic = Number(it.bonus)||0;
+  if (it.chg){ o.chg = Math.min(20, Number(it.chg)||0); o.used = 0; if (it.recharge) o.recharge = it.recharge; }
+  return o;
+}
+
+const blankItem = () => ({name:"", cat:"magico", kind:"", rarity:"non comune", attune:false, attuneNote:"", cost:"", wt:0, desc:"",
+  dmg:"", dt:"", ab:"for", props:"", mastery:"", at:"leggera", base:11, str:0, stealth:false, acBonus:2, bonus:0, chg:0});
+const itemToForm = (it) => ({...blankItem(), ...Object.fromEntries(Object.keys(blankItem()).map(k=>[k, it[k] ?? blankItem()[k]])),
+  attune: !!it.attune, attuneNote: typeof it.attune==="string" && it.attune!=="richiede sintonia" ? it.attune : "",
+  props: Array.isArray(it.props) ? it.props.join(", ") : (it.props||""), desc: it.desc||"", ...(it.custom ? {id:it.id} : {name:it.name+" (variante)"})});
+
+function ItemForm({initial, onSave, onCancel, onDelete, busy}){
+  const [f, setF] = useState(initial); const [confirmDel, setConfirmDel] = useState(false);
+  const set = (k) => (e) => setF({...f, [k]: e.target.type==="checkbox" ? e.target.checked : e.target.value});
+  const num = (k, lo, hi) => (e) => { const v = parseFloat(String(e.target.value).replace(",",".")); setF({...f, [k]: isNaN(v) ? 0 : Math.max(lo, Math.min(hi, v))}); };
+  return html`<form className="panel" onSubmit=${e=>{e.preventDefault(); if (f.name.trim()) onSave(f);}}>
+    <h3>${f.id ? "Modifica oggetto" : "Nuovo oggetto"}</h3>
+    <div className="pf-row">
+      <label className="lab grow">Nome<input id="itf-name" className="field" maxLength="120" value=${f.name} onChange=${set("name")} autoFocus required/></label>
+      <label className="lab" style=${{flex:"0 0 170px"}}>Categoria<select id="itf-cat" className="field" value=${f.cat} onChange=${set("cat")}>
+        ${EQ_CATS.map(([k])=>html`<option key=${k} value=${k}>${EQ_ONE[k]}</option>`)}</select></label>
+    </div>
+    <div className="pf-row">
+      <label className="lab grow">Tipo<input id="itf-kind" className="field" maxLength="80" value=${f.kind} onChange=${set("kind")} placeholder="Oggetto meraviglioso, Arma (spada lunga), Anello…"/></label>
+      <label className="lab" style=${{flex:"0 0 160px"}}>Rarità<select id="itf-rar" className="field" value=${f.rarity} onChange=${set("rarity")}>
+        <option value="">— (non magico)</option>${RARITIES.map(r=>html`<option key=${r} value=${r}>${r}</option>`)}</select></label>
+    </div>
+    <div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 120px"}}>Costo<input id="itf-cost" className="field" maxLength="40" value=${f.cost} onChange=${set("cost")} placeholder="15 mo"/></label>
+      <label className="lab" style=${{flex:"0 0 110px"}}>Peso (kg)<input id="itf-wt" className="field" inputMode="decimal" value=${f.wt ? numIt(f.wt) : ""} onChange=${num("wt",0,9999)} placeholder="0"/></label>
+      <label className="lab" style=${{flex:"0 0 110px"}}>Bonus magico<select id="itf-bon" className="field" value=${f.bonus} onChange=${e=>setF({...f, bonus:Number(e.target.value)})}>${[0,1,2,3].map(v=>html`<option key=${v} value=${v}>${v ? "+"+v : "nessuno"}</option>`)}</select></label>
+      <label className="lab" style=${{flex:"0 0 100px"}}>Cariche<input id="itf-chg" className="field" inputMode="numeric" value=${f.chg||""} onChange=${num("chg",0,20)} placeholder="0"/></label>
+    </div>
+    ${f.cat==="arma" && html`<div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 100px"}}>Danno<input id="itf-dmg" className="field" maxLength="12" value=${f.dmg} onChange=${e=>setF({...f, dmg:e.target.value.replace(/[^0-9dD+\-]/g,"").toLowerCase()})} placeholder="1d8"/></label>
+      <label className="lab" style=${{flex:"0 0 150px"}}>Tipo di danno<input id="itf-dt" className="field" maxLength="30" value=${f.dt} onChange=${set("dt")} placeholder="Tagliente"/></label>
+      <label className="lab" style=${{flex:"0 0 180px"}}>Caratteristica<select id="itf-ab" className="field" value=${f.ab} onChange=${set("ab")}><option value="for">Forza (mischia)</option><option value="des">Destrezza (a distanza)</option><option value="fin">Accurata</option></select></label>
+      <label className="lab" style=${{flex:"0 0 150px"}}>Maestria<select id="itf-ms" className="field" value=${f.mastery} onChange=${set("mastery")}><option value="">—</option>${MASTERIES.map(m=>html`<option key=${m}>${m}</option>`)}</select></label>
+      <label className="lab grow">Proprietà<input id="itf-pr" className="field" maxLength="160" value=${f.props} onChange=${set("props")} placeholder="Accurata, Leggera, Versatile (1d10)"/></label>
+    </div>`}
+    ${f.cat==="armatura" && html`<div className="pf-row">
+      <label className="lab" style=${{flex:"0 0 180px"}}>Tipo di armatura<select id="itf-at" className="field" value=${f.at} onChange=${set("at")}>${ARMOR_T.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select></label>
+      <label className="lab" style=${{flex:"0 0 100px"}}>CA base<input id="itf-base" className="field" inputMode="numeric" value=${f.base} onChange=${num("base",10,20)}/></label>
+      <label className="lab" style=${{flex:"0 0 100px"}}>Forza min.<input id="itf-str" className="field" inputMode="numeric" value=${f.str||""} onChange=${num("str",0,20)} placeholder="—"/></label>
+      <label className="row" style=${{gap:6,paddingBottom:8}}><input id="itf-st" type="checkbox" checked=${!!f.stealth} onChange=${set("stealth")}/>Svantaggio a Furtività</label>
+    </div>`}
+    ${f.cat==="scudo" && html`<div className="pf-row"><label className="lab" style=${{flex:"0 0 110px"}}>Bonus CA<input id="itf-acb" className="field" inputMode="numeric" value=${f.acBonus} onChange=${num("acBonus",1,5)}/></label></div>`}
+    <div className="pf-row" style=${{alignItems:"end"}}>
+      <label className="row" style=${{gap:6,paddingBottom:8}}><input id="itf-att" type="checkbox" checked=${!!f.attune} onChange=${set("attune")}/>Richiede sintonia</label>
+      ${f.attune && html`<label className="lab grow">Sintonia con (facoltativo)<input id="itf-attn" className="field" maxLength="80" value=${f.attuneNote} onChange=${set("attuneNote")} placeholder="es. richiede sintonia da parte di un incantatore"/></label>`}
+    </div>
+    <label className="lab">Descrizione<textarea id="itf-desc" className="field" style=${{minHeight:180}} value=${f.desc} onChange=${set("desc")} placeholder="Cosa fa l’oggetto. Ogni a capo diventa un paragrafo; “Nome. testo” mette il nome in grassetto."></textarea></label>
+    <div className="row">
+      ${onDelete && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+        : html`<span className="confirm">Eliminare l’oggetto?<button type="button" className="btn small danger" onClick=${onDelete}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
+      <span className="spacer"></span><button type="button" className="btn" onClick=${onCancel}>Annulla</button><button className="btn primary" disabled=${busy}>Salva</button>
+    </div>
+  </form>`;
+}
+const formToRow = (f) => {
+  const d = {}; const c = f.cat;
+  if (c==="arma"){ if (f.dmg) d.dmg = f.dmg; if (f.dt) d.dt = f.dt.trim(); d.ab = f.ab; const p = String(f.props||"").split(",").map(x=>x.trim()).filter(Boolean); if (p.length) d.props = p; if (f.mastery) d.mastery = f.mastery; }
+  if (c==="armatura"){ d.at = f.at; d.base = Number(f.base)||11; if (Number(f.str)) d.str = Number(f.str); if (f.stealth) d.stealth = true; }
+  if (c==="scudo") d.acBonus = Number(f.acBonus)||2;
+  if (Number(f.bonus)) d.bonus = Number(f.bonus); if (Number(f.chg)) d.chg = Number(f.chg);
+  return {name:f.name.trim(), cat:c, kind:f.kind.trim(), rarity:f.rarity||"", attune: f.attune ? (f.attuneNote.trim() || "richiede sintonia") : null,
+    cost:f.cost.trim(), weight:Number(f.wt)||0, description:f.desc.trim(), data:d, updated_at:new Date().toISOString()};
+};
+
+function ItemsTab({sb, me, names, reload}){
+  const book = useContext(ItemsCtx); const M = me.isMaster;
+  useEffect(()=>{ book?.need(); },[]);
+  const [q, setQ] = useState(""); const [cat, setCat] = useState(""); const [rar, setRar] = useState(""); const [onlyCustom, setOnlyCustom] = useState(false);
+  const [limit, setLimit] = useState(60); const [openKey, setOpenKey] = useState(null); const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(""); const [confirmDel, setConfirmDel] = useState(false);
+  useEffect(()=>setLimit(60),[q, cat, rar, onlyCustom]);
+  const t = fold(q);
+  const list = (book?.all||[]).filter(s=> (!cat || s.cat===cat) && (!rar || (rar==="mondano" ? !s.rarity : s.rarity===rar))
+    && (!onlyCustom || s.custom) && (!t || s.f.includes(t) || s.fe.includes(t)));
+  const open = openKey && book?.byKey.get(openKey);
+  const canEdit = s => s.custom && (M || s.created_by===me.id);
+  const save = async (f) => { setBusy(true); setErr(""); const row = formToRow(f);
+    const r = f.id ? await sb.from("items_custom").update(row).eq("id", f.id).select("id") : await sb.from("items_custom").insert({...row, created_by:me.id}).select("id");
+    setBusy(false);
+    if (r.error || !r.data?.length){ setErr("Non salvato"+(r.error ? ": "+r.error.message : ": puoi modificare solo gli oggetti che hai aggiunto tu.")); return; }
+    setEditing(null); setOpenKey("c:"+r.data[0].id); reload(); };
+  const del = async (s) => { const {error} = await sb.from("items_custom").delete().eq("id", s.id); if (error) setErr(error.message); setConfirmDel(false); setOpenKey(null); reload(); };
+
+  if (editing) return html`<div style=${{display:"grid",gap:12}}><${ItemForm} initial=${editing} busy=${busy} onSave=${save} onCancel=${()=>{ setEditing(null); setErr(""); }}
+    onDelete=${editing.id ? ()=>{ del(editing); setEditing(null); } : null}/>${err && html`<p className="err" role="alert">${err}</p>`}</div>`;
+  return html`<div style=${{display:"grid",gap:12}}>
+    <div className="row sp-filters">
+      <input id="itc-q" className="field" style=${{flex:"1 1 200px",maxWidth:280}} placeholder="Cerca (anche col nome inglese)…" value=${q} onChange=${e=>setQ(e.target.value)}/>
+      <select id="itc-cat" className="field" aria-label="Categoria" value=${cat} onChange=${e=>setCat(e.target.value)}><option value="">Tutte le categorie</option>
+        ${EQ_CATS.map(([k,n])=>html`<option key=${k} value=${k}>${n}</option>`)}</select>
+      <select id="itc-rar" className="field" aria-label="Rarità" value=${rar} onChange=${e=>setRar(e.target.value)}><option value="">Tutte le rarità</option><option value="mondano">Non magici</option>
+        ${RARITIES.map(r=>html`<option key=${r} value=${r}>${r}</option>`)}</select>
+      <label className="row" style=${{gap:6,flexWrap:"nowrap"}}><input id="itc-own" type="checkbox" checked=${onlyCustom} onChange=${e=>setOnlyCustom(e.target.checked)}/>Solo del gruppo</label>
+      <span className="spacer"></span>
+      <button type="button" className="btn primary" onClick=${()=>{ setErr(""); setEditing(blankItem()); }}>+ Nuovo oggetto</button>
+    </div>
+    ${book?.err && html`<p className="err" role="alert">${book.err}</p>`}
+    ${book && !book.ready && !book.err && html`<p className="muted">Caricamento del compendio…</p>`}
+    <p className="muted" style=${{margin:0,fontSize:".85rem"}}>${list.length} oggetti${list.length>limit?`, ne vedi ${limit}`:""}. Tocca un nome per leggerlo. Per metterlo nella scheda, in Equipaggiamento aggiungi un oggetto e scrivine il nome: i dati si compilano da soli. Se manca qualcosa, aggiungilo: lo vedrà tutto il gruppo.</p>
+    <div className="sp-list">${list.slice(0,limit).map(s=>html`<button type="button" key=${s.key} className="sp-row" onClick=${()=>{ setOpenKey(s.key); setConfirmDel(false); setErr(""); }}>
+      <span className="sp-lv" aria-hidden="true">${ITEM_ICON[s.cat]||"•"}</span>
+      <span className="sp-sn"><b>${s.name}</b><span className="muted">${s.rarity || s.kind || EQ_ONE[s.cat]}${s.custom?" · del gruppo":s.name_en?" · "+s.name_en:""}</span></span>
+      <span className="chips">${s.attune && html`<span className="chip" title="Richiede sintonia">S</span>`}</span>
+    </button>`)}</div>
+    ${list.length>limit && html`<button type="button" className="btn" onClick=${()=>setLimit(l=>l+120)}>Mostra altri</button>`}
+    ${err && html`<p className="err" role="alert">${err}</p>`}
+    <p className="muted sp-legal">${SRD_NOTE}</p>
+    ${open && html`<${ItemModal} it=${open} names=${names} onClose=${()=>{ setOpenKey(null); setConfirmDel(false); }}>
+      ${canEdit(open) && html`<button type="button" className="btn small" onClick=${()=>{ setOpenKey(null); setEditing(itemToForm(open)); }}>Modifica</button>`}
+      ${canEdit(open) && (!confirmDel ? html`<button type="button" className="btn small danger" onClick=${()=>setConfirmDel(true)}>Elimina</button>`
+        : html`<span className="confirm">Eliminare?<button type="button" className="btn small danger" onClick=${()=>del(open)}>Elimina</button><button type="button" className="btn small" onClick=${()=>setConfirmDel(false)}>No</button></span>`)}
+      ${!open.custom && M && html`<button type="button" className="btn small" title="Crea una copia modificabile, ad esempio per una regola della casa" onClick=${()=>{ setOpenKey(null); setEditing(itemToForm(open)); }}>Copia come variante</button>`}
     <//>`}
   </div>`;
 }
@@ -4787,7 +5077,7 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
   useEffect(()=>lsSet("chronTab",tab),[tab]);
   useEffect(()=>{ if (focusFresh(focus) && focus.tab) setTab(focus.tab); },[focus?.key]);
   const M = me.isMaster;
-  const tabs = [["diario","Diario"],...(M ? [["codex","Codex"]] : []),["taccuino", M ? "Taccuino" : "Il mio taccuino"],["handout","Handout"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"]];
+  const tabs = [["diario","Diario"],...(M ? [["codex","Codex"]] : []),["taccuino", M ? "Taccuino" : "Il mio taccuino"],["handout","Handout"],["mappe","Mappe"],...(CFG.modules.cucina?[["ricette","Ricettario"]]:[]),["incantesimi","Incantesimi"],["oggetti","Oggetti"]];
   const tab1 = tab==="indizi" ? "taccuino" : tab;
   const cur = tabs.some(t=>t[0]===tab1) ? tab1 : "diario";
   return html`<div>
@@ -4799,6 +5089,7 @@ function Chronicles({sb, me, camp, names, onOpenHandout, hoUrls, archiveOps, arc
     ${cur==="taccuino" && html`<${NotebookTab} me=${me} camp=${camp} names=${names} onGo=${onGo} focus=${focus}/>`}
     ${cur==="mappe" && html`<${MapsArchiveTab} sb=${sb} me=${me} archive=${camp.archive} archiveErr=${camp.archiveErr} ops=${archiveOps} defaultFolder=${archiveFolder} names=${names} focus=${focus}/>`}
     ${cur==="incantesimi" && html`<${SpellsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadSpells}/>`}
+    ${cur==="oggetti" && html`<${ItemsTab} sb=${sb} me=${me} names=${names} reload=${camp.loadItemsC}/>`}
     ${cur==="ricette" && html`<${RecipesTab} sb=${sb} me=${me} recipes=${camp.recipes} chars=${camp.chars} world=${camp.world} reload=${camp.loadAudio}/>`}
     ${cur==="handout" && html`<${HandoutsTab} sb=${sb} me=${me} handouts=${camp.handouts} members=${camp.members} urls=${hoUrls} onOpen=${onOpenHandout} reload=${camp.loadChron}/>`}
   </div>`;
@@ -5692,7 +5983,7 @@ function Main({sb, me: meReal, onSignOut}){
   const [pvMenu, setPvMenu] = useState(false);
   applyCfg(camp.config);
   useEffect(()=>{ document.title = CFG.name; BRAND = CFG.name; },[CFG.name]);
-  const book = useSpellBook(camp.spellsCustom);
+  const book = useSpellBook(camp.spellsCustom); const ibook = useItemBook(camp.itemsCustom);
   const saveCfg = useCallback(async (fn) => {
     const c = JSON.parse(JSON.stringify(normCfg(camp.config))); const extra = fn(c);
     const {data, error} = await sb.from("campaign").update({config:normCfg(c), updated_at:new Date().toISOString()}).eq("id",1).select("config").maybeSingle();
@@ -6112,7 +6403,7 @@ function Main({sb, me: meReal, onSignOut}){
   const nav = [["gruppo","Il gruppo"],["tavolo", me.isMaster?"Plancia":"Tavolo"],[me.isMaster ? "schede" : "scheda", me.isMaster ? "Schede" : "La mia scheda"],["mappa", PLANES.length>1?"Mappe":"Mappa"],["cronache","Cronache"]];
   const saveFor = useMemo(()=> openId ? (sheet)=>saveSheet(openId, sheet) : null, [openId, saveSheet]);
 
-  return html`<${SpellsCtx.Provider} value=${book}><${MarksCtx.Provider} value=${markOps}><div>
+  return html`<${SpellsCtx.Provider} value=${book}><${ItemsCtx.Provider} value=${ibook}><${MarksCtx.Provider} value=${markOps}><div>
     <datalist id="mk-tags">${tagsAll.map(([t])=>html`<option key=${t} value=${t}/>`)}</datalist>
     <header className="bar"><div className="bar-in">
       <div className="brand"><${Mark} size=${26}/><span>${CFG.name}</span></div>
@@ -6175,7 +6466,7 @@ function Main({sb, me: meReal, onSignOut}){
       return (foe || c) ? html`<${MiniWindow} key=${id} c=${c} foe=${foe} url=${portraits[fid]} idx=${i} onClose=${()=>closeMini(id)} onFocus=${()=>{ if (minis[minis.length-1] !== id) openMini(id); }}/>` : null; })}
     <${Toasts} toasts=${toasts}/>
     ${pvMenu && html`<${PreviewMenu} players=${members.filter(m=>m.user_id!==meReal.id)} names=${names} chars=${campRaw.chars} current=${pv} onPick=${v=>{ pvSet(v); setPvMenu(false); }} onStop=${()=>{ pvSet(null); setPvMenu(false); }} onClose=${()=>setPvMenu(false)}/>`}
-  </div><//><//>`;
+  </div><//><//><//>`;
 }
 
 function App(){
